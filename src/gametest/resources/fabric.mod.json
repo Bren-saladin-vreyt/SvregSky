@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "svregsky-test",
+	"version": "1.0.0",
+	"name": "SvregSky screenshot test",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": ["com.svreg.sky.test.SkyScreenshots"]
+	},
+	"depends": {"svregsky": "*"}
+}
