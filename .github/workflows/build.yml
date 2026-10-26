@@ -1,0 +1,45 @@
+name: build
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: build
+        run: chmod +x ./gradlew && ./gradlew build --stacktrace
+      - name: upload jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: SvregSky-jar
+          path: build/libs/*.jar
+
+  probe:
+    # Prints the vanilla source of the classes the mod hooks into, so the code can match 26.2 exactly.
+    if: ${{ contains(github.event.head_commit.message, '[probe]') || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: decompile minecraft
+        run: chmod +x ./gradlew && ./gradlew genSources --stacktrace
+      - name: print classes
+        run: |
+          SRC=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*sources*.jar' 2>/dev/null | grep -i minecraft | grep -v -i fabric-api | head -1)
+          echo "SOURCES JAR: $SRC"
+          for c in net/minecraft/client/renderer/CloudRenderer.java net/minecraft/client/renderer/CloudStatus.java; do
+            echo "===== $c"; unzip -p "$SRC" "$c" || true
+          done
+          echo "===== LevelRenderer (cloud related)"
+          unzip -p "$SRC" net/minecraft/client/renderer/LevelRenderer.java | grep -n -i -B6 -A40 'cloud' | head -400 || true
+          echo "===== RenderPipelines CLOUDS"
+          unzip -p "$SRC" net/minecraft/client/renderer/RenderPipelines.java | grep -n -i -B3 -A14 'cloud' || true
