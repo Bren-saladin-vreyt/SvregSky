@@ -13,7 +13,21 @@ jobs:
           java-version: '25'
           distribution: 'microsoft'
       - name: build
-        run: chmod +x ./gradlew && ./gradlew build --stacktrace
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          set +e
+          ./gradlew build --stacktrace 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            grep -E -A4 'error:|What went wrong|Caused by|FAILURE' build.log | head -120 > err.txt
+            split -b 3500 err.txt errpart.
+            for part in errpart.*; do
+              body=$(python3 -c "import sys;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
+              echo "::error title=build-$part::$body"
+            done
+            exit 1
+          fi
       - name: upload jar
         uses: actions/upload-artifact@v7
         with:

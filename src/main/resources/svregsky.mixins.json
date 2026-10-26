@@ -2,7 +2,10 @@
 	"required": true,
 	"package": "com.svreg.sky.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"client": [],
+	"client": [
+		"CloudRendererAccessor",
+		"CloudRendererMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}
