@@ -70,16 +70,14 @@ jobs:
           find . -path ./.git -prune -o -name '*.png' -path '*screenshots*' -print | xargs -r -I{} cp {} /tmp/shots/
           find . -name 'crash-*.txt' -print | xargs -r -I{} cp {} /tmp/shots/ || true
           ls -la /tmp/shots
+          echo "run $GITHUB_RUN_ID status $status" > /tmp/shots/RUN.txt
+          cd /tmp/shots
+          git init -q -b ci-screens
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git fetch origin ci-screens || true
-          git switch --orphan ci-screens-new
-          git rm -rq . || true
-          cp /tmp/shots/* . 2>/dev/null || true
-          echo "run $GITHUB_RUN_ID status $status" > RUN.txt
           git add -A
           git commit -qm "screenshots $GITHUB_RUN_ID"
-          git push -f origin ci-screens-new:ci-screens
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screens
 
   probe:
     # Prints the vanilla source of the classes the mod hooks into, so the code can match 26.2 exactly.
