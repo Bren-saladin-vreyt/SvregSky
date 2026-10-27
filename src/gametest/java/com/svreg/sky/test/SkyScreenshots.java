@@ -34,8 +34,8 @@ public class SkyScreenshots implements FabricClientGameTest {
 			sp.getServer().runCommand("execute as @p at @p run fill ~-14 ~ ~3 ~14 ~ ~40 short_grass replace air");
 			sp.getServer().runCommand("execute as @p at @p run fill ~-3 ~ ~6 ~3 ~1 ~9 tall_grass replace short_grass");
 			sp.getServer().runCommand("execute as @p at @p run fill ~4 ~ ~5 ~7 ~ ~8 poppy replace short_grass");
-			sp.getServer().runCommand("execute as @p at @p run fill ~-8 ~-1 ~10 ~-3 ~-1 ~16 water");
-			sp.getServer().runCommand("execute as @p at @p run fill ~-8 ~ ~10 ~-3 ~ ~16 air");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-6 ~ ~4 ~-1 ~ ~12 air");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-6 ~-1 ~4 ~-1 ~-1 ~12 water");
 			sp.getServer().runCommand("execute as @p at @p run place feature minecraft:oak ~6 ~ ~14");
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.windStrength = 3.0F;
@@ -50,7 +50,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, -60, "m_3d_up");
 			shot(context, sp, 12100, 90, -12, "n_3d_golden");
 			shot(context, sp, 12850, 90, -10, "o_3d_sunset");
-			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 200 ~");
+			shot(context, sp, 6000, -30, 35, "o2_water");
+			sp.getServer().runCommand("gamemode spectator @a");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 215 ~");
 			context.waitTicks(40);
 			shot(context, sp, 12100, 90, 15, "p_3d_flying");
 		}
