@@ -65,7 +65,7 @@ jobs:
           set +e
           xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest --stacktrace 2>&1 | tee test.log
           status=${PIPESTATUS[0]}
-          grep -E -B2 -A6 'ERROR|Exception|Mixin|svregsky|SvregSky|FAILED|crash' test.log | grep -v 'DEBUG' | head -150 > notes.txt
+          { grep -E 'SvregSky:' test.log; echo '-----'; grep -E -B2 -A6 'ERROR|Exception|FAILED|crash' test.log | grep -v 'DEBUG' | head -120; } > notes.txt
           split -b 3500 notes.txt notepart.
           for part in notepart.*; do
             body=$(python3 -c "import sys;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
