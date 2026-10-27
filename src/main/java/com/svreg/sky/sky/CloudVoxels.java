@@ -55,6 +55,7 @@ public final class CloudVoxels {
 
 	private static double windX, windZ;
 	private static int logs, frames;
+	public static boolean DEBUG;
 	private static long lastNanos;
 
 	private CloudVoxels() {
@@ -227,6 +228,7 @@ public final class CloudVoxels {
 			params.m20(reach * 0.55F);
 			params.m21(reach * 0.95F);
 			params.m22(SkySettings.cloud3dLevels * LEVEL_HEIGHT);
+			params.m33(DEBUG ? 1 : 0);
 			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, CirrusSky.skyExtra(), offset, params);
 
