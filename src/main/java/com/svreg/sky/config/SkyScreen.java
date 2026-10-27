@@ -16,7 +16,6 @@ import java.util.function.IntFunction;
 /** SvregSky settings, opened from the "SvregSky" button in the Options screen. Changes apply live and are saved on close. */
 public class SkyScreen extends OptionsSubScreen {
 	private final List<Runnable> afterClose = new ArrayList<>();
-	private final int waterBefore = SkySettings.waterColor;
 
 	public SkyScreen(Screen lastScreen, Options options) {
 		super(lastScreen, options, Component.translatable("svregsky.options.title"));
@@ -103,8 +102,5 @@ public class SkyScreen extends OptionsSubScreen {
 	public void removed() {
 		super.removed();
 		SkyConfig.save();
-		if (SkySettings.waterColor != waterBefore && this.minecraft != null && this.minecraft.levelRenderer != null) {
-			this.minecraft.levelRenderer.allChanged(); // re-mesh chunks so the water colour updates
-		}
 	}
 }

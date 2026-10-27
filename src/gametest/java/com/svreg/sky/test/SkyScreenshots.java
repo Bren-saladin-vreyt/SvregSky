@@ -49,10 +49,10 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, 10, "j_meadow_wind_a");
 			context.waitTicks(17);
 			context.takeScreenshot("k_meadow_wind_b");
-			context.runOnClient(client -> client.setScreen(new com.svreg.sky.config.SkyScreen(null, client.options)));
+			context.runOnClient(client -> client.gui.setScreen(new com.svreg.sky.config.SkyScreen(null, client.options)));
 			context.waitTicks(10);
 			context.takeScreenshot("k2_settings_screen");
-			context.runOnClient(client -> client.setScreen(null));
+			context.runOnClient(client -> client.gui.setScreen(null));
 			context.waitTicks(5);
 			shot(context, sp, 6000, 0, -20, "l_3d_noon");
 			shot(context, sp, 6000, 0, -60, "m_3d_up");

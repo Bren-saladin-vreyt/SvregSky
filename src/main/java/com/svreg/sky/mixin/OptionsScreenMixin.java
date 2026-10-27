@@ -21,6 +21,6 @@ public abstract class OptionsScreenMixin extends Screen {
 	private void svregsky$button(CallbackInfo ci) {
 		Screen self = this;
 		this.addRenderableWidget(Button.builder(Component.translatable("svregsky.options.button"),
-				b -> this.minecraft.setScreen(new SkyScreen(self, this.minecraft.options))).bounds(6, 6, 98, 20).build());
+				b -> this.minecraft.gui.setScreen(new SkyScreen(self, this.minecraft.options))).bounds(6, 6, 98, 20).build());
 	}
 }
