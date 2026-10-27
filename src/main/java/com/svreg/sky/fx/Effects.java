@@ -43,7 +43,7 @@ import java.util.Random;
  */
 public final class Effects {
 	private static final Identifier SHADER = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/cirrus_fx");
-	private static final int FIREFLIES = 40, LEAVES = 36, SPARKLES = 90;
+	private static final int FIREFLIES = 56, LEAVES = 36, SPARKLES = 90;
 	private static final Random RNG = new Random();
 
 	private static RenderPipeline pipeline;
@@ -115,7 +115,7 @@ public final class Effects {
 			p.life = 6 + RNG.nextFloat() * 8;
 			p.age = 0;
 			p.phase = RNG.nextFloat() * 6.28F;
-			p.size = 0.09F + RNG.nextFloat() * 0.05F;
+			p.size = 0.15F + RNG.nextFloat() * 0.09F;
 			p.color = RNG.nextFloat() < 0.7F ? 0xD8FF6A : 0xFFE27A;
 			p.alive = true;
 			return;
@@ -226,7 +226,7 @@ public final class Effects {
 						continue;
 					}
 					if (!p.alive || p.age > p.life || p.x - cam.x > 20 || cam.x - p.x > 20 || p.z - cam.z > 20 || cam.z - p.z > 20) {
-						if (RNG.nextFloat() < 0.08F) {
+						if (RNG.nextFloat() < 0.25F) {
 							spawnFirefly(p, level, cam);
 						}
 						if (!p.alive) {

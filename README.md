@@ -11,6 +11,15 @@ All-in-one Ghibli sky for Minecraft 26.2 (Fabric), without shaders (no Iris need
 Download: **Releases → SvregSky (latest build)** → the `.jar` file. Put it in your `mods` folder next to Fabric API.
 Remove Nuit (or any other sky mod/pack) — SvregSky draws the whole sky itself.
 
+## In-game settings
+
+Options → **☁ SvregSky...** (top-left corner). Everything below can be changed there; the menu saves to
+`config/svregsky.json`, which wins over the resource pack's `sky.json`.
+
+Extra effects (all toggleable): fireflies over grass at night, falling leaves and cherry petals, sun glints on water,
+drifting cloud shadows on the land (Sodium), light shafts through cloud gaps at golden hour, a rainbow after rain,
+wind lines, meadow wind. Cloud modes: Painted, 3D + Painted, 3D Sunset (pure 3D slabs to the horizon), Off.
+
 ## Settings (resource pack)
 
 Everything is set from a resource pack file, `assets/svregsky/sky.json` (press F3+T after editing):
