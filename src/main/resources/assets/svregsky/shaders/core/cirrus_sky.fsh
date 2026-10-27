@@ -19,6 +19,7 @@ const int F_MILKYWAY = 8;
 const int F_AURORA = 16;
 const int F_SHOOTING = 32;
 const int F_RAYS = 64;
+const int F_GODRAYS = 128;
 
 // ---------------------------------------------------------------- noise
 float hash2(vec2 p) {
@@ -341,6 +342,23 @@ vec4 clouds(vec3 dir, vec3 sunDir, float day, float gold, float org, float rain,
     return k;
 }
 
+// ---------------------------------------------------------------- light shafts through gaps in the painted clouds
+float shafts(vec3 dir, vec3 sunDir, vec2 off, float cov) {
+    vec2 p0 = dir.xz / (max(dir.y, 0.07) + 0.085);
+    vec2 ps = sunDir.xz / (max(sunDir.y, 0.07) + 0.085);
+    float open = 0.0;
+    for (int i = 1; i <= 8; i++) {
+        vec2 q = mix(p0, ps, float(i) / 9.0);
+        open += step(cloudSample(q * 3.0 + off).x, cov);
+    }
+    return open / 8.0;
+}
+
+// ---------------------------------------------------------------- rainbow (after rain): pastel arc 40-42 degrees around the antisolar point
+vec3 hue(float h) {
+    return clamp(abs(fract(vec3(h) + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+}
+
 // ---------------------------------------------------------------- main
 void main() {
     vec3 dir = normalize(skyDir);
@@ -363,6 +381,15 @@ void main() {
 
     if (mode > 0.5) {
         vec4 k = clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);
+        float sd = dot(dir, sunDir);
+        if ((flags & F_GODRAYS) != 0 && k.a < 0.5 && gold * day > 0.05 && sd > 0.35 && dir.y > 0.0 && layers != 0) {
+            // beams of warm light where the sky between this pixel and the sun is free of clouds
+            float lightK = shafts(dir, sunDir, cloudOff, COV - coverAdj - 0.12 * rain);
+            float ray = pow((sd - 0.35) / 0.65, 2.5) * lightK * gold * day * (1.0 - rain);
+            vec3 rc = mix(vec3(1.0, 0.86, 0.62), vec3(1.0, 0.93, 0.70), org);
+            vec4 r = vec4(rc, ray * 0.45);
+            k = vec4(mix(r.rgb, k.rgb, k.a), max(k.a, r.a));
+        }
         if (k.a < 0.004) {
             discard;
         }
@@ -399,6 +426,17 @@ void main() {
         float vis = night * clear * sstep(0.0, 0.12, dir.y);
         float visLow = night * clear * sstep(0.02, 0.08, dir.y);
         col = nightSky(col, dir, sunDir, vis, visLow, tm, flags, auroraStrength, milkyStrength, shootPeriod);
+    }
+
+    float rbow = TextureMat[2].z;
+    if (rbow > 0.01 && dir.y > 0.0) {
+        float ang = acos(clamp(dot(dir, -sunDir), -1.0, 1.0));
+        float x = (ang - 0.700) / 0.042; // 0 = violet (inner), 1 = red (outer)
+        float band = smoothstep(-0.25, 0.1, x) * (1.0 - smoothstep(0.9, 1.25, x));
+        if (band > 0.0) {
+            vec3 rc = mix(vec3(1.0), hue((1.0 - clamp(x, 0.0, 1.0)) * 0.78), 0.55);
+            col = mix(col, rc, band * rbow * 0.32 * smoothstep(0.0, 0.15, dir.y) * day);
+        }
     }
 
     // rain: grey, flat sky

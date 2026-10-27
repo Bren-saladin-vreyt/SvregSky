@@ -62,6 +62,12 @@ public final class SkyConfig {
 		o.addProperty("wind_strength", SkySettings.windStrength);
 		o.addProperty("wind_speed", SkySettings.windSpeed);
 		o.addProperty("wind_lines", SkySettings.windLines);
+		o.addProperty("fireflies", SkySettings.fireflies);
+		o.addProperty("falling_leaves", SkySettings.fallingLeaves);
+		o.addProperty("water_sparkles", SkySettings.waterSparkles);
+		o.addProperty("cloud_shadows", SkySettings.cloudShadows);
+		o.addProperty("rainbow", SkySettings.rainbow);
+		o.addProperty("cloud_god_rays", SkySettings.cloudGodRays);
 		o.addProperty("wind_line_amount", SkySettings.windLineAmount);
 		o.addProperty("far_grass_tint", SkySettings.farGrassTint);
 		o.addProperty("water_color", SkySettings.waterColor < 0 ? "" : String.format("#%06X", SkySettings.waterColor));

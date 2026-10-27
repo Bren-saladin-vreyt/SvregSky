@@ -38,9 +38,21 @@ public final class CloudVoxels {
 	private static final Identifier SHADER = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/cirrus_clouds3d");
 	private static final float THRESHOLD = 0.545F;
 	private static final float LEVEL_STEP = 0.035F;
-	private static final float LEVEL_HEIGHT = 4.0F;
-	private static final float TEXELS_PER_CELL_X = 7.0F;
-	private static final float TEXELS_PER_CELL_Z = 5.0F;
+
+	/** shape settings of the two 3D modes: hybrid (stepped cumulus + painted far layers) and full (flat sunset slabs to the horizon) */
+	private record Style(float cell, int radius, int levels, float levelHeight, float texX, float texZ, float threshold, float levelStep) {
+	}
+
+	private static Style style() {
+		if (SkySettings.cloud3dFull()) {
+			// like the sunset reference: many small, thin, stretched slabs reaching the horizon
+			return new Style(Math.max(3, SkySettings.cloud3dCell - 1), Math.min(140, SkySettings.cloud3dDistance * 3), Math.min(2, SkySettings.cloud3dLevels),
+					3.0F, 10.0F, 4.0F, 0.515F, 0.06F);
+		}
+		return new Style(SkySettings.cloud3dCell, SkySettings.cloud3dDistance, SkySettings.cloud3dLevels, 4.0F, 7.0F, 5.0F, THRESHOLD, LEVEL_STEP);
+	}
+
+	private static Style built;
 
 	private static RenderPipeline pipeline;
 	private static boolean broken;
@@ -80,14 +92,14 @@ public final class CloudVoxels {
 		}
 	}
 
-	private static int level(int cx, int cz, float cov, int maxLevels) {
-		int tx = Math.floorMod((int) Math.floor(cx * TEXELS_PER_CELL_X), texW);
-		int tz = Math.floorMod((int) Math.floor(cz * TEXELS_PER_CELL_Z), texH);
+	private static int level(Style st, int cx, int cz, float cov) {
+		int tx = Math.floorMod((int) Math.floor(cx * st.texX()), texW);
+		int tz = Math.floorMod((int) Math.floor(cz * st.texZ()), texH);
 		float d = density[tx + tz * texW];
 		if (d < cov) {
 			return 0;
 		}
-		return Math.min(maxLevels, 1 + (int) ((d - cov) / LEVEL_STEP));
+		return Math.min(st.levels(), 1 + (int) ((d - cov) / st.levelStep()));
 	}
 
 	private static RenderPipeline pipeline() {
@@ -115,16 +127,17 @@ public final class CloudVoxels {
 	}
 
 	/** builds the cells within the radius around (ccx, ccz); vertex positions are relative to that cell's corner at the cloud base */
-	private static void build(int ccx, int ccz, float cov) {
-		int radius = SkySettings.cloud3dDistance;
-		int maxLv = SkySettings.cloud3dLevels;
-		float cell = SkySettings.cloud3dCell;
+	private static void build(Style st, int ccx, int ccz, float cov) {
+		int radius = st.radius();
+		int maxLv = st.levels();
+		float cell = st.cell();
+		float levelHeight = st.levelHeight();
 		int side = radius * 2 + 1;
 		int[] lv = new int[(side + 2) * (side + 2)];
 		int stride = side + 2;
 		for (int z = -radius - 1; z <= radius + 1; z++) {
 			for (int x = -radius - 1; x <= radius + 1; x++) {
-				lv[(x + radius + 1) + (z + radius + 1) * stride] = level(ccx + x, ccz + z, cov, maxLv);
+				lv[(x + radius + 1) + (z + radius + 1) * stride] = level(st, ccx + x, ccz + z, cov);
 			}
 		}
 		int r2 = radius * radius;
@@ -141,32 +154,32 @@ public final class CloudVoxels {
 						continue;
 					}
 					float x0 = x * cell, x1 = x0 + cell, z0 = z * cell, z1 = z0 + cell;
-					float top = l * LEVEL_HEIGHT;
+					float top = l * levelHeight;
 					float g = l / (float) maxLv;
 					face(b, 0, g, x0, top, z0, x0, top, z1, x1, top, z1, x1, top, z0);
 					face(b, 1, g, x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z1);
 					quads += 2;
 					int ln = lv[(x + 1 + radius + 1) + (z + radius + 1) * stride];
 					if (ln < l) {
-						float y0 = ln * LEVEL_HEIGHT;
+						float y0 = ln * levelHeight;
 						face(b, 2, g, x1, y0, z0, x1, top, z0, x1, top, z1, x1, y0, z1);
 						quads++;
 					}
 					ln = lv[(x - 1 + radius + 1) + (z + radius + 1) * stride];
 					if (ln < l) {
-						float y0 = ln * LEVEL_HEIGHT;
+						float y0 = ln * levelHeight;
 						face(b, 3, g, x0, y0, z0, x0, y0, z1, x0, top, z1, x0, top, z0);
 						quads++;
 					}
 					ln = lv[(x + radius + 1) + (z + 1 + radius + 1) * stride];
 					if (ln < l) {
-						float y0 = ln * LEVEL_HEIGHT;
+						float y0 = ln * levelHeight;
 						face(b, 4, g, x0, y0, z1, x1, y0, z1, x1, top, z1, x0, top, z1);
 						quads++;
 					}
 					ln = lv[(x + radius + 1) + (z - 1 + radius + 1) * stride];
 					if (ln < l) {
-						float y0 = ln * LEVEL_HEIGHT;
+						float y0 = ln * levelHeight;
 						face(b, 5, g, x0, y0, z0, x0, top, z0, x1, top, z0, x1, y0, z0);
 						quads++;
 					}
@@ -195,18 +208,22 @@ public final class CloudVoxels {
 			long now = System.nanoTime();
 			double dt = lastNanos == 0 ? 0 : Math.min(0.25, (now - lastNanos) / 1e9);
 			lastNanos = now;
-			float cell = SkySettings.cloud3dCell;
+			Style st = style();
+			float cell = st.cell();
 			double speed = 1.6 * SkySettings.cloudSpeed; // blocks per second
 			double periodX = (double) texW * cell, periodZ = (double) texH * cell; // the map repeats after this many cells
 			windX = (windX + dt * speed) % periodX;
 			windZ = (windZ + dt * speed * 0.33) % periodZ;
 
-			// cloud space = world shifted back by the wind
+			// cloud space = world shifted back by the wind; the mesh is rebuilt only after moving a few cells
 			double sx = cam.x - windX, sz = cam.z - windZ;
 			int ccx = (int) Math.floor(sx / cell), ccz = (int) Math.floor(sz / cell);
-			float cov = THRESHOLD - SkySettings.cloudCoverage - 0.12F * CirrusSky.rainLevel();
-			if (ccx != builtCx || ccz != builtCz || builtVersion != SkySettings.version || Math.abs(cov - builtCov) > 0.01F) {
-				build(ccx, ccz, cov);
+			float cov = st.threshold() - SkySettings.cloudCoverage - 0.12F * CirrusSky.rainLevel();
+			int step = Math.max(1, st.radius() / 12);
+			if (!st.equals(built) || Math.abs(ccx - builtCx) >= step || Math.abs(ccz - builtCz) >= step
+					|| builtVersion != SkySettings.version || Math.abs(cov - builtCov) > 0.01F) {
+				build(st, ccx, ccz, cov);
+				built = st;
 				builtCx = ccx;
 				builtCz = ccz;
 				builtVersion = SkySettings.version;
@@ -218,14 +235,26 @@ public final class CloudVoxels {
 			if (mesh == null || quadCount == 0) {
 				return;
 			}
-			Vector3f offset = new Vector3f((float) (ccx * (double) cell + windX - cam.x), (float) (bottomY - cam.y), (float) (ccz * (double) cell + windZ - cam.z));
-			float reach = SkySettings.cloud3dDistance * cell;
+			Vector3f offset = new Vector3f((float) (builtCx * (double) cell + windX - cam.x), (float) (bottomY - cam.y), (float) (builtCz * (double) cell + windZ - cam.z));
+			float reach = (st.radius() - step) * cell;
+			boolean full = SkySettings.cloud3dFull();
+			// colours of the sky's horizon toward and away from the sun, for the distance haze
+			float[] hzSun = CirrusSky.horizonToward(true);
+			float[] hzAway = CirrusSky.horizonToward(false);
 			Matrix4f params = CirrusSky.skyParams();
-			params.m20(reach * 0.55F);
-			params.m21(reach * 0.95F);
-			params.m22(SkySettings.cloud3dLevels * LEVEL_HEIGHT);
+			params.m03(st.levels() * st.levelHeight());
+			params.m20(hzAway[0]);
+			params.m21(hzAway[1]);
+			params.m22(hzAway[2]);
+			params.m23(full ? 1 : 0);
+			params.m30(hzSun[0]);
+			params.m32(hzSun[1]);
+			params.m33(hzSun[2]);
+			org.joml.Vector4f extra = CirrusSky.skyExtra();
+			extra.y = reach * (full ? 0.75F : 0.55F);
+			extra.z = reach;
 			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).translate(offset);
-			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, CirrusSky.skyExtra(), offset, params);
+			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, extra, offset, params);
 
 			Minecraft mc = Minecraft.getInstance();
 			// same targets as vanilla clouds: the separate clouds target when "improved transparency" is on, else the main one

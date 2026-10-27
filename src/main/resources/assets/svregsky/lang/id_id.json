@@ -14,7 +14,7 @@
   "svregsky.options.fog_tint": "Warna Kabut Horizon",
   "svregsky.options.cloud_mode": "Awan",
   "svregsky.options.cloud_mode.painted": "Lukisan",
-  "svregsky.options.cloud_mode.3d": "3D",
+  "svregsky.options.cloud_mode.3d": "3D + Lukisan",
   "svregsky.options.cloud_mode.off": "Mati",
   "svregsky.options.cloud_layers": "Lapisan Lukisan",
   "svregsky.options.cloud_coverage": "Jumlah Awan",
@@ -31,5 +31,12 @@
   "svregsky.options.wind_lines": "Garis Angin",
   "svregsky.options.wind_line_amount": "Jumlah Garis Angin",
   "svregsky.options.far_grass_tint": "Warna Rumput Jauh",
-  "svregsky.options.turquoise_water": "Air Turquoise (F3+A)"
+  "svregsky.options.turquoise_water": "Air Turquoise (F3+A)",
+  "svregsky.options.cloud_mode.3d_full": "3D Sunset",
+  "svregsky.options.cloud_god_rays": "Berkas Cahaya",
+  "svregsky.options.cloud_shadows": "Bayangan Awan",
+  "svregsky.options.rainbow": "Pelangi Habis Hujan",
+  "svregsky.options.fireflies": "Kunang-kunang",
+  "svregsky.options.falling_leaves": "Daun Berguguran",
+  "svregsky.options.water_sparkles": "Kilau Air"
 }

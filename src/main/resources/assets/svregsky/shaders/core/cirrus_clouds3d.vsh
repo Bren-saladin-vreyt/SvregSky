@@ -12,8 +12,7 @@ out float localY;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    vec3 pos = Position + ModelOffset; // camera-relative, for the distance fade
-    relPos = pos;
+    relPos = Position + ModelOffset; // camera-relative position, for distance haze
     faceInfo = Color;
     localY = Position.y;
 }

@@ -58,6 +58,9 @@ public final class CirrusSky {
 	// last frame's sky factors (also used for the fog colour)
 	private static final Vector3f sunDir = new Vector3f(0, 1, 0);
 	private static float day = 1, gold, night, rain, rise, org;
+	private static float rainbowLevel;
+	private static boolean rainbowArmed;
+	private static long rainbowStart;
 
 	private CirrusSky() {
 	}
@@ -135,6 +138,18 @@ public final class CirrusSky {
 		gold = 1 - smooth(0.0F, 0.42F, Math.abs(sh - 0.02F));
 		night = 1 - smooth(-0.22F, 0.02F, sh);
 		rain = Math.max(0, Math.min(1, 1 - skyState.rainBrightness));
+		// rainbow: shows up for a while after a rain shower ends, while the sun is up
+		long nowMs = System.currentTimeMillis();
+		if (rain > 0.35F) {
+			rainbowArmed = true;
+			rainbowStart = 0;
+		} else if (rainbowArmed && rain < 0.25F) {
+			rainbowArmed = false;
+			rainbowStart = nowMs;
+		}
+		float rbT = rainbowStart == 0 ? -1 : (nowMs - rainbowStart) / 1000F;
+		rainbowLevel = !SkySettings.rainbow || rbT < 0 || rbT > 120 ? 0
+				: Math.min(1, rbT / 10F) * Math.min(1, (120 - rbT) / 35F) * smooth(0.05F, 0.3F, sunDir.y);
 		rise = smooth(-0.2F, 0.2F, sunDir.x);
 		org = switch (SkySettings.sunsetStyle) {
 			case "orange" -> 1.0F;
@@ -164,8 +179,33 @@ public final class CirrusSky {
 		return new Vector4f(rise, 0, 0, org);
 	}
 
+	/** sky colour at the horizon toward the sun (true) or straight away from it (false) */
+	public static float[] horizonToward(boolean towardSun) {
+		float sl = (float) Math.sqrt(sunDir.x * sunDir.x + sunDir.z * sunDir.z) + 1e-5F;
+		float s = towardSun ? 1 : -1;
+		float[] c = horizon(new Vector3f(s * sunDir.x / sl, 0, s * sunDir.z / sl));
+		return new float[]{Math.min(1, c[0]), Math.min(1, c[1]), Math.min(1, c[2])};
+	}
+
+	public static Vector3f sunDirection() {
+		return sunDir;
+	}
+
+	/** for tests: show the rainbow now */
+	public static void forceRainbow() {
+		rainbowStart = System.currentTimeMillis() - 30_000;
+	}
+
 	public static float dayLevel() {
 		return day;
+	}
+
+	public static float goldLevel() {
+		return gold;
+	}
+
+	public static float nightLevel() {
+		return night;
 	}
 
 	public static float rainLevel() {
@@ -202,10 +242,10 @@ public final class CirrusSky {
 
 	/** after the sun, moon (and stars): the painted clouds */
 	public static void drawClouds() {
-		if (!SkySettings.paintedClouds || !overworld || state == null || !init()) {
+		if (!SkySettings.paintedClouds || SkySettings.cloud3dFull() || !overworld || state == null || !init()) {
 			return;
 		}
-		draw(cloudPipeline, F_CLOUDS, 1.0F, "SvregSky clouds");
+		draw(cloudPipeline, F_CLOUDS | (SkySettings.cloudGodRays ? 128 : 0), 1.0F, "SvregSky clouds");
 	}
 
 	private static boolean draw(RenderPipeline pipeline, int flags, float mode, String label) {
@@ -223,7 +263,7 @@ public final class CirrusSky {
 			Matrix4f params = new Matrix4f(
 					sunDir.x, sunDir.y, sunDir.z, time,
 					day, gold, night, rain,
-					offX, offZ, 0.0F, SkySettings.aurora,
+					offX, offZ, rainbowLevel, SkySettings.aurora,
 					flags, SkySettings.cloudCoverage, SkySettings.shootingStarPeriod, mode);
 			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
 			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers;

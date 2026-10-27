@@ -47,7 +47,7 @@ public class SkyScreen extends OptionsSubScreen {
 		if (this.list == null) {
 			return;
 		}
-		String mode = !SkySettings.paintedClouds && !SkySettings.cloud3d() ? "off" : SkySettings.cloud3d() ? "3d" : "painted";
+		String mode = !SkySettings.paintedClouds && !SkySettings.cloud3d() ? "off" : SkySettings.cloud3dFull() ? "3d_full" : SkySettings.cloud3d() ? "3d" : "painted";
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.sky"));
 		this.list.addSmall(
@@ -58,8 +58,8 @@ public class SkyScreen extends OptionsSubScreen {
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
 		this.list.addSmall(
-				choice("cloud_mode", List.of("painted", "3d", "off"), mode, v -> {
-					SkySettings.cloudMode = v.equals("3d") ? "3d" : "painted";
+				choice("cloud_mode", List.of("painted", "3d", "3d_full", "off"), mode, v -> {
+					SkySettings.cloudMode = v.equals("off") ? "painted" : v;
 					SkySettings.paintedClouds = !v.equals("off");
 					SkySettings.version++;
 				}),
@@ -81,10 +81,16 @@ public class SkyScreen extends OptionsSubScreen {
 					SkySettings.version++;
 				}));
 
+		this.list.addSmall(
+				bool("cloud_god_rays", SkySettings.cloudGodRays, v -> SkySettings.cloudGodRays = v),
+				percent("cloud_shadows", 100, SkySettings.cloudShadows, v -> SkySettings.cloudShadows = v),
+				bool("rainbow", SkySettings.rainbow, v -> SkySettings.rainbow = v));
+
 		this.list.addHeader(Component.translatable("svregsky.options.header.night"));
 		this.list.addSmall(
 				bool("stars", SkySettings.stars, v -> SkySettings.stars = v),
 				bool("shooting_stars", SkySettings.shootingStars, v -> SkySettings.shootingStars = v),
+				bool("fireflies", SkySettings.fireflies, v -> SkySettings.fireflies = v),
 				percent("milky_way", 200, SkySettings.milkyWay, v -> SkySettings.milkyWay = v),
 				percent("aurora", 200, SkySettings.aurora, v -> SkySettings.aurora = v));
 
@@ -93,6 +99,8 @@ public class SkyScreen extends OptionsSubScreen {
 				percent("wind_strength", 400, SkySettings.windStrength, v -> SkySettings.windStrength = v),
 				percent("wind_speed", 300, SkySettings.windSpeed, v -> SkySettings.windSpeed = v),
 				bool("wind_lines", SkySettings.windLines, v -> SkySettings.windLines = v),
+				bool("falling_leaves", SkySettings.fallingLeaves, v -> SkySettings.fallingLeaves = v),
+				bool("water_sparkles", SkySettings.waterSparkles, v -> SkySettings.waterSparkles = v),
 				percent("wind_line_amount", 300, SkySettings.windLineAmount, v -> SkySettings.windLineAmount = v),
 				percent("far_grass_tint", 100, SkySettings.farGrassTint, v -> SkySettings.farGrassTint = v),
 				bool("turquoise_water", SkySettings.waterColor >= 0, v -> SkySettings.waterColor = v ? 0x4FD6E3 : -1));

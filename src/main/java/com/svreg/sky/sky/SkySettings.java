@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets;
  * {
  *   "cirrus_sky": true,          // Ghibli gradient sky (false = vanilla sky colours)
  *   "painted_clouds": true,      // pixel-cumulus clouds painted on the sky
- *   "cloud_mode": "painted",     // "painted" = clouds painted on the sky, "3d" = real 3D block clouds (far layers stay painted)
+ *   "cloud_mode": "painted",     // "painted", "3d" = 3D near + painted far layers, "3d_full" = only 3D, flat sunset-style slabs to the horizon
  *   "cloud_3d_distance": 40,     // 3D clouds: radius in cells (1 cell = cloud_3d_cell blocks)
  *   "cloud_3d_cell": 8,          // 3D clouds: block size of one cloud cell
  *   "cloud_3d_levels": 3,        // 3D clouds: how many steps tall the thickest clouds get
@@ -63,12 +63,24 @@ public final class SkySettings {
 	public static float windSpeed = 1.0F;
 	public static float farGrassTint = 0.8F;
 	public static boolean windLines = true;
+	public static boolean fireflies = true;
+	public static boolean fallingLeaves = true;
+	public static boolean waterSparkles = true;
+	public static float cloudShadows = 0.6F;
+	public static boolean rainbow = true;
+	public static boolean cloudGodRays = true;
 	public static float windLineAmount = 1.0F;
 	public static int waterColor = 0x4FD6E3; // -1 = vanilla
 	public static volatile int version;
 
+	/** any 3D cloud mode */
 	public static boolean cloud3d() {
-		return "3d".equals(cloudMode);
+		return "3d".equals(cloudMode) || "3d_full".equals(cloudMode);
+	}
+
+	/** pure 3D sunset-reference clouds, no painted layers */
+	public static boolean cloud3dFull() {
+		return "3d_full".equals(cloudMode);
 	}
 	public static boolean stars = true;
 	public static float milkyWay = 1.0F;
@@ -119,6 +131,12 @@ public final class SkySettings {
 			windSpeed = Math.max(0, Math.min(4, num(o, "wind_speed", windSpeed)));
 			farGrassTint = Math.max(0, Math.min(1, num(o, "far_grass_tint", farGrassTint)));
 			windLines = bool(o, "wind_lines", windLines);
+			fireflies = bool(o, "fireflies", fireflies);
+			fallingLeaves = bool(o, "falling_leaves", fallingLeaves);
+			waterSparkles = bool(o, "water_sparkles", waterSparkles);
+			cloudShadows = Math.max(0, Math.min(1, num(o, "cloud_shadows", cloudShadows)));
+			rainbow = bool(o, "rainbow", rainbow);
+			cloudGodRays = bool(o, "cloud_god_rays", cloudGodRays);
 			windLineAmount = Math.max(0, Math.min(3, num(o, "wind_line_amount", windLineAmount)));
 			if (o.has("water_color")) {
 				String wc = o.get("water_color").getAsString().trim();

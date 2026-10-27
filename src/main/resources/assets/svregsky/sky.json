@@ -22,6 +22,12 @@
   "wind_strength": 1.0,
   "wind_speed": 1.0,
   "wind_lines": true,
+  "fireflies": true,
+  "falling_leaves": true,
+  "water_sparkles": true,
+  "cloud_shadows": 0.6,
+  "rainbow": true,
+  "cloud_god_rays": true,
   "wind_line_amount": 1.0,
   "far_grass_tint": 0.8,
   "water_color": "#4FD6E3"

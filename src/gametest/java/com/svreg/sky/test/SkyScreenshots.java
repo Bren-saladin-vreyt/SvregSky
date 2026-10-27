@@ -59,21 +59,36 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 12100, 90, -12, "n_3d_golden");
 			shot(context, sp, 12850, 90, -10, "o_3d_sunset");
 			shot(context, sp, 6000, -30, 35, "o2_water");
+
+			// pure 3D sunset clouds
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.cloudMode = "3d_full";
+				com.svreg.sky.sky.SkySettings.version++;
+			});
+			shot(context, sp, 12100, 90, -14, "p_full3d_golden");
+			shot(context, sp, 12450, 90, -14, "p2_full3d_amber");
+			shot(context, sp, 6000, 40, -35, "p3_full3d_noon");
+			shot(context, sp, 12850, 90, -10, "p4_full3d_sunset");
+
+			// painted clouds again: light shafts, rainbow, sparkles, fireflies, falling leaves
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.cloudMode = "painted";
+				com.svreg.sky.sky.SkySettings.version++;
+			});
+			shot(context, sp, 12100, 90, -14, "q_light_shafts");
+			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceRainbow());
+			shot(context, sp, 1000, 90, -12, "r_rainbow");
+			shot(context, sp, 12300, 90, 25, "s_water_sparkles");
+			shot(context, sp, 18000, 0, 8, "t_fireflies");
+			context.waitTicks(60);
+			context.takeScreenshot("t2_fireflies_later");
+			shot(context, sp, 6000, 0, -8, "u_falling_leaves");
+
+			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");
-			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 215 ~");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~40 ~-10");
 			context.waitTicks(40);
-			shot(context, sp, 6000, 90, 30, "p_3d_above_noon");
-			shot(context, sp, 12100, 90, 15, "q_3d_above_golden");
-			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 170 ~");
-			context.waitTicks(30);
-			shot(context, sp, 6000, 90, -20, "r_3d_below_near");
-			shot(context, sp, 6000, 90, -90, "s_3d_below_straight_up");
-			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 120 ~");
-			context.waitTicks(30);
-			shot(context, sp, 6000, 90, -60, "t_3d_from_120");
-			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 60 ~");
-			context.waitTicks(30);
-			shot(context, sp, 6000, 90, -60, "u_3d_from_60");
+			shot(context, sp, 6000, 0, 55, "v_cloud_shadows");
 		}
 	}
 

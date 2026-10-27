@@ -18,7 +18,7 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1;
 
 	private Wind() {
 	}
@@ -71,13 +71,21 @@ public final class Wind {
 			lastProgram = prog;
 			locWind = GL20C.glGetUniformLocation(prog, "svregsky_Wind");
 			locCam = GL20C.glGetUniformLocation(prog, "svregsky_Cam");
+			locSun = GL20C.glGetUniformLocation(prog, "svregsky_Sun");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
 			GL20C.glUniform4f(locWind, t, SkySettings.windStrength, SkySettings.windSpeed, SkySettings.farGrassTint);
 		}
+		float drift = (float) (((System.nanoTime() - START) / 1e9 * 1.6 * SkySettings.cloudSpeed) % 4096.0);
 		if (locCam >= 0) {
-			GL20C.glUniform4f(locCam, (float) (camX % 4096.0), (float) camY, (float) (camZ % 4096.0), 0);
+			GL20C.glUniform4f(locCam, (float) (camX % 4096.0), (float) camY, (float) (camZ % 4096.0), drift);
+		}
+		if (locSun >= 0) {
+			org.joml.Vector3f sun = com.svreg.sky.sky.CirrusSky.sunDirection();
+			float k = SkySettings.cloudShadows * Math.min(1, com.svreg.sky.sky.CirrusSky.dayLevel() * 1.5F) * (1 - com.svreg.sky.sky.CirrusSky.rainLevel())
+					* (SkySettings.paintedClouds || SkySettings.cloud3d() ? 1 : 0) * (sun.y > 0.05F ? 1 : 0);
+			GL20C.glUniform4f(locSun, sun.x, sun.y, sun.z, k);
 		}
 	}
 
@@ -86,7 +94,19 @@ public final class Wind {
 			// ---- SvregSky wind + far grass ----
 			#ifndef VULKAN
 			uniform vec4 svregsky_Wind; // time, strength, speed, far grass tint
-			uniform vec4 svregsky_Cam;  // camera position (x, z wrapped)
+			uniform vec4 svregsky_Cam;  // camera position (x, z wrapped), w = cloud drift time
+			uniform vec4 svregsky_Sun;  // sun direction, cloud shadow strength
+			float svHash(vec2 p) {
+			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+			    p3 += dot(p3, p3.yzx + 33.33);
+			    return fract((p3.x + p3.y) * p3.z);
+			}
+			float svNoise(vec2 p) {
+			    vec2 i = floor(p);
+			    vec2 f = fract(p);
+			    f = f * f * (3.0 - 2.0 * f);
+			    return mix(mix(svHash(i), svHash(i + vec2(1.0, 0.0)), f.x), mix(svHash(i + vec2(0.0, 1.0)), svHash(i + vec2(1.0, 1.0)), f.x), f.y);
+			}
 			#endif
 			""";
 
@@ -118,6 +138,14 @@ public final class Wind {
 			            position.y -= svAmt * svAmt * 0.42;
 			            // light sheen on the bent grass, so the gusts show as bright waves
 			            _vert_color.rgb *= 1.0 + min(svStr, 2.0) * (svLeaf ? 0.05 : 0.13) * svGust * clamp(svW, 0.0, 1.0);
+			        }
+			        if (svregsky_Sun.w > 0.0) {
+			            // soft cloud shadows drifting over the land (projected along the sun, moving with the wind)
+			            vec2 svSp = svWp.xz + svregsky_Sun.xz / max(svregsky_Sun.y, 0.25) * (192.0 - svWp.y)
+			                      - vec2(0.943, 0.333) * svregsky_Cam.w;
+			            float svN = 0.65 * svNoise(svSp / 96.0) + 0.35 * svNoise(svSp / 41.0 + 7.3);
+			            float svShadow = smoothstep(0.56, 0.68, svN) * svregsky_Sun.w;
+			            _vert_color.rgb *= mix(vec3(1.0), vec3(0.74, 0.80, 0.94), svShadow);
 			        }
 			        if (svregsky_Wind.w > 0.0) {
 			            vec3 svC = _vert_color.rgb;
