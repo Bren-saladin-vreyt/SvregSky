@@ -144,6 +144,10 @@ public final class CloudVoxels {
 		int quads = 0;
 		try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_COLOR.getVertexSize() * 4 * 4096)) {
 			BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
+			if (DEBUG) {
+				face(b, 1, 1, -60, 0, -60, 60, 0, -60, 60, 0, 60, -60, 0, 60);
+				quads++;
+			}
 			for (int z = -radius; z <= radius; z++) {
 				for (int x = -radius; x <= radius; x++) {
 					if (x * x + z * z > r2) {
