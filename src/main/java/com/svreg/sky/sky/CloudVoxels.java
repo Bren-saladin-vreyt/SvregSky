@@ -42,7 +42,7 @@ public final class CloudVoxels {
 	private static final float TEXELS_PER_CELL_X = 3.0F;
 	private static final float TEXELS_PER_CELL_Z = 2.0F;
 
-	private static RenderPipeline pipeline;
+	private static RenderPipeline pipeline, debugPipeline;
 	private static boolean broken;
 
 	private static float[] density;
@@ -92,6 +92,18 @@ public final class CloudVoxels {
 	}
 
 	private static RenderPipeline pipeline() {
+		if (DEBUG) {
+			if (debugPipeline == null) {
+				debugPipeline = RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
+						.withLocation(Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "pipeline/cirrus_clouds3d_debug"))
+						.withVertexShader(SHADER).withFragmentShader(SHADER)
+						.withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+						.withPrimitiveTopology(PrimitiveTopology.QUADS).withCull(false)
+						.withDepthStencilState(Optional.empty())
+						.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT)).build();
+			}
+			return debugPipeline;
+		}
 		if (pipeline == null) {
 			pipeline = RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
 					.withLocation(Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "pipeline/cirrus_clouds3d"))
