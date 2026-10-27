@@ -14,11 +14,16 @@ public class SkyScreenshots implements FabricClientGameTest {
 			// the test framework turns clouds off for deterministic screenshots; we want to see them
 			context.runOnClient(client -> client.options.cloudStatus().set(CloudStatus.FANCY));
 			sp.getConnection().waitForChunksRender();
+			String[] items = {"wooden_sword", "iron_sword", "diamond_sword", "netherite_sword", "apple", "bow", "golden_carrot", "ender_pearl", "torch"};
+			for (int i = 0; i < items.length; i++) {
+				sp.getServer().runCommand("item replace entity @a hotbar." + i + " with " + items[i]);
+			}
 
 			shot(context, sp, 6000, 0, -25, "a_noon_south");
 			shot(context, sp, 6000, 135, -55, "b_noon_up");
 			shot(context, sp, 6000, 90, -6, "c_noon_horizon");
 			shot(context, sp, 12100, 90, -12, "d_golden_west");
+			shot(context, sp, 12450, 90, -12, "d2_amber_west");
 			shot(context, sp, 12850, 90, -10, "e_sunset_west");
 			shot(context, sp, 12850, -90, -12, "f_sunset_east");
 			shot(context, sp, 23150, -90, -12, "g_sunrise_east");

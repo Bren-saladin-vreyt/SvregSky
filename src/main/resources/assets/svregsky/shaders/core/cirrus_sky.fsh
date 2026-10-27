@@ -75,7 +75,17 @@ vec3 skyNight(float dy) {
 }
 
 // magenta -> yellow sunset (rise = 0) or a softer, pinker sunrise (rise = 1)
-vec3 skyEvent(vec3 dir, vec3 sunDir, float rise) {
+// warm amber golden hour: the whole sky goes orange, yellow at the horizon by the sun
+vec3 skyOrange(vec3 dir, float h, float side) {
+    vec3 sg = mix(vec3(1.00, 0.86, 0.42), vec3(0.98, 0.70, 0.16), sstep(0.0, 0.12, h));
+    sg = mix(sg, vec3(0.90, 0.55, 0.03), sstep(0.10, 0.40, h));
+    sg = mix(sg, vec3(0.84, 0.47, 0.02), sstep(0.40, 0.95, h));
+    vec3 ag = mix(vec3(0.95, 0.62, 0.14), vec3(0.88, 0.51, 0.04), sstep(0.0, 0.30, h));
+    ag = mix(ag, vec3(0.80, 0.44, 0.04), sstep(0.30, 0.95, h));
+    return mix(ag, sg, side);
+}
+
+vec3 skyEvent(vec3 dir, vec3 sunDir, float rise, float org) {
     float dy = dir.y;
     float h = clamp(dy, 0.0, 1.0);
     vec2 dxz = normalize(dir.xz + vec2(1e-5));
@@ -96,6 +106,7 @@ vec3 skyEvent(vec3 dir, vec3 sunDir, float rise) {
     vec3 ag = mix(vec3(0.78, 0.34, 0.46), vec3(0.52, 0.18, 0.56), sstep(0.0, 0.25, h));
     ag = mix(ag, ze, sstep(0.25, 0.85, h));
     vec3 col = mix(ag, sg, side);
+    col = mix(col, skyOrange(dir, h, side), org);
 
     vec3 under = mix(mix(vec3(0.55, 0.32, 0.48), vec3(0.95, 0.55, 0.35), side), vec3(0.20, 0.15, 0.28), 1.0 - sstep(-0.25, 0.0, dy));
     return dy < 0.0 ? under : col;
@@ -274,7 +285,7 @@ vec4 cloudLayer(vec2 q, vec2 ldir, float thr, Palette p, float hz, float am) {
     return vec4(mix(c, p.haze, hz), am);
 }
 
-vec4 clouds(vec3 dir, vec3 sunDir, float day, float gold, float rain, vec2 off, float coverAdj, int layers) {
+vec4 clouds(vec3 dir, vec3 sunDir, float day, float gold, float org, float rain, vec2 off, float coverAdj, int layers) {
     if (dir.y < 0.03) {
         return vec4(0.0);
     }
@@ -283,10 +294,15 @@ vec4 clouds(vec3 dir, vec3 sunDir, float day, float gold, float rain, vec2 off, 
     vec3 mid = mix(vec3(0.20, 0.21, 0.34), vec3(0.84, 0.92, 0.99), day);
     vec3 shade = mix(vec3(0.10, 0.10, 0.19), vec3(0.62, 0.76, 0.93), day);
     vec3 haze = mix(vec3(0.14, 0.16, 0.44), vec3(0.48, 0.80, 0.97), day);
-    lit = mix(lit, vec3(1.00, 0.88, 0.72), gold);
-    mid = mix(mid, vec3(0.84, 0.66, 0.74), gold);
-    shade = mix(shade, vec3(0.44, 0.34, 0.56), gold);
-    haze = mix(haze, vec3(0.86, 0.40, 0.46), gold);
+    // golden hour: rose clouds over the magenta sky, or periwinkle-white clouds over the orange sky
+    vec3 gLit = mix(vec3(1.00, 0.88, 0.72), vec3(0.88, 0.91, 1.00), org);
+    vec3 gMid = mix(vec3(0.84, 0.66, 0.74), vec3(0.72, 0.80, 1.00), org);
+    vec3 gShade = mix(vec3(0.44, 0.34, 0.56), vec3(0.56, 0.62, 0.92), org);
+    vec3 gHaze = mix(vec3(0.86, 0.40, 0.46), vec3(0.96, 0.64, 0.20), org);
+    lit = mix(lit, gLit, gold);
+    mid = mix(mid, gMid, gold);
+    shade = mix(shade, gShade, gold);
+    haze = mix(haze, gHaze, gold);
     float dim = 0.30 + 0.70 * day;
     lit = mix(lit, vec3(0.66, 0.69, 0.74) * dim, rain * 0.8);
     mid = mix(mid, vec3(0.52, 0.55, 0.61) * dim, rain * 0.8);
@@ -339,11 +355,12 @@ void main() {
     float shootPeriod = TextureMat[3].z;
     float mode = TextureMat[3].w;
     float rise = ColorModulator.x;
+    float org = ColorModulator.w;
     float milkyStrength = ColorModulator.y;
     int layers = int(ColorModulator.z + 0.5);
 
     if (mode > 0.5) {
-        vec4 k = clouds(dir, sunDir, day, gold, rain, cloudOff, coverAdj, layers);
+        vec4 k = clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);
         if (k.a < 0.004) {
             discard;
         }
@@ -352,13 +369,17 @@ void main() {
     }
 
     vec3 col = mix(skyNight(dir.y), skyDay(dir.y), day);
-    col = mix(col, skyEvent(dir, sunDir, rise), gold);
+    // golden hour creeps down from... up from the horizon: the low sky turns first, the zenith last.
+    // where blue and the warm colours meet, lift toward cream so the mix never turns grey/khaki
+    float wv = gold >= 0.999 ? 1.0 : sstep(0.0, 1.0, gold * 2.0 - max(dir.y, 0.0));
+    col = mix(col, skyEvent(dir, sunDir, rise, org), wv);
+    col += vec3(0.16, 0.13, 0.07) * wv * (1.0 - wv) * 4.0 * day;
 
     float sd = max(dot(dir, sunDir), 0.0);
     float clear = 1.0 - rain;
     // sun glow: soft by day, wide and warm at golden hour
     col += vec3(1.0, 0.92, 0.75) * (pow(sd, 6.0) * 0.10 + pow(sd, 36.0) * 0.16) * day * (1.0 - gold) * clear;
-    col += vec3(1.0, 0.72, 0.38) * (pow(sd, 12.0) * 0.55 + pow(sd, 90.0) * 0.6) * gold * clear;
+    col += mix(vec3(1.0, 0.72, 0.38), vec3(1.0, 0.85, 0.45), org) * (pow(sd, 12.0) * 0.55 + pow(sd, 90.0) * 0.6) * gold * clear;
     // moon glow
     col += vec3(0.45, 0.65, 1.00) * pow(max(dot(dir, -sunDir), 0.0), 20.0) * 0.12 * night * clear;
 

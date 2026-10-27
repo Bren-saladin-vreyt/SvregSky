@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
  *   "shooting_stars": true,
  *   "shooting_star_period": 12,  // seconds between shooting star chances
  *   "sun_rays": true,
+ *   "sunset_style": "auto",      // auto = amber/orange while the sun is up, magenta at the horizon; or "orange" / "magenta"
  *   "fog_tint": 0.75             // 0..1: how much the distance fog takes the sky's horizon colour
  * }
  * </pre>
@@ -50,6 +51,7 @@ public final class SkySettings {
 	public static boolean shootingStars = true;
 	public static float shootingStarPeriod = 12.0F;
 	public static boolean sunRays = true;
+	public static String sunsetStyle = "auto";
 	public static float fogTint = 0.75F;
 
 	private SkySettings() {
@@ -72,6 +74,7 @@ public final class SkySettings {
 			shootingStars = bool(o, "shooting_stars", true);
 			shootingStarPeriod = Math.max(1, num(o, "shooting_star_period", 12));
 			sunRays = bool(o, "sun_rays", true);
+			sunsetStyle = o.has("sunset_style") ? o.get("sunset_style").getAsString().toLowerCase(java.util.Locale.ROOT) : "auto";
 			fogTint = Math.max(0, Math.min(1, num(o, "fog_tint", 0.75F)));
 			SvregSky.LOG.info("SvregSky: sky settings loaded from {} (clouds {}x{}, blocky {})", CONFIG, paintedClouds, cloudLayers, blockyClouds);
 		} catch (Exception e) {

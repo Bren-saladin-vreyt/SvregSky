@@ -57,7 +57,7 @@ public final class CirrusSky {
 
 	// last frame's sky factors (also used for the fog colour)
 	private static final Vector3f sunDir = new Vector3f(0, 1, 0);
-	private static float day = 1, gold, night, rain, rise;
+	private static float day = 1, gold, night, rain, rise, org;
 
 	private CirrusSky() {
 	}
@@ -132,6 +132,11 @@ public final class CirrusSky {
 		night = 1 - smooth(-0.22F, 0.02F, sh);
 		rain = Math.max(0, Math.min(1, 1 - skyState.rainBrightness));
 		rise = smooth(-0.2F, 0.2F, sunDir.x);
+		org = switch (SkySettings.sunsetStyle) {
+			case "orange" -> 1.0F;
+			case "magenta" -> 0.0F;
+			default -> smooth(0.0F, 0.14F, sh); // amber while the sun is still up, magenta as it touches the horizon
+		};
 
 		long now = System.nanoTime();
 		double dt = lastFrameNanos == 0 ? 0 : Math.min(0.25, (now - lastFrameNanos) / 1e9);
@@ -190,8 +195,11 @@ public final class CirrusSky {
 					day, gold, night, rain,
 					offX, offZ, 0.0F, SkySettings.aurora,
 					flags, SkySettings.cloudCoverage, SkySettings.shootingStarPeriod, mode);
-			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, SkySettings.cloudLayers, 1.0F);
-			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).setTranslation(0, 0, 0);
+			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, SkySettings.cloudLayers, org);
+			// a big cube (far inside the far plane) so the walking bob's small camera shift can't make the sky wobble
+			int chunks = Math.max(2, mc.options.getEffectiveRenderDistance());
+			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));
+			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).setTranslation(0, 0, 0).scale(scale);
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, extra, new Vector3f(), params);
 
 			AbstractTexture tex = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
@@ -236,6 +244,7 @@ public final class CirrusSky {
 		float[] nightC = {0.22F, 0.20F, 0.66F};
 		float[] hz = mix(new float[]{0.97F, 0.55F, 0.16F}, new float[]{1.00F, 0.68F, 0.32F}, rise);
 		float[] ev = mix(new float[]{0.78F, 0.34F, 0.46F}, hz, side);
+		ev = mix(ev, mix(new float[]{0.95F, 0.62F, 0.14F}, new float[]{1.00F, 0.86F, 0.42F}, side), org);
 		float[] c = mix(mix(nightC, dayC, day), ev, gold);
 		float sd = Math.max(0, lx * sunDir.x + lz * sunDir.z);
 		float glow = (float) (Math.pow(sd, 12) * 0.55 + Math.pow(sd, 90) * 0.6) * gold * (1 - rain);

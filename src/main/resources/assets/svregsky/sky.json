@@ -12,5 +12,7 @@
   "shooting_stars": true,
   "shooting_star_period": 12,
   "sun_rays": true,
-  "fog_tint": 0.75
+  "sunset_style": "auto",
+  "fog_tint": 0.75,
+  "toon_items": true
 }
