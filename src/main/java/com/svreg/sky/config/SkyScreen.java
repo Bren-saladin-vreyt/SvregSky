@@ -38,7 +38,7 @@ public class SkyScreen extends OptionsSubScreen {
 
 	private static OptionInstance<String> choice(String key, List<String> values, String value, OptionInstance.ValueUpdateListener<String> set) {
 		return new OptionInstance<>("svregsky.options." + key, OptionInstance.noTooltip(),
-				(caption, v) -> Options.genericValueLabel(caption, Component.translatable("svregsky.options." + key + "." + v)),
+				(caption, v) -> Component.translatable("svregsky.options." + key + "." + v), // the cycle button adds the caption itself
 				new OptionInstance.Enum<>(values, Codec.STRING), values.contains(value) ? value : values.get(0), set);
 	}
 
