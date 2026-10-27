@@ -39,10 +39,10 @@ public final class CloudVoxels {
 	private static final float THRESHOLD = 0.545F;
 	private static final float LEVEL_STEP = 0.035F;
 	private static final float LEVEL_HEIGHT = 4.0F;
-	private static final float TEXELS_PER_CELL_X = 3.0F;
-	private static final float TEXELS_PER_CELL_Z = 2.0F;
+	private static final float TEXELS_PER_CELL_X = 7.0F;
+	private static final float TEXELS_PER_CELL_Z = 5.0F;
 
-	private static RenderPipeline pipeline, debugPipeline;
+	private static RenderPipeline pipeline;
 	private static boolean broken;
 
 	private static float[] density;
@@ -54,8 +54,7 @@ public final class CloudVoxels {
 	private static float builtCov;
 
 	private static double windX, windZ;
-	private static int logs, frames;
-	public static boolean DEBUG;
+	private static int logs;
 	private static long lastNanos;
 
 	private CloudVoxels() {
@@ -72,7 +71,6 @@ public final class CloudVoxels {
 				}
 			}
 			density = d;
-			SvregSky.LOG.info("SvregSky: 3D cloud map {}x{} px(0,0)={} px(100,37)={}", w, h, Integer.toHexString(img.getPixel(0, 0)), Integer.toHexString(img.getPixel(100, 37)));
 			texW = w;
 			texH = h;
 			builtVersion = -1;
@@ -93,18 +91,6 @@ public final class CloudVoxels {
 	}
 
 	private static RenderPipeline pipeline() {
-		if (DEBUG) {
-			if (debugPipeline == null) {
-				debugPipeline = RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
-						.withLocation(Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "pipeline/cirrus_clouds3d_debug"))
-						.withVertexShader(SHADER).withFragmentShader(SHADER)
-						.withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
-						.withPrimitiveTopology(PrimitiveTopology.QUADS).withCull(false)
-						.withDepthStencilState(Optional.empty())
-						.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT)).build();
-			}
-			return debugPipeline;
-		}
 		if (pipeline == null) {
 			pipeline = RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
 					.withLocation(Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "pipeline/cirrus_clouds3d"))
@@ -145,10 +131,6 @@ public final class CloudVoxels {
 		int quads = 0;
 		try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_COLOR.getVertexSize() * 4 * 4096)) {
 			BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
-			if (DEBUG) {
-				face(b, 1, 1, -60, 0, -60, 60, 0, -60, 60, 0, 60, -60, 0, 60);
-				quads++;
-			}
 			for (int z = -radius; z <= radius; z++) {
 				for (int x = -radius; x <= radius; x++) {
 					if (x * x + z * z > r2) {
@@ -197,9 +179,6 @@ public final class CloudVoxels {
 			quadCount = 0;
 			try (MeshData data = b.build()) {
 				if (data != null) {
-					if (logs < 8) {
-						SvregSky.LOG.info("SvregSky: 3D mesh bytes {} vertices {} expected quads {} drawState {}", data.vertexBuffer().remaining(), data.drawState().vertexCount(), quads, data.drawState());
-					}
 					mesh = RenderSystem.getDevice().createBuffer(() -> "SvregSky 3D clouds", GpuBuffer.USAGE_COPY_DST | GpuBuffer.USAGE_VERTEX, data.vertexBuffer());
 					quadCount = quads;
 				}
@@ -232,27 +211,19 @@ public final class CloudVoxels {
 				builtCz = ccz;
 				builtVersion = SkySettings.version;
 				builtCov = cov;
-				if (logs++ < 6) {
+				if (logs++ < 2) {
 					SvregSky.LOG.info("SvregSky: 3D clouds built {} faces around cell {},{} (camera y {}, cloud base {})", quadCount, ccx, ccz, (int) cam.y, (int) bottomY);
 				}
-			}
-			if ((frames++ % 300) == 0) {
-				SvregSky.LOG.info("SvregSky: 3D clouds frame {} camY {} faces {} mesh {}", frames, (int) cam.y, quadCount, mesh != null);
 			}
 			if (mesh == null || quadCount == 0) {
 				return;
 			}
-			Vector3f offset0 = new Vector3f((float) (ccx * (double) cell + windX - cam.x), (float) (bottomY - cam.y), (float) (ccz * (double) cell + windZ - cam.z));
-			Vector3f offset = offset0;
-			if (DEBUG && (frames % 60) == 0) {
-				SvregSky.LOG.info("SvregSky: 3D debug offset {} ccx {} ccz {} wind {} {} cam {}", offset, ccx, ccz, windX, windZ, cam);
-			}
+			Vector3f offset = new Vector3f((float) (ccx * (double) cell + windX - cam.x), (float) (bottomY - cam.y), (float) (ccz * (double) cell + windZ - cam.z));
 			float reach = SkySettings.cloud3dDistance * cell;
 			Matrix4f params = CirrusSky.skyParams();
 			params.m20(reach * 0.55F);
 			params.m21(reach * 0.95F);
 			params.m22(SkySettings.cloud3dLevels * LEVEL_HEIGHT);
-			params.m33(DEBUG ? 1 : 0);
 			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).translate(offset);
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, CirrusSky.skyExtra(), offset, params);
 

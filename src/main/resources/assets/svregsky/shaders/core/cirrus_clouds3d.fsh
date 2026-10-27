@@ -56,11 +56,8 @@ void main() {
     float fog = clamp(dist / fadeEnd, 0.0, 1.0);
     col = mix(col, haze, fog * fog * 0.75);
     float a = 1.0 - smoothstep(fadeStart, fadeEnd, dist);
-    if (a < 0.01 && TextureMat[3].w < 0.5) {
+    if (a < 0.01) {
         discard;
     }
     fragColor = vec4(col, a);
-    if (TextureMat[3].w > 0.5) {
-        fragColor = vec4(1.0, 0.0, 0.0, 1.0); // debug
-    }
 }
