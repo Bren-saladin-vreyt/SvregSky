@@ -231,9 +231,11 @@ public final class CloudVoxels {
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, CirrusSky.skyExtra(), offset, params);
 
 			Minecraft mc = Minecraft.getInstance();
-			RenderTarget target = mc.gameRenderer.mainRenderTarget();
-			GpuTextureView color = RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride : target.getColorTextureView();
-			GpuTextureView depth = target.useDepth ? (RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthTextureView()) : null;
+			// same targets as vanilla clouds: the separate clouds target when "improved transparency" is on, else the main one
+			RenderTarget cloudTarget = mc.levelRenderer.cloudsTarget();
+			RenderTarget target = cloudTarget != null ? cloudTarget : mc.gameRenderer.mainRenderTarget();
+			GpuTextureView color = target.getColorTextureView();
+			GpuTextureView depth = target.getDepthTextureView();
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer indexBuffer = indices.getBuffer(quadCount * 6);
 			IndexType indexType = indices.type();
