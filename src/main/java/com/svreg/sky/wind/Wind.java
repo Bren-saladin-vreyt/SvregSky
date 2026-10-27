@@ -38,7 +38,7 @@ public final class Wind {
 			return 2;
 		}
 		if (state.is(BlockTags.REPLACEABLE_BY_TREES) || state.is(BlockTags.SMALL_FLOWERS) || state.is(BlockTags.FLOWERS)
-				|| state.is(BlockTags.CROPS) || state.is(BlockTags.SAPLINGS)) {
+				|| state.is(BlockTags.CROPS)) {
 			return 1;
 		}
 		return 0;
