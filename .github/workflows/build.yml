@@ -108,10 +108,11 @@ jobs:
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
-          sed -n '40,130p' src2/net/minecraft/client/OptionInstance.java > probe/a.txt
-          grep -n -E 'genericValueLabel|percentValueLabel|pixelValueLabel' src2/net/minecraft/client/Options.java | head > probe/b.txt
-          grep -n -A12 'private OptionInstance<Integer> menuBackgroundBlurriness\|OptionInstance<Integer> fov = ' src2/net/minecraft/client/Options.java | head -40 >> probe/b.txt
-          echo > probe/c.txt; echo > probe/d.txt
+          grep -n -E 'public .*Screen.*\(' src2/net/minecraft/client/Minecraft.java | head -20 > probe/a.txt
+          grep -rn -E 'void setScreen\(' src2/net/minecraft/client | head -5 >> probe/a.txt
+          grep -n -E 'public void [a-zA-Z]*\(\)' src2/net/minecraft/client/renderer/LevelRenderer.java | head -40 > probe/b.txt
+          grep -rn -E 'onClose\(\) \{' -A3 src2/net/minecraft/client/gui/screens/options/OptionsSubScreen.java > probe/c.txt
+          echo > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
