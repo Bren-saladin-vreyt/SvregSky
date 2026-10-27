@@ -3,6 +3,10 @@ package com.svreg.sky.mixin;
 import com.svreg.sky.clouds.CloudLayers;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.util.profiling.ProfilerFiller;
+
+import java.util.Optional;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,6 +23,14 @@ public abstract class CloudRendererMixin {
 		}
 		CloudLayers.render(color, cloudStatus, bottomY, range, cameraPosition, gameTime, partialTicks);
 		ci.cancel();
+	}
+
+	/** vanilla clouds reload with every resource reload: read our layer setup from the resource packs at the same time */
+	@Inject(method = "apply(Ljava/util/Optional;Lnet/minecraft/server/packs/resources/ResourceManager;Lnet/minecraft/util/profiling/ProfilerFiller;)V", at = @At("TAIL"))
+	private void svregsky$reload(Optional<CloudRenderer.TextureData> preparations, ResourceManager manager, ProfilerFiller profiler, CallbackInfo ci) {
+		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
+			CloudLayers.reload(manager);
+		}
 	}
 
 	@Inject(method = "endFrame", at = @At("TAIL"))

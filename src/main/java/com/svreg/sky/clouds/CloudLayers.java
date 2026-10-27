@@ -4,6 +4,7 @@ import com.svreg.sky.SvregSky;
 import com.svreg.sky.mixin.CloudRendererAccessor;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -13,24 +14,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Replaces the single vanilla cloud layer with several vanilla CloudRenderer instances:
- * <ul>
- *   <li>a cumulus deck made of stacked 4-block slices that shrink upward, so clouds tower like Ghibli cumulus;</li>
- *   <li>a high, sparse layer of smaller puffs, hazier and slower, so the sky reads as deep.</li>
- * </ul>
- * Every layer uses the vanilla cloud mesh, shader and pipeline, so the cost per layer is the same as vanilla clouds.
+ * Replaces the single vanilla cloud layer with several vanilla CloudRenderer instances, one per slice.
+ * The slices come from resource packs (see {@link CloudPack}); the mod jar ships a default setup,
+ * and if no usable setup is found the built-in procedural clouds are used.
+ * Every slice uses the vanilla cloud mesh, shader and pipeline, so each costs about as much as vanilla clouds.
  */
 public final class CloudLayers {
-	/** slices of the main cumulus deck: share of the sky covered by each slice, bottom to top */
-	private static final double[] DECK_COVERAGE = {0.26, 0.19, 0.13, 0.08, 0.04};
-	private static final float SLICE_HEIGHT = 4.0F;     // vanilla cloud thickness
-	private static final float HIGH_LAYER_OFFSET = 96.0F;
-
 	private static final Map<CloudRenderer, Boolean> OURS = Collections.synchronizedMap(new IdentityHashMap<>());
 	private static List<Layer> layers;
+	private static volatile List<CloudPack.SliceDef> pending;
+	private static volatile boolean pendingSet;
 	private static boolean rendering;
 
-	private record Layer(CloudRenderer renderer, float yOffset, float speed, long timeOffset, float haze, float alpha, boolean deckSlice) {
+	private record Layer(CloudRenderer renderer, CloudPack.SliceDef def) {
 	}
 
 	private CloudLayers() {
@@ -44,65 +40,86 @@ public final class CloudLayers {
 		return rendering;
 	}
 
-	private static CloudRenderer newRenderer(boolean[] mask) {
+	/** called after every resource reload (vanilla clouds reload hook): read the pack setup, build it on the next frame */
+	public static void reload(ResourceManager manager) {
+		pending = CloudPack.load(manager);
+		pendingSet = true;
+	}
+
+	private static CloudRenderer newRenderer(CloudPack.SliceDef def) {
 		CloudRenderer r = new CloudRenderer();
 		OURS.put(r, Boolean.TRUE);
 		CloudRendererAccessor acc = (CloudRendererAccessor) (Object) r;
-		acc.svregsky$setTexture(CloudMapGen.toTextureData(CloudMapGen.tidy(mask)));
+		acc.svregsky$setTexture(CloudMapGen.toTextureData(CloudMapGen.tidy(def.mask(), def.width(), def.height()), def.width(), def.height()));
 		acc.svregsky$setNeedsRebuild(true);
 		return r;
 	}
 
-	private static void build() {
-		long start = System.currentTimeMillis();
-		List<Layer> list = new ArrayList<>();
-
-		// high, small, hazy puffs (rendered first: farthest from the ground)
+	/** built-in clouds, used only when no resource pack setup could be read */
+	private static List<CloudPack.SliceDef> builtIn() {
+		int s = CloudMapGen.SIZE;
+		List<CloudPack.SliceDef> list = new ArrayList<>();
 		double[] high = CloudMapGen.density(4242, 9, 36);
-		boolean[] highMask = CloudMapGen.threshold(high, 0.12);
-		list.add(new Layer(newRenderer(highMask), HIGH_LAYER_OFFSET, 0.55F, 9_000_000L, 0.45F, 0.80F, false));
-
-		// main cumulus deck: same density field, each slice keeps only the denser cores, so the stack forms domes
+		list.add(new CloudPack.SliceDef(CloudMapGen.threshold(high, 0.12), s, s, 96, 0.55F, 9_000_000L, 0.45F, 0.80F, 0xFFFFFF, false));
 		double[] deck = CloudMapGen.density(7, 5, 24);
 		boolean[] puffs = CloudMapGen.puffs(7, 0.035, deck, CloudMapGen.quantile(deck, 0.35));
-		for (int k = DECK_COVERAGE.length - 1; k >= 0; k--) {
-			boolean[] mask = CloudMapGen.threshold(deck, DECK_COVERAGE[k]);
+		double[] coverage = {0.26, 0.19, 0.13, 0.08, 0.04};
+		for (int k = coverage.length - 1; k >= 0; k--) {
+			boolean[] mask = CloudMapGen.threshold(deck, coverage[k]);
 			if (k == 0) {
 				mask = CloudMapGen.or(mask, puffs);
 			}
-			list.add(new Layer(newRenderer(mask), k * SLICE_HEIGHT, 1.0F, 0L, 0.0F, 1.0F, true));
+			list.add(new CloudPack.SliceDef(mask, s, s, k * 4, 1.0F, 0L, 0F, 1F, 0xFFFFFF, k > 0));
 		}
+		return list;
+	}
 
+	private static void build(List<CloudPack.SliceDef> defs) {
+		closeLayers();
+		long start = System.currentTimeMillis();
+		List<Layer> list = new ArrayList<>();
+		for (CloudPack.SliceDef def : defs) {
+			list.add(new Layer(newRenderer(def), def));
+		}
 		layers = list;
-		SvregSky.LOG.info("SvregSky: built {} cloud layers in {} ms", list.size(), System.currentTimeMillis() - start);
+		SvregSky.LOG.info("SvregSky: built {} cloud slices in {} ms", list.size(), System.currentTimeMillis() - start);
 	}
 
 	/** called instead of the vanilla cloud render */
 	public static void render(int color, CloudStatus status, float bottomY, int range, Vec3 camera, long gameTime, float partialTicks) {
-		if (layers == null) {
-			build();
+		if (pendingSet) {
+			pendingSet = false;
+			List<CloudPack.SliceDef> defs = pending;
+			build(defs != null ? defs : builtIn());
+		} else if (layers == null) {
+			build(builtIn());
 		}
 		rendering = true;
 		try {
 			for (Layer layer : layers) {
-				if (status == CloudStatus.FAST && layer.deckSlice() && layer.yOffset() > 0) {
-					continue; // flat clouds: one deck slice is enough
+				CloudPack.SliceDef d = layer.def();
+				if (status == CloudStatus.FAST && d.extraSlice()) {
+					continue; // flat clouds: the bottom slice of each stack is enough
 				}
-				long t = (long) (gameTime * (double) layer.speed()) + layer.timeOffset();
-				layer.renderer().render(tint(color, layer.haze(), layer.alpha()), status, bottomY + layer.yOffset(), range, camera, t, partialTicks * layer.speed());
+				long t = (long) (gameTime * (double) d.speed()) + d.timeOffset();
+				layer.renderer().render(tint(color, d), status, bottomY + d.yOffset(), range, camera, t, partialTicks * d.speed());
 			}
 		} finally {
 			rendering = false;
 		}
 	}
 
-	/** fades a layer toward a cool sky blue (aerial haze) and sets its opacity */
-	private static int tint(int argb, float haze, float alphaScale) {
+	/** applies the layer colour, fades it toward a cool sky blue (aerial haze) and sets its opacity */
+	private static int tint(int argb, CloudPack.SliceDef d) {
 		int a = argb >>> 24, r = argb >> 16 & 0xFF, g = argb >> 8 & 0xFF, b = argb & 0xFF;
+		r = r * (d.color() >> 16 & 0xFF) / 255;
+		g = g * (d.color() >> 8 & 0xFF) / 255;
+		b = b * (d.color() & 0xFF) / 255;
+		float haze = d.haze();
 		r = Math.round(r * (1 - haze * 0.30F));
 		g = Math.round(g * (1 - haze * 0.12F));
 		b = Math.round(Math.min(255, b * (1 + haze * 0.05F)));
-		a = Math.round(Math.min(255, Math.max(a, 230) * alphaScale));
+		a = Math.round(Math.min(255, Math.max(a, 230) * Math.max(0, Math.min(1, d.opacity()))));
 		return a << 24 | r << 16 | g << 8 | b;
 	}
 
@@ -122,7 +139,7 @@ public final class CloudLayers {
 		}
 	}
 
-	public static void close() {
+	private static void closeLayers() {
 		if (layers != null) {
 			List<Layer> old = layers;
 			layers = null;
@@ -131,5 +148,9 @@ public final class CloudLayers {
 				OURS.remove(layer.renderer());
 			}
 		}
+	}
+
+	public static void close() {
+		closeLayers();
 	}
 }

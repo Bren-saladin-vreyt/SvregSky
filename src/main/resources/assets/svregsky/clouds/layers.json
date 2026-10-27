@@ -1,0 +1,32 @@
+{
+  "layers": [
+    {
+      "_comment": "high, small, hazy puffs far above: makes the sky feel deep",
+      "texture": "svregsky:clouds/high.png",
+      "height": 96,
+      "threshold": 0.88,
+      "speed": 0.55,
+      "time_offset": 9000000,
+      "haze": 0.45,
+      "opacity": 0.8,
+      "color": "#FFFFFF"
+    },
+    {
+      "_comment": "main cumulus deck: 5 stacked slices that shrink upward = towering Ghibli cumulus",
+      "texture": "svregsky:clouds/deck.png",
+      "height": 0,
+      "slices": [
+        0.74,
+        0.81,
+        0.87,
+        0.92,
+        0.96
+      ],
+      "slice_spacing": 4,
+      "speed": 1.0,
+      "haze": 0.0,
+      "opacity": 1.0,
+      "color": "#FFFFFF"
+    }
+  ]
+}

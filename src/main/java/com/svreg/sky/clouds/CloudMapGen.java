@@ -109,18 +109,22 @@ public final class CloudMapGen {
 
 	/** removes single-cell specks and fills single-cell holes so the 3D shapes stay tidy */
 	public static boolean[] tidy(boolean[] m) {
+		return tidy(m, SIZE, SIZE);
+	}
+
+	public static boolean[] tidy(boolean[] m, int w, int h) {
 		boolean[] out = m.clone();
-		for (int y = 0; y < SIZE; y++) {
-			for (int x = 0; x < SIZE; x++) {
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
 				int n = 0;
 				for (int dy = -1; dy <= 1; dy++) {
 					for (int dx = -1; dx <= 1; dx++) {
-						if ((dx != 0 || dy != 0) && m[Math.floorMod(x + dx, SIZE) + Math.floorMod(y + dy, SIZE) * SIZE]) {
+						if ((dx != 0 || dy != 0) && m[Math.floorMod(x + dx, w) + Math.floorMod(y + dy, h) * w]) {
 							n++;
 						}
 					}
 				}
-				int i = x + y * SIZE;
+				int i = x + y * w;
 				if (m[i] && n <= 1) {
 					out[i] = false;
 				} else if (!m[i] && n >= 7) {
@@ -131,22 +135,26 @@ public final class CloudMapGen {
 		return out;
 	}
 
-	/** packs a mask exactly like CloudRenderer#prepare does for clouds.png */
 	public static CloudRenderer.TextureData toTextureData(boolean[] m) {
-		long[] cells = new long[SIZE * SIZE];
-		for (int y = 0; y < SIZE; y++) {
-			for (int x = 0; x < SIZE; x++) {
-				int i = x + y * SIZE;
+		return toTextureData(m, SIZE, SIZE);
+	}
+
+	/** packs a mask exactly like CloudRenderer#prepare does for clouds.png */
+	public static CloudRenderer.TextureData toTextureData(boolean[] m, int w, int h) {
+		long[] cells = new long[w * h];
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int i = x + y * w;
 				if (!m[i]) {
 					continue;
 				}
-				boolean north = !m[x + Math.floorMod(y - 1, SIZE) * SIZE];
-				boolean east = !m[Math.floorMod(x + 1, SIZE) + y * SIZE];
-				boolean south = !m[x + Math.floorMod(y + 1, SIZE) * SIZE];
-				boolean west = !m[Math.floorMod(x - 1, SIZE) + y * SIZE];
+				boolean north = !m[x + Math.floorMod(y - 1, h) * w];
+				boolean east = !m[Math.floorMod(x + 1, w) + y * w];
+				boolean south = !m[x + Math.floorMod(y + 1, h) * w];
+				boolean west = !m[Math.floorMod(x - 1, w) + y * w];
 				cells[i] = (long) CLOUD_COLOR << 4 | (north ? 1 : 0) << 3 | (east ? 1 : 0) << 2 | (south ? 1 : 0) << 1 | (west ? 1 : 0);
 			}
 		}
-		return new CloudRenderer.TextureData(cells, SIZE, SIZE);
+		return new CloudRenderer.TextureData(cells, w, h);
 	}
 }
