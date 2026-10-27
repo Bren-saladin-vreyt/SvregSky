@@ -44,14 +44,8 @@ public final class ToonItems {
 		return enabled;
 	}
 
-	private static int seen;
-
 	public static void process(Identifier name, NativeImage image) {
 		try {
-			if (seen < 6 || (name != null && name.getPath().contains("apple"))) {
-				seen++;
-				SvregSky.LOG.info("SvregSky: sprite {} {}x{}", name, image == null ? -1 : image.getWidth(), image == null ? -1 : image.getHeight());
-			}
 			if (name == null || image == null || !name.getPath().startsWith("item/")) {
 				return;
 			}

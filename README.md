@@ -30,7 +30,9 @@ Everything is set from a resource pack file, `assets/svregsky/sky.json` (press F
 | `shooting_stars` | `true` | |
 | `shooting_star_period` | `12` | seconds between chances |
 | `sun_rays` | `true` | |
+| `sunset_style` | `auto` | `auto` = orange golden hour, magenta at the horizon; `orange`; `magenta` |
 | `fog_tint` | `0.75` | 0–1, how much the distance fog takes the horizon colour |
+| `toon_items` | `true` | cartoon look (brighter colours, bold outline) for every 16x item texture |
 
 ### Cloud shapes
 
