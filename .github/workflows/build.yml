@@ -79,6 +79,7 @@ jobs:
           mkdir -p /tmp/shots
           find . -path ./.git -prune -o -name '*.png' -path '*screenshots*' -print | xargs -r -I{} cp {} /tmp/shots/
           find . -name 'crash-*.txt' -print | xargs -r -I{} cp {} /tmp/shots/ || true
+          cp test.log /tmp/shots/test.log || true
           ls -la /tmp/shots
           echo "run $GITHUB_RUN_ID status $status" > /tmp/shots/RUN.txt
           cd /tmp/shots
