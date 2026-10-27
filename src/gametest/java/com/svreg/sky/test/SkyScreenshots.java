@@ -18,10 +18,10 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, -25, "a_noon_south");
 			shot(context, sp, 6000, 135, -55, "b_noon_up");
 			shot(context, sp, 6000, 90, -6, "c_noon_horizon");
-			shot(context, sp, 10500, 90, -12, "d_afternoon_west");
-			shot(context, sp, 12100, 90, -12, "e_sunset_west");
-			shot(context, sp, 12100, -90, -12, "f_sunset_east");
-			shot(context, sp, 23300, -90, -12, "g_sunrise_east");
+			shot(context, sp, 12100, 90, -12, "d_golden_west");
+			shot(context, sp, 12850, 90, -10, "e_sunset_west");
+			shot(context, sp, 12850, -90, -12, "f_sunset_east");
+			shot(context, sp, 23150, -90, -12, "g_sunrise_east");
 			shot(context, sp, 18000, 180, -25, "h_night_north");
 			shot(context, sp, 18000, 30, -70, "i_night_up");
 		}

@@ -128,7 +128,7 @@ public final class CirrusSky {
 		sunDir.set(-(float) Math.sin(a), (float) Math.cos(a), 0);
 		float sh = sunDir.y;
 		day = smooth(-0.10F, 0.30F, sh);
-		gold = 1 - smooth(0.0F, 0.35F, Math.abs(sh - 0.02F));
+		gold = 1 - smooth(0.0F, 0.42F, Math.abs(sh - 0.02F));
 		night = 1 - smooth(-0.22F, 0.02F, sh);
 		rain = Math.max(0, Math.min(1, 1 - skyState.rainBrightness));
 		rise = smooth(-0.2F, 0.2F, sunDir.x);

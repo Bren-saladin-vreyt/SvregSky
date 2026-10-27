@@ -319,7 +319,7 @@ vec4 clouds(vec3 dir, vec3 sunDir, float day, float gold, float rain, vec2 off, 
     }
     float hf = (1.0 - sstep(0.0, 0.35, dir.y)) * 0.35;
     k.rgb = mix(k.rgb, haze, hf);
-    k.a *= sstep(0.03, 0.24, dir.y);
+    k.a *= sstep(0.03, 0.24, dir.y) * mix(0.75, 1.0, max(day, gold));
     return k;
 }
 
@@ -368,8 +368,8 @@ void main() {
         vec3 up2 = cross(rt, sunDir);
         float ang = atan(dot(dir, up2), dot(dir, rt));
         float streak = noise(vec2(ang * 8.0 + tm * 0.03, 2.0));
-        float ray = pow(sd, 2.5) * sstep(0.35, 0.9, streak);
-        col += mix(vec3(1.0, 0.85, 0.65), vec3(1.0, 0.55, 0.40), gold) * ray * (0.10 + 0.30 * gold) * day * clear;
+        float ray = pow(sd, 6.0) * sstep(0.35, 0.9, streak);
+        col += mix(vec3(1.0, 0.85, 0.65), vec3(1.0, 0.55, 0.40), gold) * ray * (0.06 + 0.20 * gold) * day * clear;
     }
 
     if (night > 0.01 && dir.y > -0.03) {
