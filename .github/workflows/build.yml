@@ -108,23 +108,10 @@ jobs:
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
-          F=$(find src2 -name OptionsSubScreen.java | head -1); echo "== $F" > probe/a.txt
-          grep -n -E '(public|protected|private).*(\(|;)' $F | head -30 >> probe/a.txt
-          F=$(find src2 -name VideoSettingsScreen.java | head -1); echo "== $F" >> probe/a.txt
-          grep -n -E 'addOptions|list\.|class |OptionInstance<' $F | head -20 >> probe/a.txt
-          F=$(find src2 -name OptionsScreen.java | head -1); echo "== $F" >> probe/a.txt
-          grep -n -E 'class |openScreenButton|Button.builder|protected void init|GridLayout|addChild|private .*\(' $F | head -30 >> probe/a.txt
-          F=src2/net/minecraft/client/OptionInstance.java
-          grep -n -E 'public static .*\(|public OptionInstance\(|record IntRange|record UnitDouble|class .*SliderableValueSet|interface TooltipSupplier|public static final .*Enum|CaptionBasedToString' $F | head -40 > probe/b.txt
-          F=$(find src2 -name OptionsList.java | head -1); echo "== $F" >> probe/b.txt
-          grep -n -E 'public .*\(' $F | head -15 >> probe/b.txt
-          grep -rn -E '^public enum CompareOp|enum CompareOp' src2 | head -3 > probe/c.txt
-          F=$(find src2 -name Screen.java | grep 'client/gui/screens/Screen.java' | head -1)
-          grep -n -E 'public .*\(|protected .*\(' $F | head -50 >> probe/c.txt
-          ls src2/net/minecraft/client/renderer/ | head -0
-          find src2 -name 'position_color*' >> probe/d.txt
-          grep -n -E 'POSITION_COLOR|DEBUG_QUADS =|GUI =' src2/net/minecraft/client/renderer/RenderPipelines.java | head -10 >> probe/d.txt
-          unzip -l "$JAR" 'assets/minecraft/shaders/core/*' | awk '{print $4}' | tr '\n' ' ' >> probe/d.txt
+          sed -n '40,130p' src2/net/minecraft/client/OptionInstance.java > probe/a.txt
+          grep -n -E 'genericValueLabel|percentValueLabel|pixelValueLabel' src2/net/minecraft/client/Options.java | head > probe/b.txt
+          grep -n -A12 'private OptionInstance<Integer> menuBackgroundBlurriness\|OptionInstance<Integer> fov = ' src2/net/minecraft/client/Options.java | head -40 >> probe/b.txt
+          echo > probe/c.txt; echo > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
