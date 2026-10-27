@@ -192,6 +192,9 @@ public final class CloudVoxels {
 			quadCount = 0;
 			try (MeshData data = b.build()) {
 				if (data != null) {
+					if (logs < 8) {
+						SvregSky.LOG.info("SvregSky: 3D mesh bytes {} vertices {} expected quads {} drawState {}", data.vertexBuffer().remaining(), data.drawState().vertexCount(), quads, data.drawState());
+					}
 					mesh = RenderSystem.getDevice().createBuffer(() -> "SvregSky 3D clouds", GpuBuffer.USAGE_COPY_DST | GpuBuffer.USAGE_VERTEX, data.vertexBuffer());
 					quadCount = quads;
 				}
