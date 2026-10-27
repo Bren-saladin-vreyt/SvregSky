@@ -72,6 +72,7 @@ public final class CloudVoxels {
 				}
 			}
 			density = d;
+			SvregSky.LOG.info("SvregSky: 3D cloud map {}x{} px(0,0)={} px(100,37)={}", w, h, Integer.toHexString(img.getPixel(0, 0)), Integer.toHexString(img.getPixel(100, 37)));
 			texW = w;
 			texH = h;
 			builtVersion = -1;
