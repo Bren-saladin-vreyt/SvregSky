@@ -10,7 +10,8 @@
 		"SkyRendererMixin",
 		"SpriteContentsMixin",
 		"BiomeWaterMixin",
-		"ShaderManagerMixin"
+		"ShaderManagerMixin",
+		"OptionsScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -21,6 +21,8 @@
   "toon_items": true,
   "wind_strength": 1.0,
   "wind_speed": 1.0,
+  "wind_lines": true,
+  "wind_line_amount": 1.0,
   "far_grass_tint": 0.8,
   "water_color": "#4FD6E3"
 }

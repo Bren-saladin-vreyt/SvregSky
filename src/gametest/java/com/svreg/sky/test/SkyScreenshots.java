@@ -42,10 +42,18 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.cloudMode = "3d";
 				com.svreg.sky.sky.SkySettings.version++;
 			});
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.windLineAmount = 3.0F;
+			});
 			context.waitTicks(40);
 			shot(context, sp, 6000, 0, 10, "j_meadow_wind_a");
 			context.waitTicks(17);
 			context.takeScreenshot("k_meadow_wind_b");
+			context.runOnClient(client -> client.setScreen(new com.svreg.sky.config.SkyScreen(null, client.options)));
+			context.waitTicks(10);
+			context.takeScreenshot("k2_settings_screen");
+			context.runOnClient(client -> client.setScreen(null));
+			context.waitTicks(5);
 			shot(context, sp, 6000, 0, -20, "l_3d_noon");
 			shot(context, sp, 6000, 0, -60, "m_3d_up");
 			shot(context, sp, 12100, 90, -12, "n_3d_golden");

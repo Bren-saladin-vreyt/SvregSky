@@ -25,6 +25,8 @@ import java.nio.charset.StandardCharsets;
  *   "cloud_3d_levels": 3,        // 3D clouds: how many steps tall the thickest clouds get
  *   "wind_strength": 1.0,        // grass/leaves wind (needs Sodium): 0 = off, 1 = breeze, 3 = storm
  *   "wind_speed": 1.0,
+ *   "wind_lines": true,          // white wind streaks flying past
+ *   "wind_line_amount": 1.0,     // 0..3
  *   "far_grass_tint": 0.8,       // distant grass shifts toward a soft Ghibli sage green (0 = off)
  *   "water_color": "#4FD6E3",    // water tint everywhere ("" = vanilla biome colours)
  *   "cloud_layers": 3,           // 1..3 (fewer = faster)
@@ -60,6 +62,8 @@ public final class SkySettings {
 	public static float windStrength = 1.0F;
 	public static float windSpeed = 1.0F;
 	public static float farGrassTint = 0.8F;
+	public static boolean windLines = true;
+	public static float windLineAmount = 1.0F;
 	public static int waterColor = 0x4FD6E3; // -1 = vanilla
 	public static volatile int version;
 
@@ -80,37 +84,54 @@ public final class SkySettings {
 
 	public static void load(ResourceManager manager) {
 		try (InputStream in = manager.open(CONFIG); Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-			JsonObject o = JsonParser.parseReader(reader).getAsJsonObject();
-			cirrusSky = bool(o, "cirrus_sky", true);
-			paintedClouds = bool(o, "painted_clouds", true);
-			cloudLayers = Math.max(1, Math.min(3, (int) num(o, "cloud_layers", 3)));
-			cloudCoverage = Math.max(-0.2F, Math.min(0.2F, num(o, "cloud_coverage", 0)));
-			cloudSpeed = num(o, "cloud_speed", 1);
-			cloudTexture = o.has("cloud_texture") ? Identifier.parse(o.get("cloud_texture").getAsString())
-					: Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
-			blockyClouds = bool(o, "blocky_clouds", false);
-			cloudMode = o.has("cloud_mode") ? o.get("cloud_mode").getAsString().toLowerCase(java.util.Locale.ROOT) : "painted";
-			cloud3dDistance = Math.max(8, Math.min(96, (int) num(o, "cloud_3d_distance", 40)));
-			cloud3dCell = Math.max(2, Math.min(24, (int) num(o, "cloud_3d_cell", 8)));
-			cloud3dLevels = Math.max(1, Math.min(8, (int) num(o, "cloud_3d_levels", 3)));
-			windStrength = Math.max(0, Math.min(4, num(o, "wind_strength", 1)));
-			windSpeed = Math.max(0, Math.min(4, num(o, "wind_speed", 1)));
-			farGrassTint = Math.max(0, Math.min(1, num(o, "far_grass_tint", 0.8F)));
-			String wc = o.has("water_color") ? o.get("water_color").getAsString().trim() : "#4FD6E3";
-			waterColor = wc.isEmpty() ? -1 : Integer.parseInt(wc.replace("#", ""), 16);
-			stars = bool(o, "stars", true);
-			milkyWay = Math.max(0, num(o, "milky_way", 1));
-			aurora = Math.max(0, num(o, "aurora", 1));
-			shootingStars = bool(o, "shooting_stars", true);
-			shootingStarPeriod = Math.max(1, num(o, "shooting_star_period", 12));
-			sunRays = bool(o, "sun_rays", true);
-			sunsetStyle = o.has("sunset_style") ? o.get("sunset_style").getAsString().toLowerCase(java.util.Locale.ROOT) : "auto";
-			fogTint = Math.max(0, Math.min(1, num(o, "fog_tint", 0.75F)));
-			version++;
-			SvregSky.LOG.info("SvregSky: sky settings loaded from {} (clouds {}x{}, blocky {})", CONFIG, paintedClouds, cloudLayers, blockyClouds);
+			apply(JsonParser.parseReader(reader).getAsJsonObject());
 		} catch (Exception e) {
 			SvregSky.LOG.warn("SvregSky: could not read {} ({}), using defaults", CONFIG, e.toString());
 		}
+		JsonObject user = com.svreg.sky.config.SkyConfig.read();
+		if (user != null) {
+			try {
+				apply(user);
+			} catch (Exception e) {
+				SvregSky.LOG.warn("SvregSky: bad config/svregsky.json ({})", e.toString());
+			}
+		}
+		version++;
+		SvregSky.LOG.info("SvregSky: sky settings loaded (clouds {} {}x{}, wind {})", cloudMode, paintedClouds, cloudLayers, windStrength);
+	}
+
+	/** applies the keys present in o; missing keys keep their current value */
+	public static void apply(JsonObject o) {
+			cirrusSky = bool(o, "cirrus_sky", cirrusSky);
+			paintedClouds = bool(o, "painted_clouds", paintedClouds);
+			cloudLayers = Math.max(1, Math.min(3, (int) num(o, "cloud_layers", cloudLayers)));
+			cloudCoverage = Math.max(-0.2F, Math.min(0.2F, num(o, "cloud_coverage", cloudCoverage)));
+			cloudSpeed = num(o, "cloud_speed", cloudSpeed);
+			if (o.has("cloud_texture")) {
+				cloudTexture = Identifier.parse(o.get("cloud_texture").getAsString());
+			}
+			blockyClouds = bool(o, "blocky_clouds", blockyClouds);
+			cloudMode = o.has("cloud_mode") ? o.get("cloud_mode").getAsString().toLowerCase(java.util.Locale.ROOT) : cloudMode;
+			cloud3dDistance = Math.max(8, Math.min(96, (int) num(o, "cloud_3d_distance", cloud3dDistance)));
+			cloud3dCell = Math.max(2, Math.min(24, (int) num(o, "cloud_3d_cell", cloud3dCell)));
+			cloud3dLevels = Math.max(1, Math.min(8, (int) num(o, "cloud_3d_levels", cloud3dLevels)));
+			windStrength = Math.max(0, Math.min(4, num(o, "wind_strength", windStrength)));
+			windSpeed = Math.max(0, Math.min(4, num(o, "wind_speed", windSpeed)));
+			farGrassTint = Math.max(0, Math.min(1, num(o, "far_grass_tint", farGrassTint)));
+			windLines = bool(o, "wind_lines", windLines);
+			windLineAmount = Math.max(0, Math.min(3, num(o, "wind_line_amount", windLineAmount)));
+			if (o.has("water_color")) {
+				String wc = o.get("water_color").getAsString().trim();
+				waterColor = wc.isEmpty() ? -1 : Integer.parseInt(wc.replace("#", ""), 16);
+			}
+			stars = bool(o, "stars", stars);
+			milkyWay = Math.max(0, num(o, "milky_way", milkyWay));
+			aurora = Math.max(0, num(o, "aurora", aurora));
+			shootingStars = bool(o, "shooting_stars", shootingStars);
+			shootingStarPeriod = Math.max(1, num(o, "shooting_star_period", shootingStarPeriod));
+			sunRays = bool(o, "sun_rays", sunRays);
+			sunsetStyle = o.has("sunset_style") ? o.get("sunset_style").getAsString().toLowerCase(java.util.Locale.ROOT) : sunsetStyle;
+			fogTint = Math.max(0, Math.min(1, num(o, "fog_tint", fogTint)));
 	}
 
 	private static boolean bool(JsonObject o, String key, boolean def) {

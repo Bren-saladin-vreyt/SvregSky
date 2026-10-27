@@ -50,17 +50,11 @@ public final class Wind {
 
 	/** alpha byte for a vertex at local height y (0..1 inside its block) */
 	public static int alpha(int kind, boolean upper, float localY) {
-		float w;
 		if (kind == 2) {
-			w = 0.35F;
-		} else {
-			w = Math.max(0, Math.min(2, localY + (upper ? 1 : 0)));
+			return 255 - 26; // leaves: their own marker, the shader gives them a gentle sway
 		}
-		int k = Math.round(w * 12);
-		if (kind == 2) {
-			k = Math.max(k, 1);
-		}
-		return 255 - Math.min(24, k);
+		float w = Math.max(0, Math.min(2, localY + (upper ? 1 : 0)));
+		return 255 - Math.min(24, Math.round(w * 12));
 	}
 
 	public static boolean enabled() {
@@ -101,17 +95,29 @@ public final class Wind {
 			    {
 			        int svK = 255 - int(_vert_color.a * 255.0 + 0.5);
 			        vec3 svWp = position + svregsky_Cam.xyz;
-			        if (svK > 0 && svK <= 24) {
+			        float svStr = svregsky_Wind.y;
+			        if (svK > 0 && (svK <= 24 || svK == 26)) {
 			            _vert_color.a = 1.0;
-			            float svW = float(svK) / 12.0;
+			            bool svLeaf = svK == 26;
+			            float svW = svLeaf ? 0.35 : float(svK) / 12.0;
 			            float svT = svregsky_Wind.x * svregsky_Wind.z;
-			            vec2 svDir = vec2(0.94, 0.33);
+			            vec2 svDir = vec2(0.943, 0.333);
+			            vec2 svSide = vec2(-svDir.y, svDir.x);
+			            float svAlong = dot(svWp.xz, svDir);
 			            float svPh = dot(svWp.xz, vec2(0.37, 0.21));
-			            float svGust = 0.5 + 0.5 * sin(svT * 0.7 - dot(svWp.xz, svDir) * 0.09);
-			            float svSway = 0.08 + 0.30 * svGust * svGust + 0.07 * sin(svT * 2.6 + svPh) + 0.03 * sin(svT * 5.1 + svPh * 1.7);
-			            float svAmt = svregsky_Wind.y * svSway * svW * 0.55;
-			            position.xz += svDir * svAmt;
-			            position.y -= svAmt * svAmt * 0.30;
+			            // big gust bands rolling across the meadow + smaller cross ripples
+			            float svWave = 0.5 + 0.5 * sin(svAlong * 0.16 - svT * 2.1);
+			            float svWave2 = 0.5 + 0.5 * sin(svAlong * 0.41 + dot(svWp.xz, svSide) * 0.23 - svT * 3.3);
+			            float svGust = clamp(0.62 * svWave * svWave + 0.38 * svWave2 * svWave, 0.0, 1.0);
+			            float svFlutter = 0.6 * sin(svT * 7.3 + svPh * 2.0) + 0.4 * sin(svT * 11.7 + svPh * 3.1);
+			            float svLean = svLeaf
+			                ? svStr * (0.10 + 0.20 * svGust + 0.08 * svFlutter)
+			                : svStr * (0.20 + 0.62 * svGust + 0.07 * svFlutter);
+			            float svAmt = svLean * svW * 0.62;
+			            position.xz += svDir * svAmt + svSide * (svStr * svW * 0.05 * svFlutter);
+			            position.y -= svAmt * svAmt * 0.42;
+			            // light sheen on the bent grass, so the gusts show as bright waves
+			            _vert_color.rgb *= 1.0 + min(svStr, 2.0) * (svLeaf ? 0.05 : 0.13) * svGust * clamp(svW, 0.0, 1.0);
 			        }
 			        if (svregsky_Wind.w > 0.0) {
 			            vec3 svC = _vert_color.rgb;

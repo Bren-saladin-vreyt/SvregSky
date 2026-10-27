@@ -123,6 +123,10 @@ public final class CirrusSky {
 	/** start of the vanilla sky pass lambda (overworld-style skies only reach the sky disc call) */
 	public static void beginFrame(SkyRenderState skyState) {
 		state = skyState;
+		Minecraft mcw = Minecraft.getInstance();
+		if (mcw.player != null) {
+			com.svreg.sky.wind.Wind.setCamera(mcw.player.getEyePosition()); // fallback when vanilla clouds are off
+		}
 		overworld = false;
 		float a = skyState.sunAngle;
 		sunDir.set(-(float) Math.sin(a), (float) Math.cos(a), 0);
@@ -158,6 +162,10 @@ public final class CirrusSky {
 
 	public static Vector4f skyExtra() {
 		return new Vector4f(rise, 0, 0, org);
+	}
+
+	public static float dayLevel() {
+		return day;
 	}
 
 	public static float rainLevel() {

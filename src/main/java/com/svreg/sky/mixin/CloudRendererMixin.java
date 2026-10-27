@@ -23,6 +23,8 @@ public abstract class CloudRendererMixin {
 		if (CloudLayers.isRendering() || CloudLayers.isOurs((CloudRenderer) (Object) this)) {
 			return;
 		}
+		com.svreg.sky.wind.Wind.setCamera(cameraPosition);
+		com.svreg.sky.wind.WindLines.render(cameraPosition);
 		if (SkySettings.cloud3d()) {
 			CloudVoxels.render(bottomY, cameraPosition); // real 3D Cirrus clouds
 			ci.cancel();
