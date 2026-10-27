@@ -54,6 +54,9 @@ public final class ToonItems {
 				return;
 			}
 			apply(image);
+			if (name.getPath().equals("item/diamond_sword") || name.getPath().equals("item/apple")) {
+				SvregSky.LOG.info("SvregSky: cartoon item textures on ({})", name);
+			}
 		} catch (Throwable t) {
 			SvregSky.LOG.warn("SvregSky: could not cartoon {}: {}", name, t.toString());
 		}

@@ -14,7 +14,7 @@ public class SkyScreenshots implements FabricClientGameTest {
 			// the test framework turns clouds off for deterministic screenshots; we want to see them
 			context.runOnClient(client -> client.options.cloudStatus().set(CloudStatus.FANCY));
 			sp.getConnection().waitForChunksRender();
-			String[] items = {"wooden_sword", "iron_sword", "diamond_sword", "netherite_sword", "apple", "bow", "golden_carrot", "ender_pearl", "torch"};
+			String[] items = {"diamond_sword", "iron_sword", "diamond_sword", "netherite_sword", "apple", "bow", "golden_carrot", "ender_pearl", "torch"};
 			for (int i = 0; i < items.length; i++) {
 				sp.getServer().runCommand("item replace entity @a hotbar." + i + " with " + items[i]);
 			}
