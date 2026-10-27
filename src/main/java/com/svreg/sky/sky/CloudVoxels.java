@@ -54,7 +54,7 @@ public final class CloudVoxels {
 	private static float builtCov;
 
 	private static double windX, windZ;
-	private static int logs;
+	private static int logs, frames;
 	private static long lastNanos;
 
 	private CloudVoxels() {
@@ -214,6 +214,9 @@ public final class CloudVoxels {
 				if (logs++ < 6) {
 					SvregSky.LOG.info("SvregSky: 3D clouds built {} faces around cell {},{} (camera y {}, cloud base {})", quadCount, ccx, ccz, (int) cam.y, (int) bottomY);
 				}
+			}
+			if ((frames++ % 300) == 0) {
+				SvregSky.LOG.info("SvregSky: 3D clouds frame {} camY {} faces {} mesh {}", frames, (int) cam.y, quadCount, mesh != null);
 			}
 			if (mesh == null || quadCount == 0) {
 				return;
