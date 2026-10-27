@@ -22,12 +22,12 @@ public class SkyScreen extends OptionsSubScreen {
 		super(lastScreen, options, Component.translatable("svregsky.options.title"));
 	}
 
-	private static OptionInstance<Boolean> bool(String key, boolean value, Consumer<Boolean> set) {
+	private static OptionInstance<Boolean> bool(String key, boolean value, OptionInstance.ValueUpdateListener<Boolean> set) {
 		return new OptionInstance<>("svregsky.options." + key, OptionInstance.noTooltip(), OptionInstance.BOOLEAN_TO_STRING,
 				OptionInstance.BOOLEAN_VALUES, value, set);
 	}
 
-	private static OptionInstance<Integer> slider(String key, int min, int max, int value, IntFunction<String> label, Consumer<Integer> set) {
+	private static OptionInstance<Integer> slider(String key, int min, int max, int value, IntFunction<String> label, OptionInstance.ValueUpdateListener<Integer> set) {
 		return new OptionInstance<>("svregsky.options." + key, OptionInstance.noTooltip(),
 				(caption, v) -> Options.genericValueLabel(caption, Component.literal(label.apply(v))),
 				new OptionInstance.IntRange(min, max, true), Math.max(min, Math.min(max, value)), set);
@@ -37,7 +37,7 @@ public class SkyScreen extends OptionsSubScreen {
 		return slider(key, 0, max, Math.round(value * 100), v -> v == 0 ? "OFF" : v + "%", v -> set.accept(v / 100F));
 	}
 
-	private static OptionInstance<String> choice(String key, List<String> values, String value, Consumer<String> set) {
+	private static OptionInstance<String> choice(String key, List<String> values, String value, OptionInstance.ValueUpdateListener<String> set) {
 		return new OptionInstance<>("svregsky.options." + key, OptionInstance.noTooltip(),
 				(caption, v) -> Options.genericValueLabel(caption, Component.translatable("svregsky.options." + key + "." + v)),
 				new OptionInstance.Enum<>(values, Codec.STRING), values.contains(value) ? value : values.get(0), set);
