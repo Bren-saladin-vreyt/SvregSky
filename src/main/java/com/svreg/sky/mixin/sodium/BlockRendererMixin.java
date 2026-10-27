@@ -24,7 +24,7 @@ public abstract class BlockRendererMixin {
 	private float svregsky$originY;
 
 	@Inject(method = "renderModel", at = @At("HEAD"), require = 0)
-	private void svregsky$begin(@Local(argsOnly = true) BlockState state, @Local(argsOnly = true, ordinal = 1) BlockPos origin, CallbackInfo ci) {
+	private void svregsky$begin(CallbackInfo ci, @Local(argsOnly = true) BlockState state, @Local(argsOnly = true, ordinal = 1) BlockPos origin) {
 		this.svregsky$kind = Wind.kind(state);
 		this.svregsky$upper = this.svregsky$kind == 1 && Wind.upperHalf(state);
 		this.svregsky$originY = origin.getY();
