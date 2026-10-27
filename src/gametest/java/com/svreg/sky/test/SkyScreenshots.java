@@ -59,6 +59,13 @@ public class SkyScreenshots implements FabricClientGameTest {
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 170 ~");
 			context.waitTicks(30);
 			shot(context, sp, 6000, 90, -20, "r_3d_below_near");
+			shot(context, sp, 6000, 90, -90, "s_3d_below_straight_up");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 120 ~");
+			context.waitTicks(30);
+			shot(context, sp, 6000, 90, -60, "t_3d_from_120");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 60 ~");
+			context.waitTicks(30);
+			shot(context, sp, 6000, 90, -60, "u_3d_from_60");
 		}
 	}
 
