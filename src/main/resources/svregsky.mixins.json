@@ -8,7 +8,9 @@
 		"FogColorMixin",
 		"SkyPassMixin",
 		"SkyRendererMixin",
-		"SpriteContentsMixin"
+		"SpriteContentsMixin",
+		"BiomeWaterMixin",
+		"ShaderManagerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -146,6 +146,28 @@ public final class CirrusSky {
 		windZ = (windZ + dt * speed * 0.33) % 40.0;
 	}
 
+	/** sky colour parameters for other Cirrus shaders (3D clouds): same layout as the sky shader's TextureMat */
+	public static Matrix4f skyParams() {
+		float time = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
+		return new Matrix4f(
+				sunDir.x, sunDir.y, sunDir.z, time,
+				day, gold, night, rain,
+				0, 0, 0, 0,
+				0, SkySettings.cloudCoverage, 0, 0);
+	}
+
+	public static Vector4f skyExtra() {
+		return new Vector4f(rise, 0, 0, org);
+	}
+
+	public static float rainLevel() {
+		return rain;
+	}
+
+	public static boolean recentlyDrawn() {
+		return !broken && System.nanoTime() - lastDrawNanos < 1_000_000_000L;
+	}
+
 	public static boolean skyActive() {
 		return overworld && SkySettings.cirrusSky;
 	}
@@ -195,7 +217,9 @@ public final class CirrusSky {
 					day, gold, night, rain,
 					offX, offZ, 0.0F, SkySettings.aurora,
 					flags, SkySettings.cloudCoverage, SkySettings.shootingStarPeriod, mode);
-			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, SkySettings.cloudLayers, org);
+			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
+			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers;
+			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, layers, org);
 			// a big cube (far inside the far plane) so the walking bob's small camera shift can't make the sky wobble
 			int chunks = Math.max(2, mc.options.getEffectiveRenderDistance());
 			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));

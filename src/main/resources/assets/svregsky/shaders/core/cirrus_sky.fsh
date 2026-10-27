@@ -324,7 +324,9 @@ vec4 clouds(vec3 dir, vec3 sunDir, float day, float gold, float org, float rain,
     ldir = normalize(mix(ldir, sxz, gold * 0.6) + vec2(1e-4));
 
     float cov = COV - coverAdj - 0.12 * rain;
-    vec4 k = cloudLayer(q0 * 3.0 + off, ldir, cov, p, 0.0, 1.0);
+    bool skipNear = layers < 0;
+    layers = abs(layers);
+    vec4 k = skipNear ? vec4(0.0) : cloudLayer(q0 * 3.0 + off, ldir, cov, p, 0.0, 1.0);
     if (k.a < 0.5 && layers >= 2) {
         const mat2 r1 = mat2(0.80, -0.60, 0.60, 0.80);
         k = cloudLayer(r1 * (q0 * 5.6) + vec2(37.1, 12.7) + off, r1 * ldir, cov + 0.075, p, 0.28, 0.95);
@@ -357,7 +359,7 @@ void main() {
     float rise = ColorModulator.x;
     float org = ColorModulator.w;
     float milkyStrength = ColorModulator.y;
-    int layers = int(ColorModulator.z + 0.5);
+    int layers = int(round(ColorModulator.z));
 
     if (mode > 0.5) {
         vec4 k = clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);

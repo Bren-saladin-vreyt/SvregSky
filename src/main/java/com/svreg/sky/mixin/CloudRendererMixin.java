@@ -1,6 +1,7 @@
 package com.svreg.sky.mixin;
 
 import com.svreg.sky.clouds.CloudLayers;
+import com.svreg.sky.sky.CloudVoxels;
 import com.svreg.sky.sky.SkySettings;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
@@ -22,6 +23,11 @@ public abstract class CloudRendererMixin {
 		if (CloudLayers.isRendering() || CloudLayers.isOurs((CloudRenderer) (Object) this)) {
 			return;
 		}
+		if (SkySettings.cloud3d()) {
+			CloudVoxels.render(bottomY, cameraPosition); // real 3D Cirrus clouds
+			ci.cancel();
+			return;
+		}
 		if (!SkySettings.blockyClouds) {
 			ci.cancel(); // the painted Cirrus clouds replace the block clouds
 			return;
@@ -35,6 +41,7 @@ public abstract class CloudRendererMixin {
 	private void svregsky$reload(Optional<CloudRenderer.TextureData> preparations, ResourceManager manager, ProfilerFiller profiler, CallbackInfo ci) {
 		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
 			SkySettings.load(manager);
+			CloudVoxels.reload(manager);
 			CloudLayers.reload(manager);
 		}
 	}
@@ -57,6 +64,7 @@ public abstract class CloudRendererMixin {
 	private void svregsky$close(CallbackInfo ci) {
 		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
 			CloudLayers.close();
+			CloudVoxels.close();
 		}
 	}
 }

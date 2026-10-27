@@ -4,15 +4,26 @@
 	"version": "${version}",
 	"name": "SvregSky",
 	"description": "Ghibli-style multi-layer 3D clouds without shaders.",
-	"authors": ["Bren"],
+	"authors": [
+		"Bren"
+	],
 	"license": "MIT",
 	"icon": "assets/svregsky/icon.png",
 	"environment": "client",
 	"entrypoints": {
-		"client": ["com.svreg.sky.SvregSky"]
+		"client": [
+			"com.svreg.sky.SvregSky"
+		]
 	},
 	"mixins": [
-		{ "config": "svregsky.mixins.json", "environment": "client" }
+		{
+			"config": "svregsky.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "svregsky.sodium.mixins.json",
+			"environment": "client"
+		}
 	],
 	"depends": {
 		"fabricloader": ">=0.20.1",

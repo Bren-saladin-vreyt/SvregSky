@@ -19,6 +19,14 @@ import java.nio.charset.StandardCharsets;
  * {
  *   "cirrus_sky": true,          // Ghibli gradient sky (false = vanilla sky colours)
  *   "painted_clouds": true,      // pixel-cumulus clouds painted on the sky
+ *   "cloud_mode": "painted",     // "painted" = clouds painted on the sky, "3d" = real 3D block clouds (far layers stay painted)
+ *   "cloud_3d_distance": 40,     // 3D clouds: radius in cells (1 cell = cloud_3d_cell blocks)
+ *   "cloud_3d_cell": 8,          // 3D clouds: block size of one cloud cell
+ *   "cloud_3d_levels": 3,        // 3D clouds: how many steps tall the thickest clouds get
+ *   "wind_strength": 1.0,        // grass/leaves wind (needs Sodium): 0 = off, 1 = breeze, 3 = storm
+ *   "wind_speed": 1.0,
+ *   "far_grass_tint": 0.8,       // distant grass shifts toward a soft Ghibli sage green (0 = off)
+ *   "water_color": "#4FD6E3",    // water tint everywhere ("" = vanilla biome colours)
  *   "cloud_layers": 3,           // 1..3 (fewer = faster)
  *   "cloud_coverage": 0.0,       // -0.1 (fewer clouds) .. 0.1 (more clouds)
  *   "cloud_speed": 1.0,          // drift speed, 0 = still
@@ -45,6 +53,19 @@ public final class SkySettings {
 	public static float cloudSpeed = 1.0F;
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static boolean blockyClouds = false;
+	public static String cloudMode = "painted";
+	public static int cloud3dDistance = 40;
+	public static int cloud3dCell = 8;
+	public static int cloud3dLevels = 3;
+	public static float windStrength = 1.0F;
+	public static float windSpeed = 1.0F;
+	public static float farGrassTint = 0.8F;
+	public static int waterColor = 0x4FD6E3; // -1 = vanilla
+	public static volatile int version;
+
+	public static boolean cloud3d() {
+		return "3d".equals(cloudMode);
+	}
 	public static boolean stars = true;
 	public static float milkyWay = 1.0F;
 	public static float aurora = 1.0F;
@@ -68,6 +89,15 @@ public final class SkySettings {
 			cloudTexture = o.has("cloud_texture") ? Identifier.parse(o.get("cloud_texture").getAsString())
 					: Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 			blockyClouds = bool(o, "blocky_clouds", false);
+			cloudMode = o.has("cloud_mode") ? o.get("cloud_mode").getAsString().toLowerCase(java.util.Locale.ROOT) : "painted";
+			cloud3dDistance = Math.max(8, Math.min(96, (int) num(o, "cloud_3d_distance", 40)));
+			cloud3dCell = Math.max(2, Math.min(24, (int) num(o, "cloud_3d_cell", 8)));
+			cloud3dLevels = Math.max(1, Math.min(8, (int) num(o, "cloud_3d_levels", 3)));
+			windStrength = Math.max(0, Math.min(4, num(o, "wind_strength", 1)));
+			windSpeed = Math.max(0, Math.min(4, num(o, "wind_speed", 1)));
+			farGrassTint = Math.max(0, Math.min(1, num(o, "far_grass_tint", 0.8F)));
+			String wc = o.has("water_color") ? o.get("water_color").getAsString().trim() : "#4FD6E3";
+			waterColor = wc.isEmpty() ? -1 : Integer.parseInt(wc.replace("#", ""), 16);
 			stars = bool(o, "stars", true);
 			milkyWay = Math.max(0, num(o, "milky_way", 1));
 			aurora = Math.max(0, num(o, "aurora", 1));
@@ -76,6 +106,7 @@ public final class SkySettings {
 			sunRays = bool(o, "sun_rays", true);
 			sunsetStyle = o.has("sunset_style") ? o.get("sunset_style").getAsString().toLowerCase(java.util.Locale.ROOT) : "auto";
 			fogTint = Math.max(0, Math.min(1, num(o, "fog_tint", 0.75F)));
+			version++;
 			SvregSky.LOG.info("SvregSky: sky settings loaded from {} (clouds {}x{}, blocky {})", CONFIG, paintedClouds, cloudLayers, blockyClouds);
 		} catch (Exception e) {
 			SvregSky.LOG.warn("SvregSky: could not read {} ({}), using defaults", CONFIG, e.toString());

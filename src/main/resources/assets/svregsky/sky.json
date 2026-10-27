@@ -1,6 +1,10 @@
 {
   "cirrus_sky": true,
   "painted_clouds": true,
+  "cloud_mode": "painted",
+  "cloud_3d_distance": 40,
+  "cloud_3d_cell": 8,
+  "cloud_3d_levels": 3,
   "cloud_layers": 3,
   "cloud_coverage": 0.0,
   "cloud_speed": 1.0,
@@ -14,5 +18,9 @@
   "sun_rays": true,
   "sunset_style": "auto",
   "fog_tint": 0.75,
-  "toon_items": true
+  "toon_items": true,
+  "wind_strength": 1.0,
+  "wind_speed": 1.0,
+  "far_grass_tint": 0.8,
+  "water_color": "#4FD6E3"
 }

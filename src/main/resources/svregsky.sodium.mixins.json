@@ -1,0 +1,12 @@
+{
+	"required": false,
+	"package": "com.svreg.sky.mixin.sodium",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"BlockRendererMixin",
+		"GLDrawContextMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}
