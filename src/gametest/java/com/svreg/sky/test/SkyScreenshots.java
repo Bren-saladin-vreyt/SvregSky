@@ -15,11 +15,15 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> client.options.cloudStatus().set(CloudStatus.FANCY));
 			sp.getConnection().waitForChunksRender();
 
-			shot(context, sp, 6000, 0, -25, "noon_north");
-			shot(context, sp, 6000, 135, -55, "noon_up");
-			shot(context, sp, 6000, 90, -8, "noon_horizon");
-			shot(context, sp, 12000, 90, -15, "sunset_west");
-			shot(context, sp, 18000, 0, -30, "night_north");
+			shot(context, sp, 6000, 0, -25, "a_noon_south");
+			shot(context, sp, 6000, 135, -55, "b_noon_up");
+			shot(context, sp, 6000, 90, -6, "c_noon_horizon");
+			shot(context, sp, 10500, 90, -12, "d_afternoon_west");
+			shot(context, sp, 12100, 90, -12, "e_sunset_west");
+			shot(context, sp, 12100, -90, -12, "f_sunset_east");
+			shot(context, sp, 23300, -90, -12, "g_sunrise_east");
+			shot(context, sp, 18000, 180, -25, "h_night_north");
+			shot(context, sp, 18000, 30, -70, "i_night_up");
 		}
 	}
 

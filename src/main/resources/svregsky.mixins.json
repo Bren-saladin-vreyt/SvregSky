@@ -4,7 +4,10 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"CloudRendererAccessor",
-		"CloudRendererMixin"
+		"CloudRendererMixin",
+		"FogColorMixin",
+		"SkyPassMixin",
+		"SkyRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -1,0 +1,16 @@
+{
+  "cirrus_sky": true,
+  "painted_clouds": true,
+  "cloud_layers": 3,
+  "cloud_coverage": 0.0,
+  "cloud_speed": 1.0,
+  "cloud_texture": "svregsky:textures/sky/clouds.png",
+  "blocky_clouds": false,
+  "stars": true,
+  "milky_way": 1.0,
+  "aurora": 1.0,
+  "shooting_stars": true,
+  "shooting_star_period": 12,
+  "sun_rays": true,
+  "fog_tint": 0.75
+}

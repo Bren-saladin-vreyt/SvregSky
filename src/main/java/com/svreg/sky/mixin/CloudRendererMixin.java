@@ -1,6 +1,7 @@
 package com.svreg.sky.mixin;
 
 import com.svreg.sky.clouds.CloudLayers;
+import com.svreg.sky.sky.SkySettings;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -21,6 +22,10 @@ public abstract class CloudRendererMixin {
 		if (CloudLayers.isRendering() || CloudLayers.isOurs((CloudRenderer) (Object) this)) {
 			return;
 		}
+		if (!SkySettings.blockyClouds) {
+			ci.cancel(); // the painted Cirrus clouds replace the block clouds
+			return;
+		}
 		CloudLayers.render(color, cloudStatus, bottomY, range, cameraPosition, gameTime, partialTicks);
 		ci.cancel();
 	}
@@ -29,6 +34,7 @@ public abstract class CloudRendererMixin {
 	@Inject(method = "apply(Ljava/util/Optional;Lnet/minecraft/server/packs/resources/ResourceManager;Lnet/minecraft/util/profiling/ProfilerFiller;)V", at = @At("TAIL"))
 	private void svregsky$reload(Optional<CloudRenderer.TextureData> preparations, ResourceManager manager, ProfilerFiller profiler, CallbackInfo ci) {
 		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
+			SkySettings.load(manager);
 			CloudLayers.reload(manager);
 		}
 	}

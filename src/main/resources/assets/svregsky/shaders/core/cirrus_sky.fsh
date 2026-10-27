@@ -1,0 +1,386 @@
+#version 330
+
+// SvregSky "Cirrus" sky: Ghibli gradient, sun glow + rays, stars, milky way, aurora, shooting stars (mode 0)
+// and the painted pixel-cumulus cloud layers (mode 1, drawn after the sun and moon so clouds cover them).
+// Every parameter comes in through TextureMat / ColorModulator / ModelOffset (see CirrusSky.java).
+
+#moj_import <minecraft:dynamictransforms.glsl>
+
+uniform sampler2D Sampler0; // baked cloud density: R = density, G/B = 16-bit cluster shape
+
+in vec3 skyDir;
+
+out vec4 fragColor;
+
+const int F_GRADIENT = 1;
+const int F_CLOUDS = 2;
+const int F_STARS = 4;
+const int F_MILKYWAY = 8;
+const int F_AURORA = 16;
+const int F_SHOOTING = 32;
+const int F_RAYS = 64;
+
+// ---------------------------------------------------------------- noise
+float hash2(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+float hash3(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.zyx + 31.32);
+    return fract((p.x + p.y) * p.z);
+}
+
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float a = hash2(i);
+    float b = hash2(i + vec2(1.0, 0.0));
+    float c = hash2(i + vec2(0.0, 1.0));
+    float d = hash2(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm3(vec2 p) {
+    const mat2 rot = mat2(0.80, -0.60, 0.60, 0.80);
+    float v = 0.55 * noise(p);
+    p = rot * p * 2.05 + vec2(5.7, 3.2);
+    v += 0.30 * noise(p);
+    p = rot * p * 2.10 + vec2(11.3, 7.9);
+    v += 0.15 * noise(p);
+    return v;
+}
+
+float sstep(float e0, float e1, float x) {
+    return smoothstep(e0, e1, x);
+}
+
+// ---------------------------------------------------------------- background gradient
+vec3 gradient(float dy, vec3 horizon, vec3 mid, vec3 zenith, vec3 below) {
+    float h = clamp(dy, 0.0, 1.0);
+    vec3 col = mix(mix(horizon, mid, sstep(0.0, 0.22, h)), zenith, sstep(0.18, 0.75, h));
+    vec3 under = mix(horizon, below, 1.0 - sstep(-0.25, 0.0, dy));
+    return dy < 0.0 ? under : col;
+}
+
+vec3 skyDay(float dy) {
+    return gradient(dy, vec3(0.80, 0.96, 0.99), vec3(0.30, 0.75, 0.98), vec3(0.12, 0.58, 0.97), vec3(0.45, 0.70, 0.85));
+}
+
+vec3 skyNight(float dy) {
+    return gradient(dy, vec3(0.22, 0.20, 0.66), vec3(0.10, 0.12, 0.46), vec3(0.03, 0.06, 0.22), vec3(0.05, 0.06, 0.14));
+}
+
+// magenta -> yellow sunset (rise = 0) or a softer, pinker sunrise (rise = 1)
+vec3 skyEvent(vec3 dir, vec3 sunDir, float rise) {
+    float dy = dir.y;
+    float h = clamp(dy, 0.0, 1.0);
+    vec2 dxz = normalize(dir.xz + vec2(1e-5));
+    vec2 sxz = normalize(sunDir.xz + vec2(1e-5));
+    float side = pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.4);
+
+    vec3 hz = mix(vec3(0.97, 0.55, 0.16), vec3(1.00, 0.68, 0.32), rise);
+    vec3 og = mix(vec3(0.86, 0.32, 0.28), vec3(0.94, 0.46, 0.40), rise);
+    vec3 mg = mix(vec3(0.64, 0.18, 0.50), vec3(0.76, 0.32, 0.58), rise);
+    const vec3 vi = vec3(0.55, 0.17, 0.58);
+    const vec3 ze = vec3(0.45, 0.16, 0.56);
+
+    vec3 sg = mix(hz, og, sstep(0.0, 0.10, h));
+    sg = mix(sg, mg, sstep(0.08, 0.30, h));
+    sg = mix(sg, vi, sstep(0.28, 0.60, h));
+    sg = mix(sg, ze, sstep(0.55, 0.95, h));
+
+    vec3 ag = mix(vec3(0.78, 0.34, 0.46), vec3(0.52, 0.18, 0.56), sstep(0.0, 0.25, h));
+    ag = mix(ag, ze, sstep(0.25, 0.85, h));
+    vec3 col = mix(ag, sg, side);
+
+    vec3 under = mix(mix(vec3(0.55, 0.32, 0.48), vec3(0.95, 0.55, 0.35), side), vec3(0.20, 0.15, 0.28), 1.0 - sstep(-0.25, 0.0, dy));
+    return dy < 0.0 ? under : col;
+}
+
+// ---------------------------------------------------------------- night sky
+float softStar(vec3 p, float scale, float thr, float tm, out float seed) {
+    vec3 sp = p * scale;
+    vec3 id = floor(sp);
+    vec3 f = fract(sp) - 0.5;
+    float hs = hash3(id);
+    seed = hs;
+    if (hs < thr) {
+        return 0.0;
+    }
+    vec3 offset = vec3(fract(hs * 13.7), fract(hs * 29.3), fract(hs * 53.1)) - 0.5;
+    float d = length(f - offset * 0.35);
+    float core = exp(-d * d * 38.0);
+    float halo = exp(-d * d * 10.0) * 0.35;
+    float twinkle = 0.65 + 0.35 * sin(tm * (1.4 + fract(hs * 19.0) * 1.5) + hs * 300.0);
+    return (core + halo) * (1.0 - sstep(0.08, 0.45, d)) * twinkle;
+}
+
+vec4 auroraCurtain(float u, float h, float tm, float seed, float baseH, float amp) {
+    float wob = noise(vec2(u * 2.2 + tm * 0.020, seed));
+    float wob2 = noise(vec2(u * 5.5 - tm * 0.035, seed + 4.0));
+    float c = baseH + amp * (wob - 0.5) * 2.0 + 0.03 * (wob2 - 0.5);
+    float rel = h - c;
+    if (rel < -0.01) {
+        return vec4(0.0);
+    }
+    float body = sstep(0.0, 0.012, rel) * exp(-max(rel, 0.0) * 6.0);
+    float rays = 0.40 + 0.60 * sstep(0.25, 0.85, noise(vec2(u * 48.0 + wob * 6.0, tm * 0.09 + seed)));
+    float fold = sstep(0.30, 0.70, noise(vec2(u * 1.5 + tm * 0.010, seed + 11.0)));
+    float hh = clamp(rel * 4.5, 0.0, 1.0);
+    vec3 ac = mix(mix(vec3(0.15, 1.00, 0.55), vec3(0.10, 0.80, 0.95), sstep(0.0, 0.45, hh)), vec3(0.68, 0.30, 0.95), sstep(0.45, 1.0, hh));
+    return vec4(ac, body * rays * fold);
+}
+
+vec3 nightSky(vec3 col, vec3 dir, vec3 sunDir, float vis, float visLow, float tm, int flags, float auroraStrength, float milkyStrength, float shootPeriod) {
+    // celestial frame: turns with the sun, so stars and the milky way rise and set
+    float sl = max(length(sunDir.xy), 0.001);
+    float cs = sunDir.x / sl;
+    float sn = sunDir.y / sl;
+    vec3 cel = vec3(dir.x * cs + dir.y * sn, -dir.x * sn + dir.y * cs, dir.z);
+    float mwMask = 0.0;
+
+    if ((flags & F_MILKYWAY) != 0 && milkyStrength > 0.0) {
+        const vec3 gN = vec3(0.1527, 0.5599, 0.8144);
+        const vec3 gE1 = vec3(0.9649, -0.2631, 0.0);
+        const vec3 gE2 = vec3(0.2143, 0.7858, -0.5804);
+        float bd = dot(cel, gN);
+        float mw = exp(-(bd * bd) / 0.03);
+        mwMask = mw;
+        if (mw > 0.002) {
+            float lonA = atan(dot(cel, gE2), dot(cel, gE1));
+            vec2 mp = vec2(lonA * 3.0, bd * 9.0);
+            float dust1 = fbm3(mp * 1.8 + 3.1);
+            float dust2 = fbm3(mp * 3.8 + 11.7);
+            float dust3 = noise(mp * 11.0 + 5.0);
+            float coreW = 0.45 + 0.85 * sstep(-0.3, 0.9, dot(cel, gE1));
+            float core = exp(-(bd * bd) / 0.006) * coreW;
+            float glow = (0.28 + 0.90 * dust1) * (mw * 0.65 + core * 1.10) * (0.75 + 0.50 * dust3);
+            float riftC = bd + (dust2 - 0.5) * 0.10;
+            glow *= 1.0 - 0.75 * exp(-(riftC * riftC) / 0.0016) * sstep(0.25, 0.70, dust1 + 0.2);
+            vec3 mwCol = mix(mix(vec3(0.30, 0.40, 0.85), vec3(0.52, 0.50, 0.92), sstep(0.08, 0.40, glow)), vec3(0.80, 0.72, 0.92), sstep(0.60, 1.30, glow * coreW));
+            col = mix(col, mwCol, clamp(glow * 0.28, 0.0, 0.40) * vis * milkyStrength);
+        }
+    }
+
+    if ((flags & F_STARS) != 0) {
+        float hs1, hs2;
+        float small = softStar(cel, 240.0, 0.988 - 0.025 * mwMask, tm, hs1);
+        float big = softStar(cel + vec3(0.37, 0.71, 0.19), 95.0, 0.994, tm * 0.8, hs2);
+        vec3 c1 = mix(vec3(0.75, 0.88, 1.00), vec3(1.00, 0.92, 0.80), fract(hs1 * 91.7));
+        vec3 c2 = mix(vec3(0.85, 0.92, 1.00), vec3(1.00, 0.85, 0.70), fract(hs2 * 47.3));
+        col += (c1 * small * 1.05 + c2 * big * 1.70) * vis;
+    }
+
+    if ((flags & F_AURORA) != 0 && auroraStrength > 0.0) {
+        vec2 dxz = normalize(dir.xz + vec2(1e-4));
+        const vec2 aDir = vec2(0.34, -0.94); // toward north
+        float along = dot(dxz, aDir);
+        if (along > -0.6) {
+            float u = atan(dot(dxz, vec2(-aDir.y, aDir.x)), along);
+            float sector = sstep(-0.6, 0.15, along);
+            vec4 a1 = auroraCurtain(u, dir.y, tm, 1.0, 0.17, 0.07);
+            vec4 a2 = auroraCurtain(u * 1.3 + 2.0, dir.y, tm, 7.0, 0.31, 0.06);
+            col += (a1.rgb * a1.a + a2.rgb * a2.a * 0.55) * 0.80 * auroraStrength * sector * visLow;
+        }
+    }
+
+    if ((flags & F_SHOOTING) != 0 && shootPeriod > 0.5) {
+        float tt = tm / shootPeriod;
+        float sid = floor(tt);
+        float lt = fract(tt) * shootPeriod;
+        if (lt < 1.1 && hash2(vec2(sid, 1.7)) < 0.75) {
+            float azs = hash2(vec2(sid, 5.3)) * 6.2831853;
+            float els = 0.35 + 0.55 * hash2(vec2(sid, 9.1));
+            float rr = sqrt(1.0 - els * els);
+            vec3 sa = vec3(cos(azs) * rr, els, sin(azs) * rr);
+            vec3 st0 = normalize(cross(sa, vec3(0.0, 1.0, 0.0)));
+            vec3 st1 = cross(sa, st0);
+            float sang = hash2(vec2(sid, 13.7)) * 6.2831853;
+            vec3 sv = st0 * cos(sang) + st1 * sin(sang);
+            vec3 snrm = cross(sa, sv);
+            float prog = lt / 1.1;
+            float sHead = prog * 0.55;
+            float sTail = max(sHead - 0.16 * (0.4 + 0.6 * sin(prog * 3.14159)), 0.0);
+            float env = sstep(0.0, 0.12, prog) * (1.0 - sstep(0.70, 1.0, prog));
+            float off = abs(dot(dir, snrm));
+            if (off < 0.012) {
+                float sdAng = atan(dot(dir, sv), dot(dir, sa));
+                float alongS = (sdAng - sTail) / max(sHead - sTail, 0.0001);
+                if (alongS > 0.0 && alongS < 1.0) {
+                    float wS = mix(0.0006, 0.0026, alongS);
+                    float lineS = 1.0 - sstep(0.0, wS, off);
+                    col += vec3(0.85, 0.93, 1.0) * lineS * pow(alongS, 2.2) * env * 2.2 * vis;
+                }
+            }
+            vec3 headP = sa * cos(sHead) + sv * sin(sHead);
+            float hd = length(dir - headP);
+            col += vec3(0.90, 0.95, 1.0) * exp(-hd * hd * 9000.0) * env * 1.6 * vis;
+        }
+    }
+    return col;
+}
+
+// ---------------------------------------------------------------- painted pixel cumulus
+const float PX = 62.0;   // sky pixels per projection unit
+const float COV = 0.545; // density threshold of the near layer (~30% of the sky)
+
+vec2 decode(vec4 t) {
+    return vec2(t.r, t.g * (255.0 * 256.0 / 65535.0) + t.b * (255.0 / 65535.0));
+}
+
+// density (x) and cluster shape (y) at cloud-plane position q; one texture tile = 40 plane units, wraps around
+vec2 cloudSample(vec2 q) {
+    ivec2 size = textureSize(Sampler0, 0);
+    vec2 fs = vec2(size);
+    vec2 t = mod(q / 40.0 * fs - 0.5, fs);
+    vec2 i = floor(t);
+    vec2 f = t - i;
+    ivec2 i0 = min(ivec2(i), size - 1);
+    ivec2 i1 = i0 + 1;
+    i1 -= size * ivec2(greaterThanEqual(i1, size));
+    vec2 va = decode(texelFetch(Sampler0, i0, 0));
+    vec2 vb = decode(texelFetch(Sampler0, ivec2(i1.x, i0.y), 0));
+    vec2 vc = decode(texelFetch(Sampler0, ivec2(i0.x, i1.y), 0));
+    vec2 vd = decode(texelFetch(Sampler0, i1, 0));
+    return mix(mix(va, vb, f.x), mix(vc, vd, f.x), f.y);
+}
+
+struct Palette {
+    vec3 t0;
+    vec3 t1;
+    vec3 t2;
+    vec3 t3;
+    vec3 haze;
+};
+
+vec4 cloudLayer(vec2 q, vec2 ldir, float thr, Palette p, float hz, float am) {
+    vec2 s = cloudSample(q);
+    if (s.x < thr) {
+        return vec4(0.0);
+    }
+    float cl2 = cloudSample(q + ldir * 0.45).y;
+    float sun = clamp((s.y - cl2) * 14.0 + 0.55, 0.0, 1.0);
+    float thick = clamp((s.x - thr) * 5.0, 0.0, 1.0);
+    float l = clamp(0.55 * sun + 0.45 * (1.0 - thick * 0.9), 0.0, 1.0);
+    l = floor(l * 3.999) / 3.0;
+    vec3 c = p.t0;
+    c = mix(c, p.t1, step(0.30, l));
+    c = mix(c, p.t2, step(0.60, l));
+    c = mix(c, p.t3, step(0.95, l));
+    return vec4(mix(c, p.haze, hz), am);
+}
+
+vec4 clouds(vec3 dir, vec3 sunDir, float day, float gold, float rain, vec2 off, float coverAdj, int layers) {
+    if (dir.y < 0.03) {
+        return vec4(0.0);
+    }
+    // palettes: day / golden hour / night, then rain greys them out
+    vec3 lit = mix(vec3(0.36, 0.38, 0.55), vec3(1.00, 1.00, 0.98), day);
+    vec3 mid = mix(vec3(0.20, 0.21, 0.34), vec3(0.84, 0.92, 0.99), day);
+    vec3 shade = mix(vec3(0.10, 0.10, 0.19), vec3(0.62, 0.76, 0.93), day);
+    vec3 haze = mix(vec3(0.14, 0.16, 0.44), vec3(0.48, 0.80, 0.97), day);
+    lit = mix(lit, vec3(1.00, 0.88, 0.72), gold);
+    mid = mix(mid, vec3(0.84, 0.66, 0.74), gold);
+    shade = mix(shade, vec3(0.44, 0.34, 0.56), gold);
+    haze = mix(haze, vec3(0.86, 0.40, 0.46), gold);
+    float dim = 0.30 + 0.70 * day;
+    lit = mix(lit, vec3(0.66, 0.69, 0.74) * dim, rain * 0.8);
+    mid = mix(mid, vec3(0.52, 0.55, 0.61) * dim, rain * 0.8);
+    shade = mix(shade, vec3(0.36, 0.39, 0.45) * dim, rain * 0.8);
+    haze = mix(haze, vec3(0.50, 0.54, 0.60) * dim, rain * 0.8);
+
+    Palette p;
+    p.t0 = shade * 0.9;
+    p.t1 = shade * 0.4 + mid * 0.6;
+    p.t2 = mid * 0.45 + lit * 0.55;
+    p.t3 = lit;
+    p.haze = haze;
+
+    vec2 p0 = dir.xz / (max(dir.y, 0.07) + 0.085);
+    vec2 q0 = (floor(p0 * PX) + 0.5) / PX;
+    // light from the zenith (toward the middle of the sky); at golden hour it swings toward the sun
+    vec2 ldir = -q0 / (length(q0) + 1e-4);
+    vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
+    ldir = normalize(mix(ldir, sxz, gold * 0.6) + vec2(1e-4));
+
+    float cov = COV - coverAdj - 0.12 * rain;
+    vec4 k = cloudLayer(q0 * 3.0 + off, ldir, cov, p, 0.0, 1.0);
+    if (k.a < 0.5 && layers >= 2) {
+        const mat2 r1 = mat2(0.80, -0.60, 0.60, 0.80);
+        k = cloudLayer(r1 * (q0 * 5.6) + vec2(37.1, 12.7) + off, r1 * ldir, cov + 0.075, p, 0.28, 0.95);
+    }
+    if (k.a < 0.5 && layers >= 3) {
+        const mat2 r2 = mat2(0.28, 0.96, -0.96, 0.28);
+        k = cloudLayer(r2 * (q0 * 9.5) + vec2(81.3, 55.9) + off, r2 * ldir, cov + 0.105, p, 0.52, 0.90);
+    }
+    float hf = (1.0 - sstep(0.0, 0.35, dir.y)) * 0.35;
+    k.rgb = mix(k.rgb, haze, hf);
+    k.a *= sstep(0.03, 0.24, dir.y);
+    return k;
+}
+
+// ---------------------------------------------------------------- main
+void main() {
+    vec3 dir = normalize(skyDir);
+    vec3 sunDir = TextureMat[0].xyz;
+    float tm = TextureMat[0].w;
+    float day = TextureMat[1].x;
+    float gold = TextureMat[1].y;
+    float night = TextureMat[1].z;
+    float rain = TextureMat[1].w;
+    vec2 cloudOff = TextureMat[2].xy;
+    float auroraStrength = TextureMat[2].w;
+    int flags = int(TextureMat[3].x + 0.5);
+    float coverAdj = TextureMat[3].y;
+    float shootPeriod = TextureMat[3].z;
+    float mode = TextureMat[3].w;
+    float rise = ColorModulator.x;
+    float milkyStrength = ColorModulator.y;
+    int layers = int(ColorModulator.z + 0.5);
+
+    if (mode > 0.5) {
+        vec4 k = clouds(dir, sunDir, day, gold, rain, cloudOff, coverAdj, layers);
+        if (k.a < 0.004) {
+            discard;
+        }
+        fragColor = k;
+        return;
+    }
+
+    vec3 col = mix(skyNight(dir.y), skyDay(dir.y), day);
+    col = mix(col, skyEvent(dir, sunDir, rise), gold);
+
+    float sd = max(dot(dir, sunDir), 0.0);
+    float clear = 1.0 - rain;
+    // sun glow: soft by day, wide and warm at golden hour
+    col += vec3(1.0, 0.92, 0.75) * (pow(sd, 6.0) * 0.10 + pow(sd, 36.0) * 0.16) * day * (1.0 - gold) * clear;
+    col += vec3(1.0, 0.72, 0.38) * (pow(sd, 12.0) * 0.55 + pow(sd, 90.0) * 0.6) * gold * clear;
+    // moon glow
+    col += vec3(0.45, 0.65, 1.00) * pow(max(dot(dir, -sunDir), 0.0), 20.0) * 0.12 * night * clear;
+
+    if ((flags & F_RAYS) != 0 && sd > 0.08 && gold * day > 0.02) {
+        vec3 upv = abs(sunDir.y) < 0.95 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+        vec3 rt = normalize(cross(sunDir, upv));
+        vec3 up2 = cross(rt, sunDir);
+        float ang = atan(dot(dir, up2), dot(dir, rt));
+        float streak = noise(vec2(ang * 8.0 + tm * 0.03, 2.0));
+        float ray = pow(sd, 2.5) * sstep(0.35, 0.9, streak);
+        col += mix(vec3(1.0, 0.85, 0.65), vec3(1.0, 0.55, 0.40), gold) * ray * (0.10 + 0.30 * gold) * day * clear;
+    }
+
+    if (night > 0.01 && dir.y > -0.03) {
+        float vis = night * clear * sstep(0.0, 0.12, dir.y);
+        float visLow = night * clear * sstep(0.02, 0.08, dir.y);
+        col = nightSky(col, dir, sunDir, vis, visLow, tm, flags, auroraStrength, milkyStrength, shootPeriod);
+    }
+
+    // rain: grey, flat sky
+    float lum = dot(col, vec3(0.30, 0.59, 0.11));
+    col = mix(col, vec3(lum * 0.92, lum * 0.95, lum * 1.02), rain * 0.80);
+
+    fragColor = vec4(col, 1.0);
+}
