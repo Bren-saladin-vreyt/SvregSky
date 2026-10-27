@@ -107,13 +107,19 @@ jobs:
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
           unzip -o -q "$SRC" 'net/minecraft/*' -d src2
-          grep -rn -E 'WATER_COLOR|getAverageWaterColor|waterColor' src2/net/minecraft/client | head -30 > probe/a.txt
-          F=$(grep -rl 'class BiomeColors' src2 | head -1); echo "== $F" >> probe/a.txt; grep -n -E 'public static' $F >> probe/a.txt
-          grep -rn -E 'Blocks.WATER|WATER_COLOR' src2/net/minecraft/client/color/block/BlockColors.java >> probe/a.txt || true
-          curl -s 'https://api.modrinth.com/v2/project/sodium/version?game_versions=%5B%2226.2%22%5D&loaders=%5B%22fabric%22%5D' | python3 -c "import sys,json; [print(v['version_number'], v['date_published'], v['files'][0]['url']) for v in json.load(sys.stdin)[:5]]" > probe/b.txt
-          grep -rn -E 'public static final TagKey<Block> (LEAVES|FLOWERS|SMALL_FLOWERS|REPLACEABLE_BY_TREES|SAPLINGS|CROPS)' src2/net/minecraft/tags/BlockTags.java > probe/c.txt
-          grep -n -E 'public void render\(|private void build|public static final|cloudRange|CELL' src2/net/minecraft/client/renderer/CloudRenderer.java | head -30 >> probe/c.txt
-          grep -n -E 'getCloudRange|cloudRange\(' src2/net/minecraft/client/Options.java | head -5 >> probe/c.txt
+          F=src2/net/minecraft/client/renderer/ShaderManager.java
+          grep -n -E '(public|private|protected|static).*\(' $F | head -40 > probe/a.txt
+          grep -rn -E 'class GlslPreprocessor|public .*process\(' src2/com 2>/dev/null | head >> probe/a.txt
+          curl -sL -o sodium.jar 'https://cdn.modrinth.com/data/AANobbMI/versions/xJZxADzI/sodium-fabric-0.9.2%2Bmc26.2.jar'
+          mkdir -p sod && cd sod && unzip -o -q ../sodium.jar && cd ..
+          find sod -name '*.jar' | head > probe/b.txt
+          for j in $(find sod -name '*.jar'); do mkdir -p sod2 && unzip -o -q $j -d sod2 || true; done
+          cat $(find sod sod2 -name 'block_layer_opaque.vsh' | head -1) >> probe/b.txt
+          C=$(find sod sod2 -name 'BlockRenderer.class' | grep pipeline | head -1); echo "== $C" > probe/c.txt
+          javap -p -cp $(dirname $(dirname $(dirname $(dirname $(dirname $(dirname $(dirname $(dirname $(dirname $(dirname $C)))))))))) net.caffeinemc.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer >> probe/c.txt 2>&1
+          C2=$(find sod sod2 -name 'GLDrawContext.class' | head -1); echo "== $C2" >> probe/c.txt
+          javap -p $C2 >> probe/c.txt 2>&1
+          C3=$(find sod sod2 -name 'ShaderChunkRenderer.class' | head -1); javap -p $C3 >> probe/c.txt 2>&1
           echo > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
