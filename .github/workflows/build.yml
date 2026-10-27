@@ -106,17 +106,17 @@ jobs:
           SRC=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*sources*.jar' 2>/dev/null | grep -i minecraft | grep -v -i fabric-api | head -1)
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
-          for f in com/mojang/blaze3d/pipeline/RenderPipeline.java net/minecraft/client/renderer/RenderPipelines.java com/mojang/blaze3d/pipeline/DepthStencilState.java com/mojang/blaze3d/vertex/BufferBuilder.java com/mojang/blaze3d/vertex/ByteBufferBuilder.java com/mojang/blaze3d/systems/GpuDevice.java net/minecraft/client/renderer/texture/TextureManager.java; do
+          for f in net/minecraft/client/renderer/texture/SpriteLoader.java net/minecraft/client/renderer/texture/SpriteContents.java net/minecraft/client/renderer/GameRenderer.java net/minecraft/client/Options.java net/minecraft/client/resources/metadata/animation/FrameSize.java; do
             unzip -p "$SRC" $f > x/$(basename $f) || echo "missing $f" >> probe/a.txt
           done
-          grep -n -E 'public .*\(' x/RenderPipeline.java | grep -i -E 'with|build' | head -40 > probe/a.txt
-          awk '/public static final RenderPipeline SKY =/{p=1} p{print NR": "$0} p&&/;$/{exit}' x/RenderPipelines.java >> probe/a.txt
-          awk '/SKY_SNIPPET =|public static final RenderPipeline.Snippet MATRICES_PROJECTION_SNIPPET/{p=1} p{print NR": "$0} p&&/;$/{p=0}' x/RenderPipelines.java | head -30 >> probe/a.txt
-          grep -n -E 'public|static final' x/DepthStencilState.java | head -20 > probe/b.txt
-          grep -n -E 'public .*\(' x/BufferBuilder.java x/ByteBufferBuilder.java | head -30 >> probe/b.txt
-          grep -n -E 'createBuffer|createTexture' x/GpuDevice.java | head -10 > probe/c.txt
-          grep -n -E 'public .*\(' x/TextureManager.java | head -20 >> probe/c.txt
-          grep -n -E 'class|public' x/AbstractTexture.java | head -5 > probe/d.txt
+          grep -n -E 'public|private|static .*\(' x/SpriteLoader.java | head -40 > probe/a.txt
+          grep -n -E '^\t(public|private|protected).*\(' x/SpriteContents.java | head -20 >> probe/a.txt
+          grep -n -E 'bobView|bobHurt|getDepthFar|getProjectionMatrix|projectionMatrix|DEPTH_FAR|depthFar' x/GameRenderer.java | head -30 > probe/b.txt
+          awk '/void bobView\(/{p=1} p{print NR": "$0} p&&/^\t}$/{exit}' x/GameRenderer.java >> probe/b.txt
+          grep -n -E 'getEffectiveRenderDistance|renderDistance\(' x/Options.java | head -5 >> probe/b.txt
+          unzip -l "$JAR" 'assets/minecraft/textures/item/*' | awk '{print $4}' | sed 's#assets/minecraft/textures/item/##' | grep png | tr '\n' ' ' > probe/c.txt
+          grep -n -E 'loadSprite|SpriteContents\(' x/SpriteLoader.java | head > probe/d.txt
+          awk '/public static SpriteContents loadSprite|static .*loadSprite\(/{p=1} p{print NR": "$0} p&&/^\t}$/{exit}' x/SpriteLoader.java >> probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
@@ -127,7 +127,7 @@ jobs:
           done
       - name: report 2
         run: |
-          for part in $(ls probe/c.part.* probe/d.part.* 2>/dev/null | head -10); do
+          for part in $(ls probe/c.part.* probe/d.part.* 2>/dev/null | head -20); do
             body=$(python3 -c "import sys;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
             echo "::notice title=probe-$(basename $part)::$body"
           done
