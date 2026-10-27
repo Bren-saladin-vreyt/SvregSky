@@ -106,15 +106,17 @@ jobs:
           SRC=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*sources*.jar' 2>/dev/null | grep -i minecraft | grep -v -i fabric-api | head -1)
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
-          for f in com/mojang/blaze3d/GpuFormat.java com/mojang/blaze3d/vertex/DefaultVertexFormat.java net/minecraft/client/renderer/DynamicUniforms.java net/minecraft/client/renderer/texture/AbstractTexture.java net/minecraft/client/renderer/fog/environment/AtmosphericFogEnvironment.java net/minecraft/client/renderer/SkyRenderer.java; do
+          for f in com/mojang/blaze3d/pipeline/RenderPipeline.java net/minecraft/client/renderer/RenderPipelines.java com/mojang/blaze3d/pipeline/DepthStencilState.java com/mojang/blaze3d/vertex/BufferBuilder.java com/mojang/blaze3d/vertex/ByteBufferBuilder.java com/mojang/blaze3d/systems/GpuDevice.java net/minecraft/client/renderer/texture/TextureManager.java; do
             unzip -p "$SRC" $f > x/$(basename $f) || echo "missing $f" >> probe/a.txt
           done
-          unzip -p "$JAR" assets/minecraft/shaders/include/dynamictransforms.glsl assets/minecraft/shaders/include/projection.glsl assets/minecraft/shaders/core/sky.vsh assets/minecraft/shaders/core/sky.fsh > probe/a.txt 2>&1 || echo "jar=$JAR" >> probe/a.txt
-          grep -n -E '^	[A-Z0-9_]+\(' x/GpuFormat.java | head -60 > probe/b.txt
-          grep -n -E 'public static final VertexFormat [A-Z_]+|SEMANTIC' x/DefaultVertexFormat.java | head -40 >> probe/b.txt
-          grep -n -E 'public .*\(' x/DynamicUniforms.java x/AbstractTexture.java | head -30 > probe/c.txt
-          grep -n -E 'getBaseColor|private .*renderStars|void renderSun\(' x/AtmosphericFogEnvironment.java x/SkyRenderer.java >> probe/c.txt
-          awk '/public int getBaseColor/{p=1} p{print NR": "$0} p&&/^	}$/{exit}' x/AtmosphericFogEnvironment.java > probe/d.txt
+          grep -n -E 'public .*\(' x/RenderPipeline.java | grep -i -E 'with|build' | head -40 > probe/a.txt
+          awk '/public static final RenderPipeline SKY =/{p=1} p{print NR": "$0} p&&/;$/{exit}' x/RenderPipelines.java >> probe/a.txt
+          awk '/SKY_SNIPPET =|public static final RenderPipeline.Snippet MATRICES_PROJECTION_SNIPPET/{p=1} p{print NR": "$0} p&&/;$/{p=0}' x/RenderPipelines.java | head -30 >> probe/a.txt
+          grep -n -E 'public|static final' x/DepthStencilState.java | head -20 > probe/b.txt
+          grep -n -E 'public .*\(' x/BufferBuilder.java x/ByteBufferBuilder.java | head -30 >> probe/b.txt
+          grep -n -E 'createBuffer|createTexture' x/GpuDevice.java | head -10 > probe/c.txt
+          grep -n -E 'public .*\(' x/TextureManager.java | head -20 >> probe/c.txt
+          grep -n -E 'class|public' x/AbstractTexture.java | head -5 > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
