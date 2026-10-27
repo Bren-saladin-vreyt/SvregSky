@@ -234,7 +234,11 @@ public final class CloudVoxels {
 			if (mesh == null || quadCount == 0) {
 				return;
 			}
-			Vector3f offset = new Vector3f((float) (ccx * (double) cell + windX - cam.x), (float) (bottomY - cam.y), (float) (ccz * (double) cell + windZ - cam.z));
+			Vector3f offset0 = new Vector3f((float) (ccx * (double) cell + windX - cam.x), (float) (bottomY - cam.y), (float) (ccz * (double) cell + windZ - cam.z));
+			Vector3f offset = offset0;
+			if (DEBUG && (frames % 60) == 0) {
+				SvregSky.LOG.info("SvregSky: 3D debug offset {} ccx {} ccz {} wind {} {} cam {}", offset, ccx, ccz, windX, windZ, cam);
+			}
 			float reach = SkySettings.cloud3dDistance * cell;
 			Matrix4f params = CirrusSky.skyParams();
 			params.m20(reach * 0.55F);

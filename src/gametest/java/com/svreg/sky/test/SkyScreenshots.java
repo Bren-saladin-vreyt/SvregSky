@@ -68,6 +68,8 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 90, -60, "u_3d_from_60");
 			context.runOnClient(client -> com.svreg.sky.sky.CloudVoxels.DEBUG = true);
 			shot(context, sp, 6000, 90, -60, "v_3d_debug_red");
+			shot(context, sp, 6000, 90, 0, "w_3d_debug_red_level");
+			shot(context, sp, 6000, 90, 60, "x_3d_debug_red_down");
 		}
 	}
 
