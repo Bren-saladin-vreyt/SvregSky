@@ -11,8 +11,8 @@ flat out vec4 faceInfo;
 out float localY;
 
 void main() {
-    vec3 pos = Position + ModelOffset;
-    gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+    vec3 pos = Position + ModelOffset; // camera-relative, for the distance fade
     relPos = pos;
     faceInfo = Color;
     localY = Position.y;

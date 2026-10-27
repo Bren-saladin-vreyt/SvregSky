@@ -248,7 +248,7 @@ public final class CloudVoxels {
 			params.m21(reach * 0.95F);
 			params.m22(SkySettings.cloud3dLevels * LEVEL_HEIGHT);
 			params.m33(DEBUG ? 1 : 0);
-			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).translate(offset);
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, CirrusSky.skyExtra(), offset, params);
 
 			Minecraft mc = Minecraft.getInstance();
