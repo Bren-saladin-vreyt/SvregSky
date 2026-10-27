@@ -106,17 +106,13 @@ jobs:
           SRC=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*sources*.jar' 2>/dev/null | grep -i minecraft | grep -v -i fabric-api | head -1)
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
-          for f in net/minecraft/client/renderer/texture/SpriteLoader.java net/minecraft/client/renderer/texture/SpriteContents.java net/minecraft/client/renderer/GameRenderer.java net/minecraft/client/Options.java net/minecraft/client/resources/metadata/animation/FrameSize.java; do
+          for f in net/minecraft/client/renderer/texture/SpriteContents.java net/minecraft/client/renderer/texture/atlas/SpriteResourceLoader.java; do
             unzip -p "$SRC" $f > x/$(basename $f) || echo "missing $f" >> probe/a.txt
           done
-          grep -n -E 'public|private|static .*\(' x/SpriteLoader.java | head -40 > probe/a.txt
-          grep -n -E '^\t(public|private|protected).*\(' x/SpriteContents.java | head -20 >> probe/a.txt
-          grep -n -E 'bobView|bobHurt|getDepthFar|getProjectionMatrix|projectionMatrix|DEPTH_FAR|depthFar' x/GameRenderer.java | head -30 > probe/b.txt
-          awk '/void bobView\(/{p=1} p{print NR": "$0} p&&/^\t}$/{exit}' x/GameRenderer.java >> probe/b.txt
-          grep -n -E 'getEffectiveRenderDistance|renderDistance\(' x/Options.java | head -5 >> probe/b.txt
-          unzip -l "$JAR" 'assets/minecraft/textures/item/*' | awk '{print $4}' | sed 's#assets/minecraft/textures/item/##' | grep png | tr '\n' ' ' > probe/c.txt
-          grep -n -E 'loadSprite|SpriteContents\(' x/SpriteLoader.java | head > probe/d.txt
-          awk '/public static SpriteContents loadSprite|static .*loadSprite\(/{p=1} p{print NR": "$0} p&&/^\t}$/{exit}' x/SpriteLoader.java >> probe/d.txt
+          grep -n -P '^\t(public|private|protected)[^=]*\(' x/SpriteContents.java | head -30 > probe/a.txt
+          grep -n -P '\(' x/SpriteResourceLoader.java | head -40 > probe/b.txt
+          grep -rln 'new SpriteContents(' $(unzip -Z1 "$SRC" | grep -c . >/dev/null; echo x) 2>/dev/null > probe/c.txt; unzip -o -q "$SRC" 'net/minecraft/client/*' -d src2 && grep -rn 'new SpriteContents(' src2 | head >> probe/c.txt
+          echo > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
