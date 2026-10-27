@@ -104,14 +104,17 @@ jobs:
       - name: extract
         run: |
           SRC=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*sources*.jar' 2>/dev/null | grep -i minecraft | grep -v -i fabric-api | head -1)
-          mkdir -p probe
-          unzip -p "$SRC" net/minecraft/client/renderer/LevelRenderer.java > probe/level.java
-          unzip -p "$SRC" net/minecraft/client/renderer/SkyRenderer.java > probe/sky.java
-          unzip -p "$SRC" net/minecraft/client/renderer/state/level/SkyRenderState.java > probe/skystate.java || true
-          awk '/private void addSkyPass/{p=1} p{print NR": "$0} p&&/^\t}$/{exit}' probe/level.java > probe/a.txt
-          grep -n -E '^\t(public|private|protected|static|final)|^\t\t(final )?[A-Za-z].*;$' probe/sky.java | head -80 > probe/b.txt
-          awk '/void renderSunMoonAndStars|void renderSkyDisc|void renderSunriseAndSunset/{p=1} p{print NR": "$0} p&&/^\t}$/{p=0}' probe/sky.java | head -150 > probe/c.txt
-          cat -n probe/skystate.java | head -80 > probe/d.txt
+          JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
+          mkdir -p probe x
+          for f in com/mojang/blaze3d/GpuFormat.java com/mojang/blaze3d/vertex/DefaultVertexFormat.java net/minecraft/client/renderer/DynamicUniforms.java net/minecraft/client/renderer/texture/AbstractTexture.java net/minecraft/client/renderer/fog/environment/AtmosphericFogEnvironment.java net/minecraft/client/renderer/SkyRenderer.java; do
+            unzip -p "$SRC" $f > x/$(basename $f) || echo "missing $f" >> probe/a.txt
+          done
+          unzip -p "$JAR" assets/minecraft/shaders/include/dynamictransforms.glsl assets/minecraft/shaders/include/projection.glsl assets/minecraft/shaders/core/sky.vsh assets/minecraft/shaders/core/sky.fsh > probe/a.txt 2>&1 || echo "jar=$JAR" >> probe/a.txt
+          grep -n -E '^	[A-Z0-9_]+\(' x/GpuFormat.java | head -60 > probe/b.txt
+          grep -n -E 'public static final VertexFormat [A-Z_]+|SEMANTIC' x/DefaultVertexFormat.java | head -40 >> probe/b.txt
+          grep -n -E 'public .*\(' x/DynamicUniforms.java x/AbstractTexture.java | head -30 > probe/c.txt
+          grep -n -E 'getBaseColor|private .*renderStars|void renderSun\(' x/AtmosphericFogEnvironment.java x/SkyRenderer.java >> probe/c.txt
+          awk '/public int getBaseColor/{p=1} p{print NR": "$0} p&&/^	}$/{exit}' x/AtmosphericFogEnvironment.java > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
