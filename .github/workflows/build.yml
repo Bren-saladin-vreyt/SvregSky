@@ -101,24 +101,28 @@ jobs:
           distribution: 'microsoft'
       - name: decompile minecraft
         run: chmod +x ./gradlew && ./gradlew genSources --stacktrace
-      - name: report signatures as annotations
+      - name: extract
         run: |
           SRC=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*sources*.jar' 2>/dev/null | grep -i minecraft | grep -v -i fabric-api | head -1)
           mkdir -p probe
-          unzip -p "$SRC" net/minecraft/client/renderer/CloudRenderer.java > probe/cloud.java
           unzip -p "$SRC" net/minecraft/client/renderer/LevelRenderer.java > probe/level.java
-          unzip -p "$SRC" net/minecraft/client/renderer/RenderPipelines.java > probe/pipes.java
-          # declarations of CloudRenderer
-          grep -n -E '^\s*(public|private|protected|static|final|record|class|enum|interface|@)' probe/cloud.java > probe/a.txt || true
-          # cell encoding helpers and texture loading (bodies needed to build our own cloud maps)
-          awk '/loadTexture|packCellData|isNorthEmpty|TextureData|prepare\(|apply\(|public void render|markForRebuild|endFrame|close\(/{p=1} p{print NR": "$0} /^    }/{p=0}' probe/cloud.java | head -260 > probe/b.txt || true
-          # how LevelRenderer drives the cloud renderer
-          grep -n -i -B4 -A10 'cloudRenderer\|addCloudsPass\|CloudStatus' probe/level.java | head -220 > probe/c.txt || true
-          grep -n -i -A10 'CLOUDS' probe/pipes.java | head -40 > probe/d.txt || true
-          for f in a b c d; do
-            split -b 30000 probe/$f.txt probe/$f.part.
-            for part in probe/$f.part.*; do
-              body=$(python3 -c "import sys,urllib.parse;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
-              echo "::notice title=probe-$(basename $part)::$body"
-            done
+          unzip -p "$SRC" net/minecraft/client/renderer/SkyRenderer.java > probe/sky.java
+          unzip -p "$SRC" net/minecraft/client/renderer/state/level/SkyRenderState.java > probe/skystate.java || true
+          awk '/private void addSkyPass/{p=1} p{print NR": "$0} p&&/^\t}$/{exit}' probe/level.java > probe/a.txt
+          grep -n -E '^\t(public|private|protected|static|final)|^\t\t(final )?[A-Za-z].*;$' probe/sky.java | head -80 > probe/b.txt
+          awk '/void renderSunMoonAndStars|void renderSkyDisc|void renderSunriseAndSunset/{p=1} p{print NR": "$0} p&&/^\t}$/{p=0}' probe/sky.java | head -150 > probe/c.txt
+          cat -n probe/skystate.java | head -80 > probe/d.txt
+          for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
+          ls probe
+      - name: report 1
+        run: |
+          for part in $(ls probe/a.part.* probe/b.part.* 2>/dev/null | head -10); do
+            body=$(python3 -c "import sys;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
+            echo "::notice title=probe-$(basename $part)::$body"
+          done
+      - name: report 2
+        run: |
+          for part in $(ls probe/c.part.* probe/d.part.* 2>/dev/null | head -10); do
+            body=$(python3 -c "import sys;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
+            echo "::notice title=probe-$(basename $part)::$body"
           done
