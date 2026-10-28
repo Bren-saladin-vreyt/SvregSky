@@ -13,7 +13,6 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 
@@ -147,7 +146,7 @@ public final class Ambience {
 				roofed = !outdoors && mc.level.getBrightness(net.minecraft.world.level.LightLayer.SKY, eye) >= 8 ? 1 : 0;
 			}
 			if (tick % 100 == 0) {
-				villagers = mc.level.getEntities((net.minecraft.world.entity.Entity) null, new AABB(eye).inflate(40), e -> e.getType() == EntityType.VILLAGER).size();
+				villagers = mc.level.getEntities((net.minecraft.world.entity.Entity) null, new AABB(eye).inflate(40), e -> e.getType().getDescriptionId().endsWith(".villager")).size();
 			}
 			boolean places = SkySettings.on("place_sounds"), weather = SkySettings.on("weather_sounds");
 			float pv = places ? vol : 0, wv = weather ? vol : 0;
