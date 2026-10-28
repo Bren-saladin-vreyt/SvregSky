@@ -79,6 +79,47 @@ public final class SkySettings {
 	public static int waterColor = 0x4FD6E3; // -1 = vanilla
 	public static volatile int version;
 
+	/** on/off switches for the smaller effects, saved and loaded by name */
+	public static final java.util.LinkedHashMap<String, Boolean> FLAGS = new java.util.LinkedHashMap<>();
+
+	static {
+		// sounds
+		FLAGS.put("weather_sounds", true);
+		FLAGS.put("place_sounds", true);
+		FLAGS.put("ghibli_music", true);
+		// sky & weather
+		FLAGS.put("daily_variety", true);
+		FLAGS.put("ghibli_sun_moon", true);
+		FLAGS.put("lightning_glow", true);
+		FLAGS.put("ghibli_snow", true);
+		// nature
+		FLAGS.put("butterflies", true);
+		FLAGS.put("light_motes", true);
+		FLAGS.put("rain_ripples", true);
+		FLAGS.put("shore_foam", true);
+		FLAGS.put("grass_bend", true);
+		FLAGS.put("dappled_light", true);
+		FLAGS.put("water_steam", true);
+		FLAGS.put("smoke_wisps", true);
+		// look
+		FLAGS.put("cartoon_outline", false);
+		FLAGS.put("film_tone", true);
+		FLAGS.put("warm_lamps", true);
+		FLAGS.put("window_glow", true);
+		FLAGS.put("gentle_bob", true);
+		// comfort
+		FLAGS.put("per_world", false);
+	}
+
+	public static boolean on(String key) {
+		return Boolean.TRUE.equals(FLAGS.get(key));
+	}
+
+	// photo mode (not saved): client-side time / weather for the sky
+	public static boolean photoMode;
+	public static int photoTime = 12300;
+	public static String photoWeather = "clear";
+
 	/** any 3D cloud mode */
 	public static boolean cloud3d() {
 		return "3d".equals(cloudMode) || "3d_full".equals(cloudMode);
@@ -120,6 +161,11 @@ public final class SkySettings {
 
 	/** applies the keys present in o; missing keys keep their current value */
 	public static void apply(JsonObject o) {
+			for (java.util.Map.Entry<String, Boolean> e : FLAGS.entrySet()) {
+				if (o.has(e.getKey())) {
+					e.setValue(o.get(e.getKey()).getAsBoolean());
+				}
+			}
 			cirrusSky = bool(o, "cirrus_sky", cirrusSky);
 			paintedClouds = bool(o, "painted_clouds", paintedClouds);
 			cloudLayers = Math.max(1, Math.min(3, (int) num(o, "cloud_layers", cloudLayers)));

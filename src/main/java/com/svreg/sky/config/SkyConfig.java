@@ -28,8 +28,58 @@ public final class SkyConfig {
 		return FabricLoader.getInstance().getConfigDir().resolve("svregsky.json");
 	}
 
+	/** a file-name-safe key for the world or server being played, or null on the title screen */
+	public static String worldKey() {
+		try {
+			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+			String k = null;
+			if (mc.getSingleplayerServer() != null) {
+				k = "sp_" + mc.getSingleplayerServer().getWorldData().getLevelName();
+			} else if (mc.getCurrentServer() != null) {
+				k = "mp_" + mc.getCurrentServer().ip;
+			}
+			return k == null ? null : k.replaceAll("[^A-Za-z0-9._-]", "_");
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	private static Path worldFile(String key) {
+		return FabricLoader.getInstance().getConfigDir().resolve("svregsky").resolve("worlds").resolve(key + ".json");
+	}
+
+	/** joining a world: with per-world settings on, that world's saved settings are applied over the global ones */
+	public static void onJoin() {
+		String key = worldKey();
+		if (!SkySettings.on("per_world") || key == null) {
+			return;
+		}
+		JsonObject o = read(worldFile(key));
+		if (o != null) {
+			o.remove("per_world");
+			SkySettings.apply(o);
+			SkySettings.version++;
+			SvregSky.LOG.info("SvregSky: per-world settings for {}", key);
+		}
+	}
+
+	/** leaving a world: back to the global settings */
+	public static void onLeave() {
+		if (!SkySettings.on("per_world")) {
+			return;
+		}
+		JsonObject o = read(file());
+		if (o != null) {
+			SkySettings.apply(o);
+			SkySettings.version++;
+		}
+	}
+
 	public static JsonObject read() {
-		Path f = file();
+		return read(file());
+	}
+
+	private static JsonObject read(Path f) {
 		if (!Files.exists(f)) {
 			return null;
 		}
@@ -76,10 +126,29 @@ public final class SkyConfig {
 		o.addProperty("ambient_volume", SkySettings.ambientVolume);
 		o.addProperty("wind_line_amount", SkySettings.windLineAmount);
 		o.addProperty("far_grass_tint", SkySettings.farGrassTint);
+		for (java.util.Map.Entry<String, Boolean> e : SkySettings.FLAGS.entrySet()) {
+			o.addProperty(e.getKey(), e.getValue());
+		}
 		o.addProperty("water_color", SkySettings.waterColor < 0 ? "" : String.format("#%06X", SkySettings.waterColor));
+		String key = worldKey();
+		if (SkySettings.on("per_world") && key != null) {
+			write(worldFile(key), o);
+			// the global file only learns that per-world mode is on
+			JsonObject g = read(file());
+			if (g == null) {
+				g = o.deepCopy();
+			}
+			g.addProperty("per_world", true);
+			write(file(), g);
+		} else {
+			write(file(), o);
+		}
+	}
+
+	private static void write(Path f, JsonObject o) {
 		try {
-			Files.createDirectories(file().getParent());
-			try (Writer w = Files.newBufferedWriter(file(), StandardCharsets.UTF_8)) {
+			Files.createDirectories(f.getParent());
+			try (Writer w = Files.newBufferedWriter(f, StandardCharsets.UTF_8)) {
 				GSON.toJson(o, w);
 			}
 		} catch (Exception e) {

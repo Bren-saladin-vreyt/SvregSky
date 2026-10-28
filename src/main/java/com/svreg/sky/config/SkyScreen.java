@@ -18,7 +18,17 @@ public class SkyScreen extends OptionsSubScreen {
 	private final List<Runnable> afterClose = new ArrayList<>();
 
 	public SkyScreen(Screen lastScreen, Options options) {
-		super(lastScreen, options, Component.translatable("svregsky.options.title"));
+		super(lastScreen, options, Component.translatable("svregsky.options.title")
+				.append(Component.literal("  (" + net.minecraft.client.Minecraft.getInstance().getFps() + " FPS)").withStyle(net.minecraft.ChatFormatting.GRAY)));
+	}
+
+	private static OptionInstance<Boolean> flag(String key) {
+		return bool(key, SkySettings.on(key), v -> SkySettings.FLAGS.put(key, v));
+	}
+
+	private static String clock(int ticks) {
+		int mins = ((ticks + 6000) % 24000) * 60 / 1000;
+		return String.format("%02d:%02d", mins / 60, mins % 60);
 	}
 
 	private static OptionInstance<Boolean> bool(String key, boolean value, OptionInstance.ValueUpdateListener<Boolean> set) {
@@ -49,6 +59,17 @@ public class SkyScreen extends OptionsSubScreen {
 		}
 		String mode = !SkySettings.paintedClouds && !SkySettings.cloud3d() ? "off" : SkySettings.cloud3dFull() ? "3d_full" : SkySettings.cloud3d() ? "3d" : "painted";
 
+		this.list.addHeader(Component.translatable("svregsky.options.header.presets"));
+		this.list.addSmall(
+				choice("preset", List.of("custom", "light", "balanced", "full"), "custom", v -> {
+					if (!v.equals("custom")) {
+						Presets.apply(v);
+						SkyConfig.save();
+						this.minecraft.gui.setScreen(new SkyScreen(this.lastScreen, this.options));
+					}
+				}),
+				flag("per_world"));
+
 		this.list.addHeader(Component.translatable("svregsky.options.header.sky"));
 		this.list.addSmall(
 				bool("cirrus_sky", SkySettings.cirrusSky, v -> SkySettings.cirrusSky = v),
@@ -57,7 +78,11 @@ public class SkyScreen extends OptionsSubScreen {
 				bool("horizon_mountains", SkySettings.horizonMountains, v -> SkySettings.horizonMountains = v),
 				percent("color_grading", 100, SkySettings.colorGrading, v -> SkySettings.colorGrading = v),
 				percent("morning_mist", 100, SkySettings.morningMist, v -> SkySettings.morningMist = v),
-				percent("fog_tint", 100, SkySettings.fogTint, v -> SkySettings.fogTint = v));
+				percent("fog_tint", 100, SkySettings.fogTint, v -> SkySettings.fogTint = v),
+				flag("ghibli_sun_moon"),
+				flag("daily_variety"),
+				flag("lightning_glow"),
+				flag("ghibli_snow"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
 		this.list.addSmall(
@@ -108,8 +133,38 @@ public class SkyScreen extends OptionsSubScreen {
 				percent("far_grass_tint", 100, SkySettings.farGrassTint, v -> SkySettings.farGrassTint = v),
 				bool("turquoise_water", SkySettings.waterColor >= 0, v -> SkySettings.waterColor = v ? 0x4FD6E3 : -1),
 				bool("ghibli_biome_colors", SkySettings.ghibliBiomes, v -> SkySettings.ghibliBiomes = v),
+				flag("butterflies"),
+				flag("light_motes"),
+				flag("rain_ripples"),
+				flag("shore_foam"),
+				flag("grass_bend"),
+				flag("dappled_light"),
+				flag("water_steam"),
+				flag("smoke_wisps"));
+
+		this.list.addHeader(Component.translatable("svregsky.options.header.sound"));
+		this.list.addSmall(
 				bool("ambient_sounds", SkySettings.ambientSounds, v -> SkySettings.ambientSounds = v),
-				percent("ambient_volume", 100, SkySettings.ambientVolume, v -> SkySettings.ambientVolume = v));
+				percent("ambient_volume", 100, SkySettings.ambientVolume, v -> SkySettings.ambientVolume = v),
+				flag("weather_sounds"),
+				flag("place_sounds"),
+				flag("ghibli_music"));
+
+		this.list.addHeader(Component.translatable("svregsky.options.header.look"));
+		this.list.addSmall(
+				flag("film_tone"),
+				flag("cartoon_outline"),
+				flag("warm_lamps"),
+				flag("window_glow"),
+				flag("gentle_bob"));
+
+		this.list.addHeader(Component.translatable("svregsky.options.header.photo"));
+		this.list.addSmall(
+				bool("photo_mode", SkySettings.photoMode, v -> SkySettings.photoMode = v),
+				choice("photo_weather", List.of("clear", "rain", "thunder"), SkySettings.photoWeather, v -> SkySettings.photoWeather = v),
+				new OptionInstance<>("svregsky.options.photo_time", OptionInstance.noTooltip(),
+						(caption, v) -> Options.genericValueLabel(caption, Component.literal(clock(v))),
+						new OptionInstance.IntRange(0, 239, true), Math.floorMod(SkySettings.photoTime, 24000) / 100, v -> SkySettings.photoTime = v * 100));
 	}
 
 	@Override

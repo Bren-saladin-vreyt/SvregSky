@@ -93,6 +93,34 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.colorGrading = 1F);
 			shot(context, sp, 6000, 0, 10, "y2_grading_on");
 
+			// new batch: Ghibli sun & moon, smoke, butterflies, window glow, look pass, photo mode
+			shot(context, sp, 2500, -90, -35, "z_sun_morning");
+			shot(context, sp, 18000, 0, -80, "z2_moon_night");
+			sp.getServer().runCommand("execute as @p at @p run setblock ~1 ~ ~5 campfire[lit=true]");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-12 ~ ~8 ~-8 ~3 ~12 cobblestone hollow");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-8 ~1 ~9 ~-8 ~2 ~11 glass");
+			sp.getServer().runCommand("execute as @p at @p run setblock ~-10 ~1 ~10 glowstone");
+			context.waitTicks(80);
+			shot(context, sp, 6000, 0, 5, "z3_smoke_noon");
+			shot(context, sp, 6000, -35, 15, "z4_butterflies");
+			shot(context, sp, 18000, 45, 5, "z5_window_glow_night");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("cartoon_outline", true));
+			shot(context, sp, 6000, 0, 10, "z6_outline_on");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("cartoon_outline", false));
+			shot(context, sp, 12300, 90, 0, "z7_film_tone_golden");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.photoMode = true;
+				com.svreg.sky.sky.SkySettings.photoTime = 12700;
+			});
+			shot(context, sp, 6000, 90, -10, "z8_photo_mode_sunset");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.photoMode = false);
+			sp.getServer().runCommand("weather thunder");
+			context.waitTicks(100);
+			shot(context, sp, 6000, 0, -20, "z9_storm");
+			context.waitTicks(15);
+			context.takeScreenshot("z9b_storm_later");
+			sp.getServer().runCommand("weather clear");
+
 			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~40 ~-10");

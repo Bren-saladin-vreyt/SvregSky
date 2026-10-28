@@ -58,7 +58,8 @@ public final class CirrusSky {
 	// last frame's sky factors (also used for the fog colour)
 	private static final Vector3f sunDir = new Vector3f(0, 1, 0);
 	private static float day = 1, gold, night, rain, rise, org;
-	private static float rainbowLevel;
+	private static float rainbowLevel, flash, dailyCoverage;
+	private static int moonPhase;
 	private static boolean rainbowArmed;
 	private static long rainbowStart;
 
@@ -129,15 +130,42 @@ public final class CirrusSky {
 		Minecraft mcw = Minecraft.getInstance();
 		if (mcw.player != null) {
 			com.svreg.sky.wind.Wind.setCamera(mcw.player.getEyePosition()); // fallback when vanilla clouds are off
+			com.svreg.sky.wind.Wind.setPlayer(mcw.player.position());
 		}
 		overworld = false;
 		float a = skyState.sunAngle;
+		if (SkySettings.photoMode) {
+			// photo mode: the sky shows the chosen time of day (client-side only)
+			double f = SkySettings.photoTime / 24000.0 - 0.25;
+			f -= Math.floor(f);
+			double d = 0.5 - Math.cos(f * Math.PI) / 2.0;
+			a = (float) ((f * 2.0 + d) / 3.0 * Math.PI * 2.0);
+		}
 		sunDir.set(-(float) Math.sin(a), (float) Math.cos(a), 0);
 		float sh = sunDir.y;
 		day = smooth(-0.10F, 0.30F, sh);
 		gold = 1 - smooth(0.0F, 0.42F, Math.abs(sh - 0.02F));
 		night = 1 - smooth(-0.22F, 0.02F, sh);
 		rain = Math.max(0, Math.min(1, 1 - skyState.rainBrightness));
+		float thunder = mcw.level != null ? mcw.level.getThunderLevel(1.0F) : 0;
+		if (SkySettings.photoMode) {
+			rain = SkySettings.photoWeather.equals("clear") ? 0 : 1;
+			thunder = SkySettings.photoWeather.equals("thunder") ? 1 : 0;
+		}
+		moonPhase = skyState.moonPhase != null ? skyState.moonPhase.index() : 0;
+		// lightning glow: random flashes inside the clouds during thunderstorms
+		flash *= 0.86F;
+		if (SkySettings.on("lightning_glow") && thunder > 0.5F && Math.random() < 0.006) {
+			flash = 0.7F + (float) Math.random() * 0.3F;
+		}
+		// daily variety: each day gets its own amount of cloud
+		dailyCoverage = 0;
+		if (SkySettings.on("daily_variety") && mcw.level != null) {
+			long dayIndex = Math.floorDiv(mcw.level.getGameTime(), 24000L);
+			double h = Math.sin(dayIndex * 12.9898 + 78.233) * 43758.5453;
+			h -= Math.floor(h);
+			dailyCoverage = (float) ((h - 0.45) * 0.16);
+		}
 		// rainbow: shows up for a while after a rain shower ends, while the sun is up
 		long nowMs = System.currentTimeMillis();
 		if (rain > 0.35F) {
@@ -172,7 +200,7 @@ public final class CirrusSky {
 				sunDir.x, sunDir.y, sunDir.z, time,
 				day, gold, night, rain,
 				0, 0, 0, 0,
-				0, SkySettings.cloudCoverage, 0, 0);
+				0, coverage(), 0, 0);
 	}
 
 	public static Vector4f skyExtra() {
@@ -194,6 +222,15 @@ public final class CirrusSky {
 	/** for tests: show the rainbow now */
 	public static void forceRainbow() {
 		rainbowStart = System.currentTimeMillis() - 30_000;
+	}
+
+	/** cloud amount: the setting plus today's variation */
+	public static float coverage() {
+		return SkySettings.cloudCoverage + dailyCoverage;
+	}
+
+	public static float flashLevel() {
+		return flash;
 	}
 
 	public static float dayLevel() {
@@ -265,7 +302,7 @@ public final class CirrusSky {
 					sunDir.x, sunDir.y, sunDir.z, time,
 					day, gold, night, rain,
 					offX, offZ, rainbowLevel, SkySettings.aurora,
-					flags, SkySettings.cloudCoverage, SkySettings.shootingStarPeriod, mode);
+					flags, coverage(), SkySettings.shootingStarPeriod, mode);
 			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
 			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers;
 			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, layers, org);
@@ -273,7 +310,8 @@ public final class CirrusSky {
 			int chunks = Math.max(2, mc.options.getEffectiveRenderDistance());
 			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));
 			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).setTranslation(0, 0, 0).scale(scale);
-			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, extra, new Vector3f(), params);
+			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, extra,
+					new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
 
 			AbstractTexture tex = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
 			RenderTarget target = mc.gameRenderer.mainRenderTarget();

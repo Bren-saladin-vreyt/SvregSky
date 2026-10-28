@@ -26,6 +26,7 @@ public abstract class CloudRendererMixin {
 		com.svreg.sky.wind.Wind.setCamera(cameraPosition);
 		com.svreg.sky.wind.WindLines.render(cameraPosition);
 		com.svreg.sky.fx.Effects.render(cameraPosition);
+		com.svreg.sky.look.PostLook.render();
 		if (SkySettings.cloud3d()) {
 			CloudVoxels.render(bottomY, cameraPosition); // real 3D Cirrus clouds
 			ci.cancel();

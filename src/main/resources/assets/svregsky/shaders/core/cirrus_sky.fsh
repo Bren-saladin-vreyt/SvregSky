@@ -418,6 +418,43 @@ vec3 horizonLand(vec3 col, vec3 dir, vec3 sunDir, float day, float gold, float n
     return y < 0.0 ? land : c;
 }
 
+// ---------------------------------------------------------------- Ghibli sun & moon (replace the vanilla squares)
+vec3 sunAndMoon(vec3 col, vec3 dir, vec3 sunDir, float day, float gold, float night, float rain, float phase) {
+    float clear = 1.0 - 0.85 * rain;
+    // sun: soft round disc with a warm core
+    float sa = acos(clamp(dot(dir, sunDir), -1.0, 1.0));
+    float sr = 0.05;
+    float disc = 1.0 - smoothstep(sr - 0.004, sr, sa);
+    if (disc > 0.0 && sunDir.y > -0.08) {
+        vec3 sc = mix(vec3(1.0, 0.98, 0.90), vec3(1.0, 0.80, 0.46), gold);
+        sc = mix(sc, vec3(1.0), (1.0 - smoothstep(0.0, sr * 0.7, sa)) * 0.6);
+        col = mix(col, sc * 1.05, disc * clear);
+    }
+    // moon: cream disc with phases, a few soft craters and a halo
+    vec3 md = -sunDir;
+    if (md.y > -0.08) {
+        float ma = acos(clamp(dot(dir, md), -1.0, 1.0));
+        float mr = 0.045;
+        float fullness = 0.5 + 0.5 * cos(phase / 8.0 * 6.2831853);
+        col += vec3(0.55, 0.70, 1.0) * exp(-ma * ma / 0.004) * 0.10 * (0.3 + 0.7 * fullness) * night * clear;
+        if (ma < mr) {
+            vec3 right = normalize(cross(md, vec3(0.0, 0.0, 1.0)));
+            vec3 up2 = cross(right, md);
+            vec2 p = vec2(dot(dir, right), dot(dir, up2)) / mr;
+            float c = cos(phase / 8.0 * 6.2831853);
+            float side = phase < 4.0 ? -1.0 : 1.0;
+            float lit = step(-c * sqrt(max(0.0, 1.0 - p.y * p.y)), side * p.x);
+            float crater = smoothstep(0.62, 0.7, noise(p * 3.0 + 4.0)) * 0.12;
+            vec3 mc = vec3(0.99, 0.96, 0.86) * (1.0 - crater);
+            float edge = 1.0 - smoothstep(0.85, 1.0, length(p));
+            vec3 darkSide = col * 1.08 + vec3(0.01, 0.015, 0.03);
+            col = mix(col, mix(darkSide, mc, lit), edge * clear * (0.35 + 0.65 * (1.0 - day)));
+        }
+        col += vec3(0.02, 0.04, 0.09) * fullness * night;
+    }
+    return col;
+}
+
 vec3 hue(float h) {
     return clamp(abs(fract(vec3(h) + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
 }
@@ -451,14 +488,16 @@ void main() {
             }
         }
         float sd = dot(dir, sunDir);
-        if ((flags & F_GODRAYS) != 0 && k.a < 0.5 && gold * day > 0.05 && sd > 0.35 && dir.y > 0.0 && layers != 0) {
+        float rbowK = TextureMat[2].z;
+        if ((flags & F_GODRAYS) != 0 && k.a < 0.5 && (gold * day > 0.05 || rbowK > 0.05) && sd > 0.35 && dir.y > 0.0 && layers != 0) {
             // beams of warm light where the sky between this pixel and the sun is free of clouds
             float lightK = shafts(dir, sunDir, cloudOff, COV - coverAdj - 0.12 * rain);
-            float ray = pow((sd - 0.35) / 0.65, 2.5) * lightK * gold * day * (1.0 - rain);
+            float ray = pow((sd - 0.35) / 0.65, 2.5) * lightK * max(gold * day, rbowK * 0.6) * (1.0 - rain * 0.7);
             vec3 rc = mix(vec3(1.0, 0.86, 0.62), vec3(1.0, 0.93, 0.70), org);
             vec4 r = vec4(rc, ray * 0.45);
             k = vec4(mix(r.rgb, k.rgb, k.a), max(k.a, r.a));
         }
+        k.rgb += vec3(0.55, 0.58, 0.72) * ModelOffset.x * k.a * 0.6; // lightning lights the clouds from inside
         if (k.a < 0.004) {
             discard;
         }
@@ -496,6 +535,12 @@ void main() {
         float visLow = night * clear * sstep(0.02, 0.08, dir.y);
         col = nightSky(col, dir, sunDir, vis, visLow, tm, flags, auroraStrength, milkyStrength, shootPeriod);
     }
+
+    if (ModelOffset.z > 0.5) {
+        col = sunAndMoon(col, dir, sunDir, day, gold, night, rain, ModelOffset.y);
+    }
+    // lightning glowing inside the storm clouds
+    col += vec3(0.50, 0.55, 0.72) * ModelOffset.x * (0.4 + 0.6 * rain) * smoothstep(-0.05, 0.3, dir.y);
 
     if ((flags & F_MOUNTAINS) != 0) {
         col = horizonLand(col, dir, sunDir, day, gold, night, org, rain);

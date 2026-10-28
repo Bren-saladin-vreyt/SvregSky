@@ -2,5 +2,17 @@
   "ambient.wind_meadow": { "sounds": [ { "name": "svregsky:ambient/wind_meadow", "stream": true } ] },
   "ambient.crickets": { "sounds": [ { "name": "svregsky:ambient/crickets", "stream": true } ] },
   "ambient.stream": { "sounds": [ { "name": "svregsky:ambient/stream", "stream": true } ] },
-  "ambient.bird": { "sounds": [ "svregsky:ambient/bird1", "svregsky:ambient/bird2", "svregsky:ambient/bird3", "svregsky:ambient/bird4" ] }
+  "ambient.bird": { "sounds": [ "svregsky:ambient/bird1", "svregsky:ambient/bird2", "svregsky:ambient/bird3", "svregsky:ambient/bird4" ] },
+  "ambient.ocean": { "sounds": [ { "name": "svregsky:ambient/ocean_waves", "stream": true } ] },
+  "ambient.frogs": { "sounds": [ { "name": "svregsky:ambient/frogs", "stream": true } ] },
+  "ambient.owl": { "sounds": [ "svregsky:ambient/owl1", "svregsky:ambient/owl2" ] },
+  "ambient.mountain_wind": { "sounds": [ { "name": "svregsky:ambient/mountain_wind", "stream": true } ] },
+  "ambient.rain_soft": { "sounds": [ { "name": "svregsky:ambient/rain_soft", "stream": true } ] },
+  "ambient.rain_roof": { "sounds": [ { "name": "svregsky:ambient/rain_roof", "stream": true } ] },
+  "ambient.thunder": { "sounds": [ "svregsky:ambient/thunder1", "svregsky:ambient/thunder2" ] },
+  "ambient.drip": { "sounds": [ "svregsky:ambient/drip1", "svregsky:ambient/drip2", "svregsky:ambient/drip3" ] },
+  "ambient.rooster": { "sounds": [ "svregsky:ambient/rooster" ] },
+  "ambient.bell": { "sounds": [ "svregsky:ambient/bell" ] },
+  "music.sunrise": { "sounds": [ { "name": "svregsky:ambient/music_sunrise", "stream": true } ] },
+  "music.sunset": { "sounds": [ { "name": "svregsky:ambient/music_sunset", "stream": true } ] }
 }

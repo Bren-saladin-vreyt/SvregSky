@@ -18,4 +18,19 @@ public abstract class SkyRendererMixin {
 			ci.cancel();
 		}
 	}
+
+	/** the Cirrus sky paints a round cartoon sun and a Ghibli moon instead of the square ones */
+	@Inject(method = "renderSun", at = @At("HEAD"), cancellable = true, require = 0)
+	private void svregsky$sun(CallbackInfo ci) {
+		if (CirrusSky.skyActive() && SkySettings.on("ghibli_sun_moon")) {
+			ci.cancel();
+		}
+	}
+
+	@Inject(method = "renderMoon", at = @At("HEAD"), cancellable = true, require = 0)
+	private void svregsky$moon(CallbackInfo ci) {
+		if (CirrusSky.skyActive() && SkySettings.on("ghibli_sun_moon")) {
+			ci.cancel();
+		}
+	}
 }

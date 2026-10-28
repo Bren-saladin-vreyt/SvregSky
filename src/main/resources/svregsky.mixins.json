@@ -12,7 +12,8 @@
 		"BiomeWaterMixin",
 		"ShaderManagerMixin",
 		"OptionsScreenMixin",
-		"BiomeColorMixin"
+		"BiomeColorMixin",
+		"GentleBobMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

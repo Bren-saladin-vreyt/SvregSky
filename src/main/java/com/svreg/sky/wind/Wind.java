@@ -18,9 +18,16 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1;
+	private static volatile double pX, pY, pZ;
 
 	private Wind() {
+	}
+
+	public static void setPlayer(Vec3 feet) {
+		pX = feet.x;
+		pY = feet.y;
+		pZ = feet.z;
 	}
 
 	public static void setCamera(Vec3 cam) {
@@ -78,6 +85,8 @@ public final class Wind {
 			locCam = GL20C.glGetUniformLocation(prog, "svregsky_Cam");
 			locSun = GL20C.glGetUniformLocation(prog, "svregsky_Sun");
 			locGrade = GL20C.glGetUniformLocation(prog, "svregsky_Grade");
+			locPlayer = GL20C.glGetUniformLocation(prog, "svregsky_Player");
+			locLook = GL20C.glGetUniformLocation(prog, "svregsky_Look");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
@@ -92,6 +101,12 @@ public final class Wind {
 			float k = SkySettings.cloudShadows * Math.min(1, com.svreg.sky.sky.CirrusSky.dayLevel() * 1.5F) * (1 - com.svreg.sky.sky.CirrusSky.rainLevel())
 					* (SkySettings.paintedClouds || SkySettings.cloud3d() ? 1 : 0) * (sun.y > 0.05F ? 1 : 0);
 			GL20C.glUniform4f(locSun, sun.x, sun.y, sun.z, k);
+		}
+		if (locPlayer >= 0) {
+			GL20C.glUniform4f(locPlayer, (float) (pX - camX), (float) (pY - camY), (float) (pZ - camZ), SkySettings.on("grass_bend") ? 1 : 0);
+		}
+		if (locLook >= 0) {
+			GL20C.glUniform4f(locLook, SkySettings.on("warm_lamps") ? 1 : 0, SkySettings.on("dappled_light") ? 1 : 0, 0, 0);
 		}
 		if (locGrade >= 0) {
 			org.joml.Vector3f sun = com.svreg.sky.sky.CirrusSky.sunDirection();
@@ -112,6 +127,8 @@ public final class Wind {
 			uniform vec4 svregsky_Sun;  // sun direction, cloud shadow strength
 			uniform vec4 svregsky_Grade; // colour grading strength, morning mist strength, day, golden hour
 			out vec4 v_svMist;          // mist colour + amount, for the fragment shader
+			uniform vec4 svregsky_Player; // player feet relative to the camera, grass bend on/off
+			uniform vec4 svregsky_Look;   // warm lamps, dappled light, unused, unused
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
 			    p3 += dot(p3, p3.yzx + 33.33);
@@ -152,6 +169,14 @@ public final class Wind {
 			            float svAmt = svLean * svW * 0.62;
 			            position.xz += svDir * svAmt + svSide * (svStr * svW * 0.05 * svFlutter);
 			            position.y -= svAmt * svAmt * 0.42;
+			            if (svregsky_Player.w > 0.5 && !svLeaf) {
+			                // plants bend away from the player walking through them
+			                vec2 svAway = position.xz - svregsky_Player.xz;
+			                float svD = length(svAway);
+			                float svPush = (1.0 - smoothstep(0.2, 1.3, svD)) * step(abs(position.y - svregsky_Player.y), 2.2) * clamp(svW, 0.0, 1.5);
+			                position.xz += svAway / max(svD, 0.05) * svPush * 0.45;
+			                position.y -= svPush * 0.25;
+			            }
 			            // light sheen on the bent grass, so the gusts show as bright waves
 			            _vert_color.rgb *= 1.0 + min(svStr, 2.0) * (svLeaf ? 0.05 : 0.13) * svGust * clamp(svW, 0.0, 1.0);
 			        }
@@ -185,10 +210,19 @@ public final class Wind {
 			        float svDay = svregsky_Grade.z, svGold = svregsky_Grade.w;
 			        float svSkyL = _vert_tex_light_coord.y, svBlockL = _vert_tex_light_coord.x;
 			        vec3 svSunT = mix(vec3(1.06, 1.01, 0.90), vec3(1.12, 0.96, 0.82), svGold);
-			        vec3 svT = mix(vec3(0.86, 0.93, 1.08), svSunT, smoothstep(0.55, 0.92, svSkyL));
+			        vec3 svT = mix(vec3(0.86, 0.93, 1.08), svSunT, smoothstep(0.55, 0.90, svSkyL));
 			        svT = mix(vec3(0.84, 0.92, 1.14), svT, clamp(svDay + svGold * 0.5, 0.0, 1.0));
 			        svT = mix(svT, vec3(1.14, 0.98, 0.80), smoothstep(0.30, 0.85, svBlockL) * (1.0 - svSkyL * svDay * 0.7));
-			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, svG);
+			        // warmer lamplight at night
+			        vec3 svExtra = mix(vec3(1.0), vec3(1.22, 1.04, 0.78), svregsky_Look.x * smoothstep(0.35, 0.9, svBlockL) * (1.0 - svDay * 0.8));
+			        // dappled sunlight under trees: soft moving light spots where leaves shade the ground
+			        float svUnder = (1.0 - smoothstep(0.89, 0.93, svSkyL)) * step(0.6, svSkyL) * svDay;
+			        if (svregsky_Look.y > 0.0 && svUnder > 0.0) {
+			            vec3 svWp2 = position + svregsky_Cam.xyz;
+			            float svDap = svNoise(svWp2.xz * 0.9 + vec2(sin(svregsky_Wind.x * 0.8), cos(svregsky_Wind.x * 0.6)) * 0.6);
+			            svExtra *= mix(1.0, mix(0.86, 1.12, smoothstep(0.45, 0.65, svDap)), svUnder * svregsky_Look.y);
+			        }
+			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, svG) * svExtra;
 			        float svLum = dot(svCol, vec3(0.30, 0.59, 0.11));
 			        v_Color.rgb = mix(vec3(svLum), svCol, 1.0 + 0.10 * svG);
 			        // low morning mist in valleys and over water

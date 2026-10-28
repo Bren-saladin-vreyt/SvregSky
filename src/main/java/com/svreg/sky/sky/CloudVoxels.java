@@ -218,7 +218,7 @@ public final class CloudVoxels {
 			// cloud space = world shifted back by the wind; the mesh is rebuilt only after moving a few cells
 			double sx = cam.x - windX, sz = cam.z - windZ;
 			int ccx = (int) Math.floor(sx / cell), ccz = (int) Math.floor(sz / cell);
-			float cov = st.threshold() - SkySettings.cloudCoverage - 0.12F * CirrusSky.rainLevel();
+			float cov = st.threshold() - CirrusSky.coverage() - 0.12F * CirrusSky.rainLevel();
 			int step = Math.max(1, st.radius() / 12);
 			if (!st.equals(built) || Math.abs(ccx - builtCx) >= step || Math.abs(ccz - builtCz) >= step
 					|| builtVersion != SkySettings.version || Math.abs(cov - builtCov) > 0.01F) {

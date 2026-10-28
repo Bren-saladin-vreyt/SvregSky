@@ -186,7 +186,7 @@ public final class Effects {
 	}
 
 	// ------------------------------------------------------------------ drawing
-	private static void billboard(BufferBuilder b, float x, float y, float z, float size, float rx, float ry, float rz, float ux, float uy, float uz,
+	static void billboard(BufferBuilder b, float x, float y, float z, float size, float rx, float ry, float rz, float ux, float uy, float uz,
 								  float u0, int argb) {
 		int r = argb >> 16 & 0xFF, g = argb >> 8 & 0xFF, bl = argb & 0xFF, a = argb >>> 24;
 		b.addVertex(x - (rx + ux) * size, y - (ry + uy) * size, z - (rz + uz) * size).setUv(u0, 0).setColor(r, g, bl, a);
@@ -198,7 +198,7 @@ public final class Effects {
 	public static void render(Vec3 cam) {
 		boolean ff = SkySettings.fireflies, lv = SkySettings.fallingLeaves, sp = SkySettings.waterSparkles;
 		Minecraft mc = Minecraft.getInstance();
-		if (broken || (!ff && !lv && !sp) || mc.level == null) {
+		if (broken || (!ff && !lv && !sp && !Nature.anyOn()) || mc.level == null) {
 			return;
 		}
 		try {
@@ -214,7 +214,7 @@ public final class Effects {
 			Matrix4f mv = RenderSystem.getModelViewMatrixCopy();
 			float rx = mv.m00(), ry = mv.m10(), rz = mv.m20(), ux = mv.m01(), uy = mv.m11(), uz = mv.m21();
 
-			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize() * 4 * (FIREFLIES + LEAVES + SPARKLES))) {
+			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize() * 4 * (FIREFLIES + LEAVES + SPARKLES + Nature.MAX_QUADS))) {
 				BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 				int quads = 0;
 
@@ -306,6 +306,7 @@ public final class Effects {
 					quads++;
 				}
 
+				quads += Nature.emit(b, level, cam, dt, t, rx, ry, rz, ux, uy, uz);
 				if (quads == 0) {
 					return;
 				}
