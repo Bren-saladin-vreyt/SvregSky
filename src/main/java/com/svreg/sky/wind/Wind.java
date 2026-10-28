@@ -193,8 +193,8 @@ public final class Wind {
 			        v_Color.rgb = mix(vec3(svLum), svCol, 1.0 + 0.10 * svG);
 			        // low morning mist in valleys and over water
 			        float svWy = position.y + svregsky_Cam.y;
-			        float svM = svregsky_Grade.y * (1.0 - smoothstep(62.0, 78.0, svWy)) * smoothstep(6.0, 70.0, length(position));
-			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.75, 0.0, 0.8));
+			        float svM = svregsky_Grade.y * (1.0 - smoothstep(62.0, 78.0, svWy)) * smoothstep(3.0, 48.0, length(position));
+			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.95, 0.0, 0.85));
 			    }
 			#endif
 			""";
