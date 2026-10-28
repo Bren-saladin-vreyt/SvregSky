@@ -108,11 +108,32 @@ jobs:
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
-          grep -n -E 'public .*Screen.*\(' src2/net/minecraft/client/Minecraft.java | head -20 > probe/a.txt
-          grep -rn -E 'void setScreen\(' src2/net/minecraft/client | head -5 >> probe/a.txt
-          grep -n -E 'public void [a-zA-Z]*\(\)' src2/net/minecraft/client/renderer/LevelRenderer.java | head -40 > probe/b.txt
-          grep -rn -E 'onClose\(\) \{' -A3 src2/net/minecraft/client/gui/screens/options/OptionsSubScreen.java > probe/c.txt
-          echo > probe/d.txt
+          M=src2/net/minecraft
+          { grep -n -E 'coldEnoughToSnow|getPrecipitationAt|public boolean warmEnoughToRain' $M/world/level/biome/Biome.java;
+            grep -n -E 'IS_OCEAN|IS_BEACH|IS_RIVER|IS_FOREST|IS_MOUNTAIN|HAS_' $M/tags/BiomeTags.java | head -12;
+            grep -n -E 'public float getThunderLevel|public float getRainLevel|public boolean isThundering|getEntities\(|public int getBrightness|getSeaLevel' $M/world/level/Level.java $M/world/level/BlockAndTintGetter.java $M/world/level/LevelReader.java $M/world/level/EntityGetter.java | head -12;
+            grep -rn -E 'public static final EntityType<[A-Za-z]+> VILLAGER' $M/world/entity/EntityType.java;
+            grep -n -E 'hideGui' $M/client/Options.java | head -3;
+          } > probe/a.txt
+          { grep -n -E 'public .*getSingleplayerServer|public .*getCurrentServer|public int getFps|public .*isLocalServer' $M/client/Minecraft.java;
+            grep -rn -E 'public String getLevelName|String levelName' $M/world/level/storage/WorldData.java $M/world/level/storage/PrimaryLevelData.java | head -4;
+            grep -n -E 'public String ip|public final String ip|String ip;' $M/client/multiplayer/ServerData.java | head -3;
+            grep -n -E 'getWorldData|public .*storageSource|getWorldPath' $M/server/MinecraftServer.java | head -5;
+            grep -n -E 'private void render(Sun|Moon)\(|MoonPhase' $M/client/renderer/SkyRenderer.java | head -6;
+            grep -n -E '^[A-Z_]+\(|public int|index' $M/world/level/MoonPhase.java | head -12;
+          } > probe/b.txt
+          { grep -n -E 'public static final BlendFunction [A-Z_]+' src2/com/mojang/blaze3d/pipeline/BlendFunction.java;
+            grep -n -E 'USAGE_[A-Z_]+|createTexture\(' src2/com/mojang/blaze3d/pipeline/RenderTarget.java | head -8;
+            grep -n -E 'class CameraRenderState|public .* entityRenderState' $M/client/renderer/state/level/CameraRenderState.java | head -4;
+            grep -rn -E 'backwardsInterpolatedWalkDistance;|public float bob;' $M/client/renderer/state | head -4;
+            grep -n -E 'IMPERMEABLE|GLASS' $M/tags/BlockTags.java | head -4;
+            grep -n -E 'public static Button.Builder builder|public static final' $M/client/gui/components/Button.java | head -4;
+          } > probe/c.txt
+          { grep -n -E 'LIT|CampfireBlock' $M/world/level/block/CampfireBlock.java | head -3;
+            grep -n -E 'public static final BooleanProperty LIT' $M/world/level/block/state/properties/BlockStateProperties.java;
+            grep -rn -E 'enum LightLayer' $M/world/level/LightLayer.java;
+            grep -n -E 'public .* getBiome\(' $M/world/level/LevelReader.java $M/world/level/biome/BiomeManager.java | head -3;
+          } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
