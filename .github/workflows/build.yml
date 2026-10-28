@@ -110,30 +110,20 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { grep -n -E 'coldEnoughToSnow|getPrecipitationAt|public boolean warmEnoughToRain' $M/world/level/biome/Biome.java;
-            grep -n -E 'IS_OCEAN|IS_BEACH|IS_RIVER|IS_FOREST|IS_MOUNTAIN|HAS_' $M/tags/BiomeTags.java | head -12;
-            grep -n -E 'public float getThunderLevel|public float getRainLevel|public boolean isThundering|getEntities\(|public int getBrightness|getSeaLevel' $M/world/level/Level.java $M/world/level/BlockAndTintGetter.java $M/world/level/LevelReader.java $M/world/level/EntityGetter.java | head -12;
-            grep -rn -E 'public static final EntityType<[A-Za-z]+> VILLAGER' $M/world/entity/EntityType.java;
-            grep -n -E 'hideGui' $M/client/Options.java | head -3;
+          { grep -rn -E 'hideGui' $M/client --include=*.java | head -4;
+            grep -n -E 'public static final BindGroupLayout [A-Z_0-9]+' $M/client/renderer/BindGroupLayouts.java | head -12;
+            grep -n -E 'copyTextureToTexture|copyTextureToBuffer|createRenderPass\(' src2/com/mojang/blaze3d/systems/CommandEncoder.java | head -6;
           } > probe/a.txt
-          { grep -n -E 'public .*getSingleplayerServer|public .*getCurrentServer|public int getFps|public .*isLocalServer' $M/client/Minecraft.java;
-            grep -rn -E 'public String getLevelName|String levelName' $M/world/level/storage/WorldData.java $M/world/level/storage/PrimaryLevelData.java | head -4;
-            grep -n -E 'public String ip|public final String ip|String ip;' $M/client/multiplayer/ServerData.java | head -3;
-            grep -n -E 'getWorldData|public .*storageSource|getWorldPath' $M/server/MinecraftServer.java | head -5;
-            grep -n -E 'private void render(Sun|Moon)\(|MoonPhase' $M/client/renderer/SkyRenderer.java | head -6;
-            grep -n -E '^[A-Z_]+\(|public int|index' $M/world/level/MoonPhase.java | head -12;
+          { grep -n -E 'GpuTexture createTexture|GpuTextureView createTextureView|GpuSampler createSampler|getSampler' src2/com/mojang/blaze3d/systems/GpuDevice.java | head -8;
+            grep -rn -E 'public static GpuSampler|getSampler\(' src2/com/mojang/blaze3d/systems/RenderSystem.java | head -4;
+            grep -n -E 'public KeyMapping\(|class Category|public static final Category [A-Z_]+|record Category' $M/client/KeyMapping.java | head -8;
           } > probe/b.txt
-          { grep -n -E 'public static final BlendFunction [A-Z_]+' src2/com/mojang/blaze3d/pipeline/BlendFunction.java;
-            grep -n -E 'USAGE_[A-Z_]+|createTexture\(' src2/com/mojang/blaze3d/pipeline/RenderTarget.java | head -8;
-            grep -n -E 'class CameraRenderState|public .* entityRenderState' $M/client/renderer/state/level/CameraRenderState.java | head -4;
-            grep -rn -E 'backwardsInterpolatedWalkDistance;|public float bob;' $M/client/renderer/state | head -4;
-            grep -n -E 'IMPERMEABLE|GLASS' $M/tags/BlockTags.java | head -4;
-            grep -n -E 'public static Button.Builder builder|public static final' $M/client/gui/components/Button.java | head -4;
+          { grep -rn -E 'registerKeyBinding|registerKeyMapping' ~/.gradle/caches 2>/dev/null | head -0;
+            grep -n -E 'public boolean consumeClick|public static final int GLFW_KEY_(F8|K|J)\b' $M/client/KeyMapping.java | head -3;
+            grep -n -E 'public .* (keyMappings|keyScreenshot|keyFullscreen)' $M/client/Options.java | head -3;
+            grep -n -E 'FilterMode|AddressMode|createSampler' src2/com/mojang/blaze3d/systems/GpuDevice.java src2/com/mojang/blaze3d/textures/*.java | head -6;
           } > probe/c.txt
-          { grep -n -E 'LIT|CampfireBlock' $M/world/level/block/CampfireBlock.java | head -3;
-            grep -n -E 'public static final BooleanProperty LIT' $M/world/level/block/state/properties/BlockStateProperties.java;
-            grep -rn -E 'enum LightLayer' $M/world/level/LightLayer.java;
-            grep -n -E 'public .* getBiome\(' $M/world/level/LevelReader.java $M/world/level/biome/BiomeManager.java | head -3;
+          { find ~/.gradle -name 'fabric-key*binding*.jar' 2>/dev/null | head -2; for j in $(find ~/.gradle -name 'fabric-key*binding*.jar' | head -1); do unzip -l $j | grep -i -E 'Helper|class' | head -5; done;
           } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
