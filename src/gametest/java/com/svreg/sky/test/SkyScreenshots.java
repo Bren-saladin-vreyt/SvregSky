@@ -157,6 +157,18 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, 10, "zh_photo_dof");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.photoMode = false);
 
+			// batch 4: sky-mirror water, anime block light, torch halos
+			sp.getServer().runCommand("execute as @p at @p run setblock ~-3 ~ ~4 torch");
+			sp.getServer().runCommand("execute as @p at @p run setblock ~-7 ~ ~7 lantern");
+			context.waitTicks(60);
+			shot(context, sp, 6000, -20, 30, "zi_water_noon");
+			shot(context, sp, 12400, 60, 12, "zj_water_golden");
+			shot(context, sp, 18000, 0, 20, "zk_water_night_torch");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("face_light", false));
+			shot(context, sp, 3000, 30, 5, "zl_face_light_off");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("face_light", true));
+			shot(context, sp, 3000, 30, 5, "zm_face_light_on");
+
 			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~40 ~-10");

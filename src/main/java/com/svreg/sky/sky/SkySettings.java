@@ -123,6 +123,11 @@ public final class SkySettings {
 		FLAGS.put("bloom", false);
 		FLAGS.put("photo_dof", true);
 		FLAGS.put("auto_fps", true);
+		// batch 4
+		FLAGS.put("water_reflection", true);
+		FLAGS.put("face_light", true);
+		FLAGS.put("torch_glow", true);
+		FLAGS.put("crickets", true);
 		// comfort
 		FLAGS.put("per_world", false);
 	}

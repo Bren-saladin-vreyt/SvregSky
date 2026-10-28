@@ -109,5 +109,9 @@
   "svregsky.options.tower_style.mixed": "Campur (acak)",
   "svregsky.options.tower_style.tower": "Menara",
   "svregsky.options.tower_style.wide": "Badai Lebar",
-  "svregsky.options.tower_style.anvil": "Landasan"
+  "svregsky.options.tower_style.anvil": "Landasan",
+  "svregsky.options.water_reflection": "§e● §rAir Cermin Langit",
+  "svregsky.options.face_light": "§a● §rCahaya Anime di Blok",
+  "svregsky.options.torch_glow": "§a● §rCahaya Obor & Lentera",
+  "svregsky.options.crickets": "§a● §rSuara Jangkrik"
 }

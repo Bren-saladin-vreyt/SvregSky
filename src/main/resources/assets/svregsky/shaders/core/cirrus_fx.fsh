@@ -4,7 +4,7 @@ precision highp float;
 
 // SvregSky ambient particles. UV.x selects the shape: [0,1] soft glow, [2,3] leaf / petal, [4,5] sparkle,
 // [6,7] butterfly, [8,9] ripple ring, [10,11] foam blob, [12,13] snowflake, [14] bird, [16] dragonfly,
-// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water
+// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo
 
 #moj_import <minecraft:dynamictransforms.glsl>
 
@@ -109,6 +109,9 @@ void main() {
         c.rgb = mix(vec3(0.20, 0.22, 0.26), sky, 0.55 + 0.35 * smoothstep(0.2, -0.6, p.y));
         c.rgb += vec3(0.35) * smoothstep(0.08, 0.0, abs(rr - edge + 0.2)) * step(0.2, p.x - p.y); // a glint along the rim
         c.a *= inside;
+    } else if (kind > 12.5) {
+        // lamp halo: a wide, very soft warm glow with no hard core
+        c.a *= exp(-r2 * 2.6) * (1.0 - smoothstep(0.7, 1.0, sqrt(r2)));
     } else if (kind > 11.5) {
         // light streak on the water: long soft glow, brighter in the middle
         float s = exp(-p.x * p.x * 6.0) * exp(-p.y * p.y * 1.2);

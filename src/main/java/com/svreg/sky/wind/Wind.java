@@ -18,7 +18,9 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1;
+	private static long skyNanos;
+	private static float[] skyA = new float[4], skyB = new float[4], skyC = new float[4];
 	private static volatile double pX, pY, pZ;
 
 	private Wind() {
@@ -88,6 +90,9 @@ public final class Wind {
 			locPlayer = GL20C.glGetUniformLocation(prog, "svregsky_Player");
 			locLook = GL20C.glGetUniformLocation(prog, "svregsky_Look");
 			locSeason = GL20C.glGetUniformLocation(prog, "svregsky_Season");
+			locSkyA = GL20C.glGetUniformLocation(prog, "svregsky_SkyA");
+			locSkyB = GL20C.glGetUniformLocation(prog, "svregsky_SkyB");
+			locSkyC = GL20C.glGetUniformLocation(prog, "svregsky_SkyC");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
@@ -111,6 +116,22 @@ public final class Wind {
 			// valley fog: thickest in the cool morning and evening, light at midday
 			float vf = SkySettings.on("valley_fog") ? 0.45F + 0.55F * (1 - smoothstep(0.15F, 0.6F, Math.abs(sunV.y))) : 0;
 			GL20C.glUniform4f(locLook, SkySettings.on("warm_lamps") ? 1 : 0, SkySettings.on("dappled_light") ? 1 : 0, vf, 0);
+		}
+		if (locSkyA >= 0 || locSkyB >= 0 || locSkyC >= 0) {
+			long now = System.nanoTime();
+			if (now - skyNanos > 30_000_000L) { // sky colours for the water mirror, refreshed ~30 times a second
+				skyNanos = now;
+				float[] a = com.svreg.sky.sky.CirrusSky.horizonToward(true), b = com.svreg.sky.sky.CirrusSky.horizonToward(false);
+				float day = com.svreg.sky.sky.CirrusSky.dayLevel(), gold = com.svreg.sky.sky.CirrusSky.goldLevel(), night = com.svreg.sky.sky.CirrusSky.nightLevel();
+				skyA = new float[]{a[0], a[1], a[2], SkySettings.on("water_reflection") ? 1 : 0};
+				skyB = new float[]{b[0], b[1], b[2], SkySettings.on("face_light") ? 1 : 0};
+				float zr = 0.06F + (0.30F - 0.06F) * day, zg = 0.08F + (0.58F - 0.08F) * day, zb = 0.22F + (0.95F - 0.22F) * day;
+				zr += 0.25F * gold; zg += 0.05F * gold;
+				skyC = new float[]{zr, zg, zb, night > 0.5F ? 1 : 0};
+			}
+			if (locSkyA >= 0) GL20C.glUniform4f(locSkyA, skyA[0], skyA[1], skyA[2], skyA[3]);
+			if (locSkyB >= 0) GL20C.glUniform4f(locSkyB, skyB[0], skyB[1], skyB[2], skyB[3]);
+			if (locSkyC >= 0) GL20C.glUniform4f(locSkyC, skyC[0], skyC[1], skyC[2], skyC[3]);
 		}
 		if (locSeason >= 0) {
 			GL20C.glUniform4f(locSeason, com.svreg.sky.sky.Seasons.spring(), com.svreg.sky.sky.Seasons.autumn(), com.svreg.sky.sky.Seasons.winter(),
@@ -138,6 +159,8 @@ public final class Wind {
 			uniform vec4 svregsky_Player; // player feet relative to the camera, grass bend on/off
 			uniform vec4 svregsky_Look;   // warm lamps, dappled light, valley fog, unused
 			uniform vec4 svregsky_Season; // spring, autumn, winter weights, ground wetness
+			out vec4 v_svWater;           // camera-relative position, water surface flag
+			out vec4 v_svInfo;            // sky light, day, golden hour, unused
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
 			    p3 += dot(p3, p3.yzx + 33.33);
@@ -266,6 +289,67 @@ public final class Wind {
 			        // valley fog: low land far below the camera sits in a soft haze
 			        svM = max(svM, svregsky_Look.z * smoothstep(6.0, 30.0, svregsky_Cam.y - svWy) * smoothstep(20.0, 96.0, length(position)) * 0.7);
 			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.95, 0.0, 0.85));
+			        // water surface: the top of a still water block sits at 8/9 of the block, and water is tinted blue
+			        float svFy = fract(svWy + 0.0001);
+			        float svIsWater = (abs(svFy - 0.8889) < 0.015 && _vert_color.b > _vert_color.r + 0.04) ? 1.0 : 0.0;
+			        v_svWater = vec4(position, svIsWater);
+			        v_svInfo = vec4(svSkyL, svDay, svGold, 0.0);
+			    }
+			#endif
+			""";
+
+
+	private static final String FRAG_DECL = """
+			#ifndef VULKAN
+			in vec4 v_svMist;
+			in vec4 v_svWater;
+			in vec4 v_svInfo;
+			uniform vec4 svregsky_Wind;
+			uniform vec4 svregsky_Cam;
+			uniform vec4 svregsky_Sun;
+			uniform vec4 svregsky_SkyA; // horizon toward the sun, water mirror on/off
+			uniform vec4 svregsky_SkyB; // horizon away from the sun, anime face light on/off
+			uniform vec4 svregsky_SkyC; // zenith colour, night (moon instead of sun)
+			#endif
+			""";
+
+	private static final String FRAG_CODE = """
+			#ifndef VULKAN
+			    {
+			        vec3 svN = normalize(cross(dFdx(v_svWater.xyz), dFdy(v_svWater.xyz)));
+			        vec3 svV = normalize(v_svWater.xyz);
+			        if (dot(svN, svV) > 0.0) {
+			            svN = -svN;
+			        }
+			        vec3 svSunD = svregsky_Sun.xyz;
+			        if (v_svWater.w > 0.5 && svN.y > 0.7 && svregsky_SkyA.w > 0.5) {
+			            // water as a mirror of the sky, with little moving waves and a sun / moon glitter path
+			            vec3 svWp = v_svWater.xyz + svregsky_Cam.xyz;
+			            float svT = svregsky_Wind.x;
+			            vec2 svWv = vec2(sin(svWp.x * 1.7 + svT * 1.3 + sin(svWp.z * 0.9 + svT) * 1.2),
+			                             sin(svWp.z * 1.9 - svT * 1.1 + sin(svWp.x * 0.7 - svT * 0.8) * 1.1));
+			            vec3 svWn = normalize(vec3(svWv.x * 0.07, 1.0, svWv.y * 0.07));
+			            vec3 svR = reflect(svV, svWn);
+			            float svUp = clamp(svR.y, 0.0, 1.0);
+			            float svToward = dot(normalize(svR.xz + vec2(1e-4)), normalize(svSunD.xz + vec2(1e-4))) * 0.5 + 0.5;
+			            vec3 svHz = mix(svregsky_SkyB.rgb, svregsky_SkyA.rgb, svToward * svToward);
+			            vec3 svSky = mix(svHz, svregsky_SkyC.rgb, smoothstep(0.0, 0.55, svUp));
+			            float svFres = 0.22 + 0.6 * pow(1.0 - clamp(-svV.y, 0.0, 1.0), 3.0);
+			            color.rgb = mix(color.rgb, svSky, svFres * 0.62);
+			            vec3 svL = svregsky_SkyC.w > 0.5 ? -svSunD : svSunD;
+			            float svSp = dot(svR, normalize(svL));
+			            float svLineK = step(0.90, fract(dot(svWp.xz, vec2(0.6, 0.8)) * 1.4 + svWv.x * 0.35 + svT * 0.35));
+			            float svGlint = (step(0.9965, svSp) + svLineK * smoothstep(0.955, 0.992, svSp) * 0.7) * step(-0.05, svL.y);
+			            vec3 svLc = svregsky_SkyC.w > 0.5 ? vec3(0.80, 0.86, 1.0) * 0.8 : mix(vec3(1.0, 0.97, 0.88), vec3(1.0, 0.72, 0.42), v_svInfo.z);
+			            color.rgb += svLc * svGlint;
+			        } else if (svregsky_SkyB.w > 0.5 && v_svInfo.x > 0.6 && v_svInfo.y > 0.05) {
+			            // anime light: faces toward the sun a touch warmer, faces away cool lavender-blue
+			            float svD = dot(svN, normalize(vec3(svSunD.x, max(svSunD.y, 0.2), svSunD.z)));
+			            float svK = smoothstep(0.6, 0.9, v_svInfo.x) * v_svInfo.y;
+			            vec3 svTone = svD > 0.2 ? mix(vec3(1.06, 1.01, 0.90), vec3(1.10, 0.96, 0.84), v_svInfo.z)
+			                        : (svD < -0.2 ? vec3(0.84, 0.88, 1.05) : vec3(0.96, 0.97, 1.0));
+			            color.rgb *= mix(vec3(1.0), svTone, svK * 0.85);
+			        }
 			    }
 			#endif
 			""";
@@ -284,7 +368,7 @@ public final class Wind {
 		}
 		int afterCol = col + colorLine.length();
 		return src.substring(0, main) + DECL + "\n" + src.substring(main, main + src.substring(main).indexOf('{') + 1)
-				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n#endif\n"
+				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n    v_svWater = vec4(0.0);\n    v_svInfo = vec4(0.0);\n#endif\n"
 				+ src.substring(main + src.substring(main).indexOf('{') + 1, pos) + CODE + "\n    "
 				+ src.substring(pos, afterCol) + "\n" + GRADE + src.substring(afterCol);
 	}
@@ -301,7 +385,7 @@ public final class Wind {
 			return src;
 		}
 		int end = at + anchor.length();
-		return src.substring(0, main) + "#ifndef VULKAN\nin vec4 v_svMist;\n#endif\n" + src.substring(main, end)
+		return src.substring(0, main) + FRAG_DECL + src.substring(main, end) + "\n" + FRAG_CODE
 				+ "\n#ifndef VULKAN\n    color.rgb = mix(color.rgb, v_svMist.rgb, v_svMist.a);\n#endif" + src.substring(end);
 	}
 }

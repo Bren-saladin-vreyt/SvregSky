@@ -164,6 +164,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("weather_sounds"),
 				flag("place_sounds"),
 				flag("ghibli_music"),
+				flag("crickets"),
 				flag("leaf_rustle"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.look"));
@@ -173,6 +174,9 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("warm_lamps"),
 				flag("window_glow"),
 				flag("gentle_bob"),
+				flag("water_reflection"),
+				flag("face_light"),
+				flag("torch_glow"),
 				flag("paper_texture"),
 				flag("bloom"));
 

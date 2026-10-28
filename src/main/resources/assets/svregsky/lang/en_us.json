@@ -109,5 +109,9 @@
   "svregsky.options.tower_style.mixed": "Mixed (random)",
   "svregsky.options.tower_style.tower": "Tower",
   "svregsky.options.tower_style.wide": "Wide Storm",
-  "svregsky.options.tower_style.anvil": "Anvil"
+  "svregsky.options.tower_style.anvil": "Anvil",
+  "svregsky.options.water_reflection": "§e● §rSky Mirror Water",
+  "svregsky.options.face_light": "§a● §rAnime Block Light",
+  "svregsky.options.torch_glow": "§a● §rTorch & Lantern Glow",
+  "svregsky.options.crickets": "§a● §rCrickets"
 }

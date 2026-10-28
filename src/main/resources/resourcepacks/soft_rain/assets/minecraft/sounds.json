@@ -1,0 +1,9 @@
+{
+  "weather.rain": { "replace": true, "sounds": [
+    { "name": "svregsky:ambient/rain_patter1", "volume": 0.25 },
+    { "name": "svregsky:ambient/rain_patter2", "volume": 0.25 },
+    { "name": "svregsky:ambient/rain_patter3", "volume": 0.25 } ] },
+  "weather.rain.above": { "replace": true, "sounds": [
+    { "name": "svregsky:ambient/rain_patter1", "volume": 0.12, "pitch": 0.8 },
+    { "name": "svregsky:ambient/rain_patter2", "volume": 0.12, "pitch": 0.8 } ] }
+}

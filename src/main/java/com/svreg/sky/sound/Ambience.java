@@ -212,7 +212,7 @@ public final class Ambience {
 			}
 
 			wind = drive(wind, WIND, vol * open * (0.12F + 0.22F * Math.min(SkySettings.windStrength, 2)) * (1 + rain * 0.5F));
-			crickets = drive(crickets, CRICKETS, vol * open * smooth(0.4F, 0.9F, night) * (1 - rain) * 0.3F);
+			crickets = drive(crickets, CRICKETS, (SkySettings.on("crickets") ? vol : 0) * open * smooth(0.4F, 0.9F, night) * (1 - rain) * 0.22F);
 			stream = drive(stream, STREAM, vol * waterNear * (underwater ? 0 : 0.5F));
 
 			// birdsong: random songs around the player by day, more in the morning

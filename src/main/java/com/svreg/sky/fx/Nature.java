@@ -24,7 +24,7 @@ import java.util.Random;
  * A rolling scan of the blocks around the player (a slice per frame) finds where each effect can appear.
  */
 public final class Nature {
-	static final int MAX_QUADS = 520;
+	static final int MAX_QUADS = 570;
 	private static final Random RNG = new Random();
 	private static final int RX = 16, RY = 8;
 
@@ -32,9 +32,9 @@ public final class Nature {
 	private static int scanIndex;
 	private static BlockPos scanOrigin = BlockPos.ZERO;
 	private static List<BlockPos> sFlowers = new ArrayList<>(), sLeafAir = new ArrayList<>(), sWater = new ArrayList<>(),
-			sShore = new ArrayList<>(), sSmoke = new ArrayList<>(), sWindows = new ArrayList<>(), sGround = new ArrayList<>();
+			sShore = new ArrayList<>(), sSmoke = new ArrayList<>(), sWindows = new ArrayList<>(), sGround = new ArrayList<>(), sLights = new ArrayList<>();
 	private static List<BlockPos> flowers = List.of(), leafAir = List.of(), water = List.of(), shore = List.of(), smoke = List.of(), windows = List.of(),
-			ground = List.of();
+			ground = List.of(), lights = List.of();
 	private static int sLeaves, leaves;
 	private static final List<Direction> windowSides = new ArrayList<>();
 	private static List<Direction> sWindowSides = new ArrayList<>();
@@ -66,7 +66,7 @@ public final class Nature {
 
 	static boolean anyOn() {
 		for (String k : new String[]{"butterflies", "light_motes", "rain_ripples", "shore_foam", "water_steam", "smoke_wisps", "ghibli_snow", "window_glow",
-				"bird_flocks", "dragonflies", "dandelion_seeds", "fish_jumps", "puddles", "sky_reflection", "leaf_rustle"}) {
+				"bird_flocks", "dragonflies", "dandelion_seeds", "fish_jumps", "puddles", "sky_reflection", "leaf_rustle", "torch_glow"}) {
 			if (SkySettings.on(k)) {
 				return true;
 			}
@@ -81,7 +81,7 @@ public final class Nature {
 		if (scanIndex == 0) {
 			scanOrigin = BlockPos.containing(cam);
 			sFlowers = new ArrayList<>(); sLeafAir = new ArrayList<>(); sWater = new ArrayList<>(); sShore = new ArrayList<>();
-			sSmoke = new ArrayList<>(); sWindows = new ArrayList<>(); sWindowSides = new ArrayList<>(); sGround = new ArrayList<>();
+			sSmoke = new ArrayList<>(); sWindows = new ArrayList<>(); sWindowSides = new ArrayList<>(); sGround = new ArrayList<>(); sLights = new ArrayList<>();
 			sLeaves = 0;
 		}
 		BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
@@ -104,6 +104,9 @@ public final class Nature {
 			if (s.is(BlockTags.LEAVES)) {
 				sLeaves++;
 				continue;
+			}
+			if (sLights.size() < 48 && s.getLightEmission() >= 12 && level.getFluidState(m).isEmpty() && !s.isSolidRender()) {
+				sLights.add(m.immutable()); // torches, lanterns, campfires, candles...
 			}
 			if (sGround.size() < 90 && (x * 5 + z * 11) % 4 == 0 && s.isSolidRender() && !level.getBlockState(m.above()).isSolidRender()
 					&& level.getFluidState(m.above()).isEmpty() && level.canSeeSky(m.above())) {
@@ -143,7 +146,7 @@ public final class Nature {
 		if (scanIndex >= total) {
 			scanIndex = 0;
 			flowers = sFlowers; leafAir = sLeafAir; water = sWater; shore = sShore; smoke = sSmoke; windows = sWindows;
-			ground = sGround; leaves = sLeaves;
+			ground = sGround; leaves = sLeaves; lights = sLights;
 			windowSides.clear();
 			windowSides.addAll(sWindowSides);
 		}
@@ -333,6 +336,23 @@ public final class Nature {
 								float day, float night, float gold, float rain, float wind) {
 		int q = 0;
 		org.joml.Vector3f sun = CirrusSky.sunDirection();
+
+		// warm halos around torches, lanterns and campfires when it is dark
+		if (SkySettings.on("torch_glow")) {
+			for (int i = 0; i < lights.size(); i++) {
+				BlockPos lp = lights.get(i);
+				int sky = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, lp);
+				float dark = Math.max(night, 1 - sky / 15F) ;
+				if (dark < 0.15F) continue;
+				net.minecraft.world.level.block.state.BlockState ls = level.getBlockState(lp);
+				boolean soul = ls.getBlock().getDescriptionId().contains("soul");
+				float flick = 0.9F + 0.1F * (float) Math.sin(t * 7.3 + i * 1.7) * (float) Math.sin(t * 3.1 + i);
+				double hy = lp.getY() + (ls.getBlock().getDescriptionId().contains("lantern") ? 0.4 : 0.6);
+				bill(b, cam, lp.getX() + 0.5, hy, lp.getZ() + 0.5, 1.15F * flick, rx, ry, rz, ux, uy, uz, 26,
+						argb(Math.min(1, dark) * 0.42F * flick, soul ? 0x7FD8FF : 0xFFB062));
+				q++;
+			}
+		}
 
 		// bird flocks: a loose V of birds crossing the sky now and then (by day and at dusk)
 		boolean birds = SkySettings.on("bird_flocks") && (day > 0.3F || gold > 0.2F) && rain < 0.4F;
