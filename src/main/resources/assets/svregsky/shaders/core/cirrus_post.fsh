@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 // SvregSky screen look: thin cartoon outlines from depth edges, a time-of-day film tint and a soft vignette.
 // TextureMat[0] = tint rgb, tint amount | [1] = vignette, outline strength, depth fade start, 0
 

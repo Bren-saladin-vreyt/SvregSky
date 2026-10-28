@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 // SvregSky ambient particles. UV.x selects the shape: [0,1] soft glow, [2,3] leaf / petal, [4,5] sparkle,
 // [6,7] butterfly, [8,9] ripple ring, [10,11] foam blob, [12,13] snowflake, [14] bird, [16] dragonfly,
 // [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water

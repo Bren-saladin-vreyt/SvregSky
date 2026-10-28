@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 // SvregSky: copies the scene colour into a texture the soft-glow / depth-of-field pass can read
 
 #moj_import <minecraft:dynamictransforms.glsl>

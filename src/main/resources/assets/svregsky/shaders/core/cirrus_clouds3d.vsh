@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 #moj_import <minecraft:dynamictransforms.glsl>
 #moj_import <minecraft:projection.glsl>
 

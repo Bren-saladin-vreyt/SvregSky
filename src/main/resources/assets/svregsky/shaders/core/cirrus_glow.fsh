@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 // SvregSky soft glow (bloom) and photo-mode depth of field, from a copy of the scene.
 // TextureMat[2] = bloom strength, depth-of-field strength, 0, 0
 

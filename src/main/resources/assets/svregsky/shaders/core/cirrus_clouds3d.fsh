@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 // SvregSky 3D clouds: stepped voxel cumulus with flat toon shading in the Cirrus sky palette.
 // Color attribute: r = face (0 top, 1 bottom, 2 +x, 3 -x, 4 +z, 5 -z) * 40 / 255, g = column height / max height
 // TextureMat[0] = sun dir, max column height | [1] = day, gold, night, rain | [2] = haze away from sun, mode (0 hybrid, 1 full)

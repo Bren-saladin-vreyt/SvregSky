@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 #moj_import <minecraft:dynamictransforms.glsl>
 
 in vec4 vColor;

@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 // SvregSky "Cirrus" sky: Ghibli gradient, sun glow + rays, stars, milky way, aurora, shooting stars (mode 0)
 // and the painted pixel-cumulus cloud layers (mode 1, drawn after the sun and moon so clouds cover them).
 // Every parameter comes in through TextureMat / ColorModulator / ModelOffset (see CirrusSky.java).
@@ -457,11 +459,12 @@ vec3 sunAndMoon(vec3 col, vec3 dir, vec3 sunDir, float day, float gold, float ni
 }
 
 
-// towering summer cumulonimbus on the horizon (Laputa-style), drawn in the cloud pass:
-// each tower is a stack of round puffs, every puff toon-lit on its own, so it reads as a painted cauliflower
+// towering summer cumulonimbus on the horizon (Laputa-style), drawn in the cloud pass.
+// Kept loop-simple (one short loop, no early exits) so phone GPU compilers handle it well.
 vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rain, float org, float amt, float seed) {
-    if (amt < 0.01 || dir.y < -0.03 || dir.y > 0.55) {
-        return vec4(0.0);
+    vec4 res = vec4(0.0);
+    if (amt < 0.01 || dir.y < -0.03 || dir.y > 0.6) {
+        return res;
     }
     float az = atan(dir.z, dir.x);
     vec2 g = floor(vec2(az, dir.y) * 300.0 + 0.5) / 300.0; // painted pixel grid
@@ -469,50 +472,38 @@ vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rai
     vec3 litC = mix(vec3(1.0, 0.99, 0.96), mix(vec3(1.0, 0.80, 0.58), vec3(1.0, 0.72, 0.64), org), gold);
     vec3 midC = mix(vec3(0.86, 0.89, 0.97), mix(vec3(0.92, 0.70, 0.66), vec3(0.88, 0.66, 0.72), org), gold);
     vec3 shadeC = mix(vec3(0.68, 0.75, 0.92), vec3(0.62, 0.55, 0.76), gold);
+    float sd = fract(seed * 0.1173) * 10.0;
     for (int i = 0; i < 4; i++) {
         float fi = float(i);
         // one tower in each quarter of the horizon, at a random spot within it
-        float c = fi * 1.5708 + hash2(vec2(seed, fi * 3.7)) * 1.2 - 3.1416;
-        float H = (0.30 + 0.15 * hash2(vec2(fi + 1.3, seed + 3.0))) * (0.6 + 0.4 * amt); // they grow through the afternoon
-        float W = 0.15 + 0.07 * hash2(vec2(seed + 7.0, fi));
+        float c = fi * 1.5708 + hash2(vec2(sd, fi * 3.7)) * 1.2 - 3.1416;
+        float H = (0.30 + 0.15 * hash2(vec2(fi + 1.3, sd + 3.0))) * (0.6 + 0.4 * amt);
+        float W = 0.10 + 0.05 * hash2(vec2(sd + 7.0, fi));
         float du = g.x - c;
         du -= 6.2832 * floor((du + 3.1416) / 6.2832);
-        if (abs(du) > W * 1.8 || g.y > H * 1.2) {
-            continue;
+        float u = du / W;                 // -1..1 across the tower
+        float v = g.y / H;                // 0..1 up the tower
+        // cauliflower column: narrowing upward with lumpy sides, a bumpy rounded crown
+        float sideBump = noise(vec2(v * 6.0 + sd, floor(u + 1.0) * 3.1)) - 0.5;
+        float halfW = (1.0 - 0.22 * v) + 0.30 * sideBump;
+        float crown = noise(vec2(u * 3.5 + sd, 1.7)) - 0.5;
+        float crown2 = noise(vec2(u * 8.0 + sd * 1.3, 4.1)) - 0.5;
+        float edge = (1.0 - 0.45 * u * u) * (0.86 + 0.30 * crown + 0.14 * crown2);
+        float inside = step(abs(u), halfW) * step(v, edge) * step(-0.05, v);
+        if (inside > 0.5 && res.a < 0.5) {
+            // toon light: puffs facing the sun bright, the far side lavender-blue
+            float side = sin(sunAz - c) >= 0.0 ? 1.0 : -1.0;
+            float puff = noise(vec2(u * 3.0 + sd * 2.0, v * 6.0)) - 0.5;
+            float lit = u * side * 0.7 + (v - edge * 0.6) * 0.8 + puff * 1.1;
+            vec3 col = lit > 0.12 ? litC : (lit > -0.30 ? midC : shadeC);
+            col *= mix(0.88, 1.0, clamp(v * 3.0, 0.0, 1.0));                  // darker base
+            col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));      // night silhouettes
+            col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.85, rain * 0.7);
+            col = mix(col, vec3(0.80, 0.86, 0.95), 0.22 * (1.0 - clamp(v, 0.0, 1.0)) * day * (1.0 - gold)); // aerial haze
+            res = vec4(col, smoothstep(0.0, 0.2, amt) * smoothstep(-0.03, 0.03, dir.y));
         }
-        vec2 q = vec2(du, g.y);
-        vec2 sunSide = normalize(vec2(sin(sunAz - c) >= 0.0 ? 1.0 : -1.0, 0.9));
-        float best = 1e9;
-        float shade = 0.0;
-        // a wide flat base hidden low behind the land, then puffs climbing up
-        for (int k = 0; k < 14; k++) {
-            float fk = float(k);
-            float lv = floor(fk / 2.0) / 6.0;                    // 7 levels, two puffs side by side
-            float sideK = mod(fk, 2.0) * 2.0 - 1.0;
-            float h1 = hash2(vec2(fi * 13.0 + fk, seed));
-            float h2 = hash2(vec2(fk * 7.0 + seed, fi + 2.0));
-            float y = H * lv * (0.9 + 0.12 * h1);
-            float r = W * (0.62 - 0.32 * lv) * (0.8 + 0.4 * h2);
-            float x = W * (sideK * (0.42 - 0.3 * lv) + (h1 - 0.5) * 0.3);
-            vec2 d = q - vec2(x, y);
-            float e = length(d) - r;
-            if (e < best) {
-                best = e;
-                float l = dot(d / r, sunSide);
-                shade = l > 0.15 ? 1.0 : (l > -0.45 ? 0.5 : 0.0);
-            }
-        }
-        if (best > 0.0) {
-            continue;
-        }
-        vec3 col = shade > 0.75 ? litC : (shade > 0.25 ? midC : shadeC);
-        col *= mix(0.88, 1.0, smoothstep(0.0, 0.3, g.y / H));                  // darker base
-        col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));              // night silhouettes
-        col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.85, rain * 0.7);
-        col = mix(col, vec3(0.80, 0.86, 0.95), 0.22 * (1.0 - g.y / H) * day * (1.0 - gold)); // aerial haze
-        return vec4(col, smoothstep(0.0, 0.2, amt) * smoothstep(-0.03, 0.03, dir.y));
     }
-    return vec4(0.0);
+    return res;
 }
 
 vec3 hue(float h) {
