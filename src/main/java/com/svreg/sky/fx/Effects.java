@@ -146,6 +146,12 @@ public final class Effects {
 			p.size = cherry ? 0.07F + RNG.nextFloat() * 0.03F : 0.09F + RNG.nextFloat() * 0.05F;
 			if (cherry) {
 				p.color = RNG.nextBoolean() ? 0xF7B8CC : 0xFFD6E2;
+			} else if (RNG.nextFloat() < com.svreg.sky.sky.Seasons.autumn()) {
+				int[] autumn = {0xE8822E, 0xD9542B, 0xF2B33D, 0xC9672A, 0xB8432F};
+				p.color = autumn[RNG.nextInt(autumn.length)];
+			} else if (RNG.nextFloat() < com.svreg.sky.sky.Seasons.spring() * 0.45F) {
+				p.color = RNG.nextBoolean() ? 0xF7B8CC : 0xFFE4EC; // spring blossom petals
+				p.size *= 0.8F;
 			} else {
 				int[] greens = {0x7DBE4C, 0x9CCB52, 0xB8C94A, 0x6FAE48};
 				p.color = greens[RNG.nextInt(greens.length)];
@@ -253,7 +259,7 @@ public final class Effects {
 						continue;
 					}
 					if (!p.alive || p.age > p.life) {
-						if (RNG.nextFloat() < 0.04F + 0.06F * Math.min(wind, 2)) {
+						if (RNG.nextFloat() < (0.04F + 0.06F * Math.min(wind, 2)) * (1 + 1.6F * com.svreg.sky.sky.Seasons.autumn() - 0.7F * com.svreg.sky.sky.Seasons.winter())) {
 							spawnLeaf(p, level, cam);
 						}
 						if (!p.alive) {

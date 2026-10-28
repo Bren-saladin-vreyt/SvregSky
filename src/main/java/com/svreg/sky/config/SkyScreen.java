@@ -23,7 +23,7 @@ public class SkyScreen extends OptionsSubScreen {
 	}
 
 	private static OptionInstance<Boolean> flag(String key) {
-		return bool(key, SkySettings.on(key), v -> SkySettings.FLAGS.put(key, v));
+		return bool(key, SkySettings.chosen(key), v -> SkySettings.FLAGS.put(key, v));
 	}
 
 	private static String clock(int ticks) {
@@ -68,7 +68,8 @@ public class SkyScreen extends OptionsSubScreen {
 						this.minecraft.gui.setScreen(new SkyScreen(this.lastScreen, this.options));
 					}
 				}),
-				flag("per_world"));
+				flag("per_world"),
+				flag("auto_fps"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.sky"));
 		this.list.addSmall(
@@ -82,7 +83,10 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("ghibli_sun_moon"),
 				flag("daily_variety"),
 				flag("lightning_glow"),
-				flag("ghibli_snow"));
+				flag("ghibli_snow"),
+				flag("seasons"),
+				flag("cloud_towers"),
+				flag("valley_fog"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
 		this.list.addSmall(
@@ -140,7 +144,14 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("grass_bend"),
 				flag("dappled_light"),
 				flag("water_steam"),
-				flag("smoke_wisps"));
+				flag("smoke_wisps"),
+				flag("bird_flocks"),
+				flag("dragonflies"),
+				flag("dandelion_seeds"),
+				flag("fish_jumps"),
+				flag("sky_reflection"),
+				flag("wet_ground"),
+				flag("puddles"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.sound"));
 		this.list.addSmall(
@@ -148,7 +159,8 @@ public class SkyScreen extends OptionsSubScreen {
 				percent("ambient_volume", 100, SkySettings.ambientVolume, v -> SkySettings.ambientVolume = v),
 				flag("weather_sounds"),
 				flag("place_sounds"),
-				flag("ghibli_music"));
+				flag("ghibli_music"),
+				flag("leaf_rustle"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.look"));
 		this.list.addSmall(
@@ -156,12 +168,16 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("cartoon_outline"),
 				flag("warm_lamps"),
 				flag("window_glow"),
-				flag("gentle_bob"));
+				flag("gentle_bob"),
+				flag("paper_texture"),
+				flag("bloom"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.photo"));
 		this.list.addSmall(
 				bool("photo_mode", SkySettings.photoMode, v -> SkySettings.photoMode = v),
 				choice("photo_weather", List.of("clear", "rain", "thunder"), SkySettings.photoWeather, v -> SkySettings.photoWeather = v),
+				choice("photo_timelapse", List.of("off", "slow", "fast"), SkySettings.photoTimelapse, v -> SkySettings.photoTimelapse = v),
+				flag("photo_dof"),
 				new OptionInstance<>("svregsky.options.photo_time", OptionInstance.noTooltip(),
 						(caption, v) -> Options.genericValueLabel(caption, Component.literal(clock(v))),
 						new OptionInstance.IntRange(0, 239, true), Math.floorMod(SkySettings.photoTime, 24000) / 100, v -> SkySettings.photoTime = v * 100));

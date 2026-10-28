@@ -24,11 +24,13 @@ public final class Presets {
 		SkySettings.horizonMountains = true;
 		SkySettings.ambientSounds = true;
 		for (String k : SkySettings.FLAGS.keySet()) {
-			if (k.equals("per_world")) {
+			if (k.equals("per_world") || k.equals("auto_fps")) {
 				continue;
 			}
 			boolean on = switch (k) {
-				case "cartoon_outline" -> false;
+				case "cartoon_outline", "paper_texture" -> false;
+				case "bloom" -> full;
+				case "dragonflies", "dandelion_seeds", "fish_jumps", "bird_flocks", "puddles", "sky_reflection" -> !light;
 				case "butterflies", "light_motes", "rain_ripples", "shore_foam", "water_steam", "smoke_wisps", "window_glow", "film_tone" -> !light && (full || !(k.equals("light_motes") || k.equals("shore_foam")));
 				default -> true;
 			};

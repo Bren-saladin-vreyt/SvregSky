@@ -30,9 +30,11 @@ import java.util.OptionalDouble;
 /** Screen look over the world: time-of-day film tint, a soft vignette, and (optional) thin cartoon outlines from depth edges. */
 public final class PostLook {
 	private static final Identifier SHADER = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/cirrus_post");
-	private static RenderPipeline pipeline;
+	private static RenderPipeline pipeline, copyPipeline, glowPipeline;
 	private static GpuBuffer quad;
-	private static boolean broken;
+	private static boolean broken, glowBroken;
+	private static com.mojang.blaze3d.textures.GpuTexture sceneTex;
+	private static com.mojang.blaze3d.textures.GpuTextureView sceneView;
 
 	private PostLook() {
 	}
@@ -65,9 +67,76 @@ public final class PostLook {
 		}
 	}
 
+	private static RenderPipeline simple(String name, ColorTargetState color, com.mojang.blaze3d.pipeline.BindGroupLayout samplers) {
+		Identifier sh = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/" + name);
+		return RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
+				.withLocation(Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "pipeline/" + name))
+				.withVertexShader(sh)
+				.withFragmentShader(sh)
+				.withVertexBinding(0, DefaultVertexFormat.POSITION)
+				.withPrimitiveTopology(PrimitiveTopology.QUADS)
+				.withCull(false)
+				.withDepthStencilState(Optional.empty())
+				.withColorTargetState(color)
+				.withBindGroupLayout(samplers)
+				.build();
+	}
+
+	/** soft glow (bloom) and photo-mode depth of field: copy the scene, then redraw it with the effect */
+	private static void glow(Minecraft mc, RenderTarget main, AbstractTexture any, float bloom, float dof) {
+		if (glowBroken) {
+			return;
+		}
+		try {
+			if (copyPipeline == null) {
+				copyPipeline = simple("cirrus_copy", ColorTargetState.DEFAULT, BindGroupLayouts.SAMPLER0);
+				glowPipeline = simple("cirrus_glow", ColorTargetState.DEFAULT, BindGroupLayouts.SAMPLER0_SAMPLER1);
+			}
+			int w = main.width, h = main.height;
+			if (sceneTex == null || sceneTex.getWidth(0) != w || sceneTex.getHeight(0) != h) {
+				if (sceneView != null) sceneView.close();
+				if (sceneTex != null) sceneTex.close();
+				sceneTex = RenderSystem.getDevice().createTexture(() -> "SvregSky scene copy", 15, main.getColorTexture().getFormat(), w, h, 1, 1);
+				sceneView = RenderSystem.getDevice().createTextureView(sceneTex);
+			}
+			Matrix4f params = new Matrix4f(
+					0, 0, 0, 0,
+					0, 0, 0, 0,
+					bloom, dof, 0.004F, 0,
+					0, 0, 0, 0);
+			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(1, 1, 1, 1), new Vector3f(), params);
+			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
+			GpuBuffer ib = indices.getBuffer(6);
+			IndexType type = indices.type();
+			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky scene copy", sceneView, Optional.empty(), null, OptionalDouble.empty())) {
+				pass.setPipeline(copyPipeline);
+				RenderSystem.bindDefaultUniforms(pass);
+				pass.setUniform("DynamicTransforms", transforms);
+				pass.bindTexture("Sampler0", main.getColorTextureView(), any.getSampler());
+				pass.setVertexBuffer(0, quad.slice());
+				pass.setIndexBuffer(ib, type);
+				pass.drawIndexed(6, 1, 0, 0, 0);
+			}
+			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky glow", main.getColorTextureView(), Optional.empty(), null, OptionalDouble.empty())) {
+				pass.setPipeline(glowPipeline);
+				RenderSystem.bindDefaultUniforms(pass);
+				pass.setUniform("DynamicTransforms", transforms);
+				pass.bindTexture("Sampler0", sceneView, any.getSampler());
+				pass.bindTexture("Sampler1", main.getDepthTextureView(), any.getSampler());
+				pass.setVertexBuffer(0, quad.slice());
+				pass.setIndexBuffer(ib, type);
+				pass.drawIndexed(6, 1, 0, 0, 0);
+			}
+		} catch (Throwable t) {
+			glowBroken = true;
+			SvregSky.LOG.error("SvregSky: soft glow / depth of field failed, turning it off", t);
+		}
+	}
+
 	public static void render() {
-		boolean tone = SkySettings.on("film_tone"), outline = SkySettings.on("cartoon_outline");
-		if (broken || (!tone && !outline)) {
+		boolean tone = SkySettings.on("film_tone"), outline = SkySettings.on("cartoon_outline"), paper = SkySettings.on("paper_texture");
+		boolean bloom = SkySettings.on("bloom"), dof = SkySettings.photoMode && SkySettings.on("photo_dof");
+		if (broken || (!tone && !outline && !paper && !bloom && !dof)) {
 			return;
 		}
 		try {
@@ -90,12 +159,18 @@ public final class PostLook {
 			}
 			Matrix4f params = new Matrix4f(
 					r, g, bl, a,
-					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, 0,
+					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, paper ? 1 : 0,
 					0, 0, 0, 0,
 					0, 0, 0, 0);
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(1, 1, 1, 1), new Vector3f(), params);
 			RenderTarget main = mc.gameRenderer.mainRenderTarget();
 			AbstractTexture any = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
+			if (bloom || dof) {
+				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
+			}
+			if (!tone && !outline && !paper) {
+				return;
+			}
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer ib = indices.getBuffer(6);
 			IndexType type = indices.type();

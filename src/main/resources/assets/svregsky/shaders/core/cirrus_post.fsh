@@ -44,6 +44,21 @@ void main() {
         col = mix(col, vec3(0.10, 0.08, 0.14), oa / max(a + oa, 1e-4));
         a = 1.0 - (1.0 - a) * (1.0 - oa);
     }
+    float paper = TextureMat[1].w;
+    if (paper > 0.0) {
+        // watercolour paper: soft fibrous grain and faint blotches that stay put on screen
+        vec2 q = gl_FragCoord.xy;
+        float grain = fract(sin(dot(floor(q * 0.5), vec2(12.9898, 78.233))) * 43758.5453);
+        vec2 b = q / 90.0;
+        vec2 i = floor(b), f = fract(b);
+        f = f * f * (3.0 - 2.0 * f);
+        float h00 = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453), h10 = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5453);
+        float h01 = fract(sin(dot(i + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5453), h11 = fract(sin(dot(i + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5453);
+        float blot = mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+        float pa = paper * (0.035 * grain + 0.05 * blot);
+        col = mix(col, vec3(0.42, 0.36, 0.30), pa / max(a + pa, 1e-4));
+        a = 1.0 - (1.0 - a) * (1.0 - pa);
+    }
     if (a < 0.002) {
         discard;
     }

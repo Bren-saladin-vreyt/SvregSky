@@ -21,6 +21,7 @@ const int F_SHOOTING = 32;
 const int F_RAYS = 64;
 const int F_GODRAYS = 128;
 const int F_MOUNTAINS = 256;
+const int F_TOWERS = 512;
 
 // ---------------------------------------------------------------- noise
 float hash2(vec2 p) {
@@ -455,6 +456,64 @@ vec3 sunAndMoon(vec3 col, vec3 dir, vec3 sunDir, float day, float gold, float ni
     return col;
 }
 
+
+// towering summer cumulonimbus on the horizon (Laputa-style), drawn in the cloud pass:
+// each tower is a stack of round puffs, every puff toon-lit on its own, so it reads as a painted cauliflower
+vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rain, float org, float amt, float seed) {
+    if (amt < 0.01 || dir.y < -0.03 || dir.y > 0.55) {
+        return vec4(0.0);
+    }
+    float az = atan(dir.z, dir.x);
+    vec2 g = floor(vec2(az, dir.y) * 300.0 + 0.5) / 300.0; // painted pixel grid
+    float sunAz = atan(sunDir.z, sunDir.x);
+    vec3 litC = mix(vec3(1.0, 0.99, 0.96), mix(vec3(1.0, 0.80, 0.58), vec3(1.0, 0.72, 0.64), org), gold);
+    vec3 midC = mix(vec3(0.86, 0.89, 0.97), mix(vec3(0.92, 0.70, 0.66), vec3(0.88, 0.66, 0.72), org), gold);
+    vec3 shadeC = mix(vec3(0.68, 0.75, 0.92), vec3(0.62, 0.55, 0.76), gold);
+    for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float c = hash2(vec2(seed, fi * 3.7)) * 6.2832 - 3.1416;
+        float H = 0.30 + 0.15 * hash2(vec2(fi + 1.3, seed + 3.0));
+        float W = 0.15 + 0.07 * hash2(vec2(seed + 7.0, fi));
+        float du = g.x - c;
+        du -= 6.2832 * floor((du + 3.1416) / 6.2832);
+        if (abs(du) > W * 1.8 || g.y > H * 1.2) {
+            continue;
+        }
+        vec2 q = vec2(du, g.y);
+        vec2 sunSide = normalize(vec2(sin(sunAz - c) >= 0.0 ? 1.0 : -1.0, 0.9));
+        float best = 1e9;
+        float shade = 0.0;
+        // a wide flat base hidden low behind the land, then puffs climbing up
+        for (int k = 0; k < 14; k++) {
+            float fk = float(k);
+            float lv = floor(fk / 2.0) / 6.0;                    // 7 levels, two puffs side by side
+            float sideK = mod(fk, 2.0) * 2.0 - 1.0;
+            float h1 = hash2(vec2(fi * 13.0 + fk, seed));
+            float h2 = hash2(vec2(fk * 7.0 + seed, fi + 2.0));
+            float y = H * lv * (0.9 + 0.12 * h1);
+            float r = W * (0.62 - 0.32 * lv) * (0.8 + 0.4 * h2);
+            float x = W * (sideK * (0.42 - 0.3 * lv) + (h1 - 0.5) * 0.3);
+            vec2 d = q - vec2(x, y);
+            float e = length(d) - r;
+            if (e < best) {
+                best = e;
+                float l = dot(d / r, sunSide);
+                shade = l > 0.15 ? 1.0 : (l > -0.45 ? 0.5 : 0.0);
+            }
+        }
+        if (best > 0.0) {
+            continue;
+        }
+        vec3 col = shade > 0.75 ? litC : (shade > 0.25 ? midC : shadeC);
+        col *= mix(0.88, 1.0, smoothstep(0.0, 0.3, g.y / H));                  // darker base
+        col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));              // night silhouettes
+        col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.85, rain * 0.7);
+        col = mix(col, vec3(0.80, 0.86, 0.95), 0.22 * (1.0 - g.y / H) * day * (1.0 - gold)); // aerial haze
+        return vec4(col, amt * smoothstep(-0.03, 0.03, dir.y));
+    }
+    return vec4(0.0);
+}
+
 vec3 hue(float h) {
     return clamp(abs(fract(vec3(h) + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
 }
@@ -481,6 +540,14 @@ void main() {
 
     if (mode > 0.5) {
         vec4 k = clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);
+        if ((flags & F_TOWERS) != 0) {
+            vec4 tw = towers(dir, sunDir, day, gold, night, rain, org, ModelOffset.y, ModelOffset.z);
+            // the far, low painted clouds sit behind the towers; high ones (overhead) pass in front
+            float front = smoothstep(0.30, 0.45, dir.y);
+            vec4 over = vec4(mix(tw.rgb, k.rgb, k.a), max(k.a, tw.a));
+            vec4 under = vec4(mix(k.rgb, tw.rgb, tw.a), max(k.a, tw.a));
+            k = mix(under, over, front);
+        }
         if ((flags & F_MOUNTAINS) != 0 && dir.y < 0.26) {
             vec3 hs = landHeights(atan(dir.z, dir.x));
             if (dir.y < max(hs.x, max(hs.y, hs.z))) {

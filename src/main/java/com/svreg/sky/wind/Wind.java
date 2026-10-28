@@ -18,7 +18,7 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1;
 	private static volatile double pX, pY, pZ;
 
 	private Wind() {
@@ -87,6 +87,7 @@ public final class Wind {
 			locGrade = GL20C.glGetUniformLocation(prog, "svregsky_Grade");
 			locPlayer = GL20C.glGetUniformLocation(prog, "svregsky_Player");
 			locLook = GL20C.glGetUniformLocation(prog, "svregsky_Look");
+			locSeason = GL20C.glGetUniformLocation(prog, "svregsky_Season");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
@@ -106,7 +107,14 @@ public final class Wind {
 			GL20C.glUniform4f(locPlayer, (float) (pX - camX), (float) (pY - camY), (float) (pZ - camZ), SkySettings.on("grass_bend") ? 1 : 0);
 		}
 		if (locLook >= 0) {
-			GL20C.glUniform4f(locLook, SkySettings.on("warm_lamps") ? 1 : 0, SkySettings.on("dappled_light") ? 1 : 0, 0, 0);
+			org.joml.Vector3f sunV = com.svreg.sky.sky.CirrusSky.sunDirection();
+			// valley fog: thickest in the cool morning and evening, light at midday
+			float vf = SkySettings.on("valley_fog") ? 0.45F + 0.55F * (1 - smoothstep(0.15F, 0.6F, Math.abs(sunV.y))) : 0;
+			GL20C.glUniform4f(locLook, SkySettings.on("warm_lamps") ? 1 : 0, SkySettings.on("dappled_light") ? 1 : 0, vf, 0);
+		}
+		if (locSeason >= 0) {
+			GL20C.glUniform4f(locSeason, com.svreg.sky.sky.Seasons.spring(), com.svreg.sky.sky.Seasons.autumn(), com.svreg.sky.sky.Seasons.winter(),
+					SkySettings.on("wet_ground") ? com.svreg.sky.sky.CirrusSky.wetness() : 0);
 		}
 		if (locGrade >= 0) {
 			org.joml.Vector3f sun = com.svreg.sky.sky.CirrusSky.sunDirection();
@@ -128,7 +136,8 @@ public final class Wind {
 			uniform vec4 svregsky_Grade; // colour grading strength, morning mist strength, day, golden hour
 			out vec4 v_svMist;          // mist colour + amount, for the fragment shader
 			uniform vec4 svregsky_Player; // player feet relative to the camera, grass bend on/off
-			uniform vec4 svregsky_Look;   // warm lamps, dappled light, unused, unused
+			uniform vec4 svregsky_Look;   // warm lamps, dappled light, valley fog, unused
+			uniform vec4 svregsky_Season; // spring, autumn, winter weights, ground wetness
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
 			    p3 += dot(p3, p3.yzx + 33.33);
@@ -198,6 +207,29 @@ public final class Wind {
 			                _vert_color.rgb = mix(svNear, svSage, svF);
 			            }
 			        }
+			        if (svregsky_Season.x + svregsky_Season.y + svregsky_Season.z > 0.001) {
+			            // seasons: blossoms and fresh greens, autumn reds and golds, frosty winter
+			            vec3 svC = _vert_color.rgb;
+			            float svGreen = smoothstep(0.02, 0.10, svC.g - max(svC.r, svC.b));
+			            if (svGreen > 0.0) {
+			                float svL = dot(svC, vec3(0.30, 0.59, 0.11));
+			                float svH = svHash(floor(svWp.xz) + vec2(floor(svWp.y) * 7.13, 3.7));
+			                bool svIsLeaf = svK == 26;
+			                vec3 svOut = svC;
+			                // spring
+			                vec3 svSpr = svIsLeaf && svH < 0.22 ? vec3(1.0, 0.78, 0.86) * max(svL / 0.5, 0.95) : svC * vec3(0.96, 1.08, 0.90);
+			                svOut = mix(svOut, svSpr, svregsky_Season.x);
+			                // autumn
+			                vec3 svAut = svIsLeaf
+			                    ? (svH < 0.4 ? vec3(0.93, 0.52, 0.18) : (svH < 0.7 ? vec3(0.80, 0.30, 0.18) : vec3(0.95, 0.75, 0.25))) * (svL / 0.5)
+			                    : mix(svC, vec3(0.74, 0.68, 0.32) * (svL / 0.6), 0.55);
+			                svOut = mix(svOut, svAut, svregsky_Season.y);
+			                // winter
+			                vec3 svWin = mix(svC, vec3(svL * 1.1 + 0.18) * vec3(0.92, 0.97, 1.06), 0.62);
+			                svOut = mix(svOut, svWin, svregsky_Season.z);
+			                _vert_color.rgb = mix(svC, clamp(svOut, 0.0, 1.0), svGreen);
+			            }
+			        }
 			    }
 			#endif
 			""";
@@ -223,11 +255,16 @@ public final class Wind {
 			            svExtra *= mix(1.0, mix(0.86, 1.12, smoothstep(0.45, 0.65, svDap)), svUnder * svregsky_Look.y);
 			        }
 			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, svG) * svExtra;
+			        // wet ground after rain: darker, a little cooler, outdoors only
+			        float svWet = svregsky_Season.w * smoothstep(0.85, 0.95, svSkyL);
+			        svCol *= mix(vec3(1.0), vec3(0.78, 0.80, 0.86), svWet);
 			        float svLum = dot(svCol, vec3(0.30, 0.59, 0.11));
 			        v_Color.rgb = mix(vec3(svLum), svCol, 1.0 + 0.10 * svG);
 			        // low morning mist in valleys and over water
 			        float svWy = position.y + svregsky_Cam.y;
 			        float svM = svregsky_Grade.y * (1.0 - smoothstep(62.0, 78.0, svWy)) * smoothstep(3.0, 48.0, length(position));
+			        // valley fog: low land far below the camera sits in a soft haze
+			        svM = max(svM, svregsky_Look.z * smoothstep(6.0, 30.0, svregsky_Cam.y - svWy) * smoothstep(20.0, 96.0, length(position)) * 0.7);
 			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.95, 0.0, 0.85));
 			    }
 			#endif

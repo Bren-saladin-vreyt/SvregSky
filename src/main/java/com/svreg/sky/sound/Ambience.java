@@ -36,9 +36,10 @@ public final class Ambience {
 	private static final SoundEvent BELL = event("ambient.bell");
 	private static final SoundEvent MUSIC_RISE = event("music.sunrise");
 	private static final SoundEvent MUSIC_SET = event("music.sunset");
+	private static final SoundEvent RUSTLE = event("ambient.leaves_rustle");
 	private static final Random RNG = new Random();
 
-	private static Loop wind, crickets, stream, ocean, frogs, mountain, rainSoft, rainRoof;
+	private static Loop wind, crickets, stream, ocean, frogs, mountain, rainSoft, rainRoof, rustle;
 	private static float waterNear, oceanNear, forestNear, roofed;
 	private static int tick, nextBird = 100, nextOwl = 400, nextDrip = 60, nextBell = 1200, villagers, thunderIn = -1;
 	private static boolean crowed;
@@ -156,6 +157,8 @@ public final class Ambience {
 			mountain = drive(mountain, MOUNTAIN, pv * open * high * 0.5F);
 			rainSoft = drive(rainSoft, RAIN_SOFT, wv * rain * open * 0.5F);
 			rainRoof = drive(rainRoof, RAIN_ROOF, wv * rain * roofed * 0.55F);
+			float rv = SkySettings.on("leaf_rustle") ? vol : 0;
+			rustle = drive(rustle, RUSTLE, rv * com.svreg.sky.fx.Nature.leafiness() * Math.min(SkySettings.windStrength, 2) * 0.3F * (outdoors ? 1 : 0.35F));
 
 			// gentle thunder a moment after the lightning glow in the clouds
 			float fl = CirrusSky.flashLevel();

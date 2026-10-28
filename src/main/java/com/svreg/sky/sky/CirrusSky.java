@@ -58,7 +58,8 @@ public final class CirrusSky {
 	// last frame's sky factors (also used for the fog colour)
 	private static final Vector3f sunDir = new Vector3f(0, 1, 0);
 	private static float day = 1, gold, night, rain, rise, org;
-	private static float rainbowLevel, flash, dailyCoverage;
+	private static float rainbowLevel, flash, dailyCoverage, towerAmt, towerSeed, wet;
+	private static long wetNanos;
 	private static int moonPhase;
 	private static boolean rainbowArmed;
 	private static long rainbowStart;
@@ -166,6 +167,24 @@ public final class CirrusSky {
 			h -= Math.floor(h);
 			dailyCoverage = (float) ((h - 0.45) * 0.16);
 		}
+		// towering cumulonimbus on the horizon: most summer days, some spring days, building up through the afternoon
+		towerAmt = 0;
+		if (SkySettings.on("cloud_towers") && mcw.level != null) {
+			long dayIndex = Math.floorDiv(mcw.level.getGameTime(), 24000L);
+			double h = Math.sin(dayIndex * 7.233 + 11.17) * 15731.743;
+			h -= Math.floor(h);
+			float chance = Seasons.summer() * 0.75F + Seasons.spring() * 0.35F + Seasons.autumn() * 0.2F + Seasons.winter() * 0.05F;
+			if (h < chance) {
+				float afternoon = sunDir.x < 0 ? 1.0F : 0.55F; // grow taller after noon (sun in the west)
+				towerAmt = afternoon * Math.max(0.35F, day) * (1 - rain * 0.6F);
+			}
+			towerSeed = (float) (dayIndex % 97) * 1.37F + 3.1F;
+		}
+		// ground wetness: up while it rains, drying over a couple of minutes after
+		long wn = System.nanoTime();
+		float wdt = wetNanos == 0 ? 0 : (float) Math.min(0.2, (wn - wetNanos) / 1e9);
+		wetNanos = wn;
+		wet = Math.max(rain, wet - wdt / 150F);
 		// rainbow: shows up for a while after a rain shower ends, while the sun is up
 		long nowMs = System.currentTimeMillis();
 		if (rain > 0.35F) {
@@ -245,6 +264,11 @@ public final class CirrusSky {
 		return night;
 	}
 
+	/** how wet the ground is (rises with rain, dries slowly after) */
+	public static float wetness() {
+		return wet;
+	}
+
 	public static float rainLevel() {
 		return rain;
 	}
@@ -283,7 +307,7 @@ public final class CirrusSky {
 		if (!SkySettings.paintedClouds || SkySettings.cloud3dFull() || !overworld || state == null || !init()) {
 			return;
 		}
-		draw(cloudPipeline, F_CLOUDS | (SkySettings.cloudGodRays ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0), 1.0F, "SvregSky clouds");
+		draw(cloudPipeline, F_CLOUDS | (SkySettings.cloudGodRays ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0), 1.0F, "SvregSky clouds");
 	}
 
 	private static boolean draw(RenderPipeline pipeline, int flags, float mode, String label) {
@@ -311,7 +335,7 @@ public final class CirrusSky {
 			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));
 			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).setTranslation(0, 0, 0).scale(scale);
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, extra,
-					new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
+					mode > 0.5F ? new Vector3f(flash, towerAmt, towerSeed) : new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
 
 			AbstractTexture tex = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
 			RenderTarget target = mc.gameRenderer.mainRenderTarget();

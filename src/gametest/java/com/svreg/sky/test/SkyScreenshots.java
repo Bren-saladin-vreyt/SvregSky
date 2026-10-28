@@ -121,6 +121,39 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.takeScreenshot("z9b_storm_later");
 			sp.getServer().runCommand("weather clear");
 
+			// batch 3: towers, seasons, puddles, glow, paper, birds, reflection path, depth of field
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("auto_fps", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("bloom", true);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("paper_texture", true);
+			});
+			sp.getServer().runCommand("time add 24000"); // a different day (towers are on most summer days)
+			shot(context, sp, 9000, 120, -4, "za_towers_afternoon");
+			shot(context, sp, 9000, -60, -4, "za2_towers_other_side");
+			shot(context, sp, 12300, 90, 8, "zb_sun_path_on_water");
+			shot(context, sp, 6000, 0, 10, "zc_bloom_paper");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("bloom", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("paper_texture", false);
+			});
+			sp.getServer().runCommand("time add 384000"); // 16 days later: autumn
+			shot(context, sp, 6000, 0, -5, "zd_autumn");
+			sp.getServer().runCommand("time add 192000"); // winter
+			shot(context, sp, 6000, 0, -5, "ze_winter");
+			sp.getServer().runCommand("time add 192000"); // spring
+			shot(context, sp, 6000, 0, -5, "zf_spring");
+			sp.getServer().runCommand("weather rain");
+			context.waitTicks(200);
+			sp.getServer().runCommand("weather clear");
+			context.waitTicks(60);
+			shot(context, sp, 6000, 0, 30, "zg_wet_ground_puddles");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.photoMode = true;
+				com.svreg.sky.sky.SkySettings.photoTime = 6000;
+			});
+			shot(context, sp, 6000, 0, 10, "zh_photo_dof");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.photoMode = false);
+
 			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~40 ~-10");

@@ -107,11 +107,32 @@ public final class SkySettings {
 		FLAGS.put("warm_lamps", true);
 		FLAGS.put("window_glow", true);
 		FLAGS.put("gentle_bob", true);
+		// batch 3
+		FLAGS.put("seasons", true);
+		FLAGS.put("cloud_towers", true);
+		FLAGS.put("sky_reflection", true);
+		FLAGS.put("valley_fog", true);
+		FLAGS.put("bird_flocks", true);
+		FLAGS.put("dragonflies", true);
+		FLAGS.put("dandelion_seeds", true);
+		FLAGS.put("fish_jumps", true);
+		FLAGS.put("wet_ground", true);
+		FLAGS.put("puddles", true);
+		FLAGS.put("leaf_rustle", true);
+		FLAGS.put("paper_texture", false);
+		FLAGS.put("bloom", false);
+		FLAGS.put("photo_dof", true);
+		FLAGS.put("auto_fps", true);
 		// comfort
 		FLAGS.put("per_world", false);
 	}
 
 	public static boolean on(String key) {
+		return Boolean.TRUE.equals(FLAGS.get(key)) && !AutoFps.paused(key);
+	}
+
+	/** the menu value, ignoring Auto FPS pauses */
+	public static boolean chosen(String key) {
 		return Boolean.TRUE.equals(FLAGS.get(key));
 	}
 
@@ -119,6 +140,14 @@ public final class SkySettings {
 	public static boolean photoMode;
 	public static int photoTime = 12300;
 	public static String photoWeather = "clear";
+	public static String photoTimelapse = "off"; // off / slow / fast
+
+	/** photo-mode time-lapse: the sky turns on its own (a day in about two minutes, or thirty seconds) */
+	public static void tickPhoto() {
+		if (photoMode && !"off".equals(photoTimelapse)) {
+			photoTime = (photoTime + ("fast".equals(photoTimelapse) ? 40 : 10)) % 24000;
+		}
+	}
 
 	/** any 3D cloud mode */
 	public static boolean cloud3d() {
