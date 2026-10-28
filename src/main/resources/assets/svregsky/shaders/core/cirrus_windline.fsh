@@ -2,14 +2,19 @@
 
 precision highp float;
 
-#moj_import <minecraft:dynamictransforms.glsl>
+layout(std140) uniform DynamicTransforms {
+    highp mat4 ModelViewMat;
+    highp vec4 ColorModulator;
+    highp vec3 ModelOffset;
+    highp mat4 TextureMat;
+};
 
-in vec4 vColor;
+in highp vec4 vColor;
 
-out vec4 fragColor;
+out highp vec4 fragColor;
 
 void main() {
-    vec4 c = vColor * ColorModulator;
+    highp vec4 c = vColor * ColorModulator;
     if (c.a < 0.004) {
         discard;
     }

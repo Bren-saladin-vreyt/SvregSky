@@ -163,6 +163,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(60);
 			shot(context, sp, 6000, -20, 30, "zi_water_noon");
 			shot(context, sp, 12400, 60, 12, "zj_water_golden");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~0.6 ~");
+			context.waitTicks(2);
+			context.takeScreenshot("zj2_water_mid_jump");
 			shot(context, sp, 18000, 0, 20, "zk_water_night_torch");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("face_light", false));
 			shot(context, sp, 3000, 30, 5, "zl_face_light_off");
