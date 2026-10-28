@@ -61,11 +61,15 @@ public class SkyScreen extends OptionsSubScreen {
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.presets"));
 		this.list.addSmall(
-				choice("preset", List.of("custom", "light", "balanced", "full"), "custom", v -> {
+				choice("preset", List.of("custom", "light", "balanced", "full"), Presets.current, v -> {
+					Presets.current = v;
 					if (!v.equals("custom")) {
 						Presets.apply(v);
 						SkyConfig.save();
-						this.minecraft.gui.setScreen(new SkyScreen(this.lastScreen, this.options));
+						// reopen the screen (after this click is handled) so every switch shows the preset's values
+						net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+						Screen back = this.lastScreen;
+						mc.execute(() -> mc.gui.setScreen(new SkyScreen(back, mc.options)));
 					}
 				}),
 				flag("per_world"),

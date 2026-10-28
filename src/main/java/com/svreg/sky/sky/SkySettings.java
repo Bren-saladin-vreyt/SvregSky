@@ -190,6 +190,9 @@ public final class SkySettings {
 
 	/** applies the keys present in o; missing keys keep their current value */
 	public static void apply(JsonObject o) {
+		if (o.has("preset")) {
+			com.svreg.sky.config.Presets.current = o.get("preset").getAsString();
+		}
 			for (java.util.Map.Entry<String, Boolean> e : FLAGS.entrySet()) {
 				if (o.has(e.getKey())) {
 					e.setValue(o.get(e.getKey()).getAsBoolean());

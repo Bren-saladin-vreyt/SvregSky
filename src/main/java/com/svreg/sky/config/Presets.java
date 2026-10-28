@@ -4,6 +4,9 @@ import com.svreg.sky.sky.SkySettings;
 
 /** One-tap setups: Ringan (light, for phones), Seimbang (balanced), Ghibli Penuh (everything). */
 public final class Presets {
+	/** the last preset picked in the menu ("custom" when none) */
+	public static String current = "custom";
+
 	private Presets() {
 	}
 

@@ -60,6 +60,7 @@ public final class CirrusSky {
 	private static float day = 1, gold, night, rain, rise, org;
 	private static float rainbowLevel, flash, dailyCoverage, towerAmt, towerSeed, wet;
 	private static long wetNanos;
+	private static final Identifier TOWERS = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/towers.png");
 	/** test hook: towers every day */
 	public static boolean forceTowers;
 	private static int moonPhase;
@@ -79,7 +80,7 @@ public final class CirrusSky {
 				.withCull(false)
 				.withDepthStencilState(Optional.empty())
 				.withColorTargetState(color)
-				.withBindGroupLayout(BindGroupLayouts.SAMPLER0)
+				.withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1)
 				.build();
 	}
 
@@ -341,6 +342,7 @@ public final class CirrusSky {
 					mode > 0.5F ? new Vector3f(flash, towerAmt, towerSeed) : new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
 
 			AbstractTexture tex = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
+			AbstractTexture towerTex = mc.getTextureManager().getTexture(TOWERS);
 			RenderTarget target = mc.gameRenderer.mainRenderTarget();
 			GpuTextureView color = RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride : target.getColorTextureView();
 			GpuTextureView depth = target.useDepth ? (RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthTextureView()) : null;
@@ -353,6 +355,7 @@ public final class CirrusSky {
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", transforms);
 				pass.bindTexture("Sampler0", tex.getTextureView(), tex.getSampler());
+				pass.bindTexture("Sampler1", towerTex.getTextureView(), towerTex.getSampler());
 				pass.setVertexBuffer(0, cube.slice());
 				pass.setIndexBuffer(indexBuffer, indexType);
 				pass.drawIndexed(36, 1, 0, 0, 0);
