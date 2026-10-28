@@ -140,11 +140,11 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("paper_texture", false);
 			});
 			sp.getServer().runCommand("time add 384000"); // 16 days later: autumn
-			shot(context, sp, 6000, 0, -5, "zd_autumn");
+			look(context, 0, -5, "zd_autumn");
 			sp.getServer().runCommand("time add 192000"); // winter
-			shot(context, sp, 6000, 0, -5, "ze_winter");
+			look(context, 0, -5, "ze_winter");
 			sp.getServer().runCommand("time add 192000"); // spring
-			shot(context, sp, 6000, 0, -5, "zf_spring");
+			look(context, 0, -5, "zf_spring");
 			sp.getServer().runCommand("weather rain");
 			context.waitTicks(200);
 			sp.getServer().runCommand("weather clear");
@@ -163,6 +163,16 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(40);
 			shot(context, sp, 6000, 0, 55, "v_cloud_shadows");
 		}
+	}
+
+	/** a screenshot without touching the clock (so the day count, and with it the season, is kept) */
+	private static void look(ClientGameTestContext context, float yaw, float pitch, String name) {
+		context.runOnClient(client -> {
+			client.player.setYRot(yaw);
+			client.player.setXRot(pitch);
+		});
+		context.waitTicks(40);
+		context.takeScreenshot(name);
 	}
 
 	private static void shot(ClientGameTestContext context, TestSingleplayerContext sp, int time, float yaw, float pitch, String name) {
