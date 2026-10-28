@@ -84,6 +84,15 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.takeScreenshot("t2_fireflies_later");
 			shot(context, sp, 6000, 0, -8, "u_falling_leaves");
 
+			// painted mountains, colour grading and morning mist
+			shot(context, sp, 6000, 120, -3, "w_mountains_noon");
+			shot(context, sp, 12300, 90, -3, "w2_mountains_golden");
+			shot(context, sp, 23300, -60, 5, "x_morning_mist");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.colorGrading = 0F);
+			shot(context, sp, 6000, 0, 10, "y_grading_off");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.colorGrading = 1F);
+			shot(context, sp, 6000, 0, 10, "y2_grading_on");
+
 			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~40 ~-10");

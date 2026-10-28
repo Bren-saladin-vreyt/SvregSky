@@ -18,7 +18,7 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1;
 
 	private Wind() {
 	}
@@ -57,6 +57,11 @@ public final class Wind {
 		return 255 - Math.min(24, Math.round(w * 12));
 	}
 
+	private static float smoothstep(float e0, float e1, float x) {
+		float t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+		return t * t * (3 - 2 * t);
+	}
+
 	public static boolean enabled() {
 		return SkySettings.windStrength > 0 || SkySettings.farGrassTint > 0;
 	}
@@ -72,6 +77,7 @@ public final class Wind {
 			locWind = GL20C.glGetUniformLocation(prog, "svregsky_Wind");
 			locCam = GL20C.glGetUniformLocation(prog, "svregsky_Cam");
 			locSun = GL20C.glGetUniformLocation(prog, "svregsky_Sun");
+			locGrade = GL20C.glGetUniformLocation(prog, "svregsky_Grade");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
@@ -87,6 +93,14 @@ public final class Wind {
 					* (SkySettings.paintedClouds || SkySettings.cloud3d() ? 1 : 0) * (sun.y > 0.05F ? 1 : 0);
 			GL20C.glUniform4f(locSun, sun.x, sun.y, sun.z, k);
 		}
+		if (locGrade >= 0) {
+			org.joml.Vector3f sun = com.svreg.sky.sky.CirrusSky.sunDirection();
+			float sh = sun.y;
+			// mist: dawn (sun rising in the east, just below or above the horizon), a little in rain
+			float dawn = smoothstep(-0.20F, 0.02F, sh) * (1 - smoothstep(0.18F, 0.45F, sh)) * (sun.x > 0 ? 1 : 0);
+			float mist = SkySettings.morningMist * Math.min(1, dawn + 0.35F * com.svreg.sky.sky.CirrusSky.rainLevel());
+			GL20C.glUniform4f(locGrade, SkySettings.colorGrading, mist, com.svreg.sky.sky.CirrusSky.dayLevel(), com.svreg.sky.sky.CirrusSky.goldLevel());
+		}
 	}
 
 	private static final String DECL = """
@@ -96,6 +110,8 @@ public final class Wind {
 			uniform vec4 svregsky_Wind; // time, strength, speed, far grass tint
 			uniform vec4 svregsky_Cam;  // camera position (x, z wrapped), w = cloud drift time
 			uniform vec4 svregsky_Sun;  // sun direction, cloud shadow strength
+			uniform vec4 svregsky_Grade; // colour grading strength, morning mist strength, day, golden hour
+			out vec4 v_svMist;          // mist colour + amount, for the fragment shader
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
 			    p3 += dot(p3, p3.yzx + 33.33);
@@ -161,6 +177,28 @@ public final class Wind {
 			#endif
 			""";
 
+	private static final String GRADE = """
+			#ifndef VULKAN
+			    {
+			        // Ghibli colour grading: warm sunlit surfaces, cool blue shade, warm lamplight, soft blue nights
+			        float svG = svregsky_Grade.x;
+			        float svDay = svregsky_Grade.z, svGold = svregsky_Grade.w;
+			        float svSkyL = _vert_tex_light_coord.y, svBlockL = _vert_tex_light_coord.x;
+			        vec3 svSunT = mix(vec3(1.06, 1.01, 0.90), vec3(1.12, 0.96, 0.82), svGold);
+			        vec3 svT = mix(vec3(0.86, 0.93, 1.08), svSunT, smoothstep(0.55, 0.92, svSkyL));
+			        svT = mix(vec3(0.84, 0.92, 1.14), svT, clamp(svDay + svGold * 0.5, 0.0, 1.0));
+			        svT = mix(svT, vec3(1.14, 0.98, 0.80), smoothstep(0.30, 0.85, svBlockL) * (1.0 - svSkyL * svDay * 0.7));
+			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, svG);
+			        float svLum = dot(svCol, vec3(0.30, 0.59, 0.11));
+			        v_Color.rgb = mix(vec3(svLum), svCol, 1.0 + 0.10 * svG);
+			        // low morning mist in valleys and over water
+			        float svWy = position.y + svregsky_Cam.y;
+			        float svM = svregsky_Grade.y * (1.0 - smoothstep(62.0, 78.0, svWy)) * smoothstep(6.0, 70.0, length(position));
+			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.75, 0.0, 0.8));
+			    }
+			#endif
+			""";
+
 	/** adds the wind code to Sodium's terrain vertex shader source; returns it unchanged if the anchors are missing */
 	public static String patchVertexShader(String src) {
 		if (src.contains("svregsky_Wind")) {
@@ -168,10 +206,31 @@ public final class Wind {
 		}
 		int main = src.indexOf("void main()");
 		int pos = src.indexOf("gl_Position = u_ProjectionMatrix");
-		if (main < 0 || pos < 0 || pos < main || !src.contains("vec3 position")) {
+		String colorLine = "v_Color = _vert_color * texture(u_LightTex, _vert_tex_light_coord);";
+		int col = src.indexOf(colorLine);
+		if (main < 0 || pos < 0 || pos < main || col < pos || !src.contains("vec3 position")) {
 			return src;
 		}
-		String out = src.substring(0, main) + DECL + "\n" + src.substring(main, pos) + CODE + "\n    " + src.substring(pos);
-		return out;
+		int afterCol = col + colorLine.length();
+		return src.substring(0, main) + DECL + "\n" + src.substring(main, main + src.substring(main).indexOf('{') + 1)
+				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n#endif\n"
+				+ src.substring(main + src.substring(main).indexOf('{') + 1, pos) + CODE + "\n    "
+				+ src.substring(pos, afterCol) + "\n" + GRADE + src.substring(afterCol);
+	}
+
+	/** the fragment side of the morning mist (only when the vertex shader was patched too) */
+	public static String patchFragmentShader(String src) {
+		if (src.contains("v_svMist")) {
+			return src;
+		}
+		int main = src.indexOf("void main()");
+		String anchor = "color *= v_Color;";
+		int at = src.indexOf(anchor);
+		if (main < 0 || at < main) {
+			return src;
+		}
+		int end = at + anchor.length();
+		return src.substring(0, main) + "#ifndef VULKAN\nin vec4 v_svMist;\n#endif\n" + src.substring(main, end)
+				+ "\n#ifndef VULKAN\n    color.rgb = mix(color.rgb, v_svMist.rgb, v_svMist.a);\n#endif" + src.substring(end);
 	}
 }

@@ -1,0 +1,6 @@
+{
+  "ambient.wind_meadow": { "sounds": [ { "name": "svregsky:ambient/wind_meadow", "stream": true } ] },
+  "ambient.crickets": { "sounds": [ { "name": "svregsky:ambient/crickets", "stream": true } ] },
+  "ambient.stream": { "sounds": [ { "name": "svregsky:ambient/stream", "stream": true } ] },
+  "ambient.bird": { "sounds": [ "svregsky:ambient/bird1", "svregsky:ambient/bird2", "svregsky:ambient/bird3", "svregsky:ambient/bird4" ] }
+}

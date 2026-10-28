@@ -28,6 +28,12 @@
   "cloud_shadows": 0.6,
   "rainbow": true,
   "cloud_god_rays": true,
+  "horizon_mountains": true,
+  "color_grading": 0.7,
+  "morning_mist": 0.7,
+  "ghibli_biome_colors": true,
+  "ambient_sounds": true,
+  "ambient_volume": 0.8,
   "wind_line_amount": 1.0,
   "far_grass_tint": 0.8,
   "water_color": "#4FD6E3"

@@ -68,6 +68,12 @@ public final class SkyConfig {
 		o.addProperty("cloud_shadows", SkySettings.cloudShadows);
 		o.addProperty("rainbow", SkySettings.rainbow);
 		o.addProperty("cloud_god_rays", SkySettings.cloudGodRays);
+		o.addProperty("horizon_mountains", SkySettings.horizonMountains);
+		o.addProperty("color_grading", SkySettings.colorGrading);
+		o.addProperty("morning_mist", SkySettings.morningMist);
+		o.addProperty("ghibli_biome_colors", SkySettings.ghibliBiomes);
+		o.addProperty("ambient_sounds", SkySettings.ambientSounds);
+		o.addProperty("ambient_volume", SkySettings.ambientVolume);
 		o.addProperty("wind_line_amount", SkySettings.windLineAmount);
 		o.addProperty("far_grass_tint", SkySettings.farGrassTint);
 		o.addProperty("water_color", SkySettings.waterColor < 0 ? "" : String.format("#%06X", SkySettings.waterColor));

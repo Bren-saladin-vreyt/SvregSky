@@ -233,6 +233,7 @@ public final class CirrusSky {
 		if (SkySettings.aurora > 0) flags |= F_AURORA;
 		if (SkySettings.shootingStars) flags |= F_SHOOTING;
 		if (SkySettings.sunRays) flags |= F_RAYS;
+		if (SkySettings.horizonMountains) flags |= 256;
 		boolean ok = draw(skyPipeline, flags, 0.0F, "SvregSky sky");
 		if (ok) {
 			lastDrawNanos = System.nanoTime();
@@ -245,7 +246,7 @@ public final class CirrusSky {
 		if (!SkySettings.paintedClouds || SkySettings.cloud3dFull() || !overworld || state == null || !init()) {
 			return;
 		}
-		draw(cloudPipeline, F_CLOUDS | (SkySettings.cloudGodRays ? 128 : 0), 1.0F, "SvregSky clouds");
+		draw(cloudPipeline, F_CLOUDS | (SkySettings.cloudGodRays ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0), 1.0F, "SvregSky clouds");
 	}
 
 	private static boolean draw(RenderPipeline pipeline, int flags, float mode, String label) {

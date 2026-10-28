@@ -20,6 +20,7 @@ const int F_AURORA = 16;
 const int F_SHOOTING = 32;
 const int F_RAYS = 64;
 const int F_GODRAYS = 128;
+const int F_MOUNTAINS = 256;
 
 // ---------------------------------------------------------------- noise
 float hash2(vec2 p) {
@@ -355,6 +356,68 @@ float shafts(vec3 dir, vec3 sunDir, vec2 off, float cov) {
 }
 
 // ---------------------------------------------------------------- rainbow (after rain): pastel arc 40-42 degrees around the antisolar point
+// ---------------------------------------------------------------- painted horizon: far mountains, hills, a forest line
+float ridge(float a, float freq, float seed, float sharp) {
+    // periodic 1D fbm around the horizon (a = azimuth in radians)
+    float v = 0.0, amp = 0.55, f = freq;
+    for (int i = 0; i < 4; i++) {
+        float x = a * f + seed * 7.13;
+        float n = noise(vec2(cos(a) * f, sin(a) * f) * 0.5 + vec2(seed * 3.1, float(i) * 5.7));
+        v += amp * mix(n, 1.0 - abs(2.0 * n - 1.0), sharp);
+        amp *= 0.5;
+        f *= 2.1;
+    }
+    return v;
+}
+
+vec3 landHeights(float a) {
+    float h1 = 0.02 + 0.24 * pow(ridge(a, 2.0, 1.0, 0.85), 1.7);           // far mountains
+    float h2 = 0.012 + 0.10 * pow(ridge(a + 1.7, 3.5, 2.0, 0.35), 1.3);    // rolling hills
+    float trees = noise(vec2(a * 140.0, 3.0)) * 0.009 + step(0.62, noise(vec2(a * 55.0, 9.0))) * 0.007;
+    float h3 = 0.006 + 0.03 * ridge(a + 4.1, 6.0, 3.0, 0.1) + trees;       // forest line
+    return vec3(h1, h2, h3);
+}
+
+vec3 horizonLand(vec3 col, vec3 dir, vec3 sunDir, float day, float gold, float night, float org, float rain) {
+    float a = atan(dir.z, dir.x);
+    float y = dir.y;
+    if (y > 0.26) {
+        return col;
+    }
+    vec3 hs = landHeights(a);
+    float h1 = hs.x, h2 = hs.y, h3 = hs.z;
+    vec2 dxz = normalize(dir.xz + vec2(1e-5));
+    vec2 sxz = normalize(sunDir.xz + vec2(1e-5));
+    float side = pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.5);
+    // layer colours: day blue-green, golden hour warm silhouettes, night deep blue
+    vec3 far = mix(vec3(0.10, 0.12, 0.30), vec3(0.50, 0.66, 0.88), day);
+    vec3 mid = mix(vec3(0.07, 0.10, 0.22), vec3(0.38, 0.60, 0.56), day);
+    vec3 near = mix(vec3(0.05, 0.07, 0.16), vec3(0.26, 0.47, 0.34), day);
+    far = mix(far, mix(vec3(0.72, 0.42, 0.56), vec3(0.88, 0.58, 0.40), org), gold * 0.85);
+    mid = mix(mid, mix(vec3(0.50, 0.30, 0.46), vec3(0.66, 0.40, 0.34), org), gold * 0.85);
+    near = mix(near, mix(vec3(0.32, 0.20, 0.34), vec3(0.42, 0.27, 0.26), org), gold * 0.85);
+    vec3 grey = vec3(dot(far, vec3(0.3, 0.59, 0.11)));
+    far = mix(far, grey, rain * 0.6); mid = mix(mid, grey * 0.8, rain * 0.6); near = mix(near, grey * 0.6, rain * 0.6);
+    vec3 c = col;
+    // each layer fades into the sky with height (aerial perspective) and lights up its rim toward the sun
+    if (y < h1) {
+        float k = 0.78 + 0.17 * (1.0 - smoothstep(h1 - 0.05, h1, y));
+        vec3 lc = far + vec3(1.0, 0.85, 0.6) * gold * side * 0.15 * smoothstep(h1 - 0.006, h1, y);
+        c = mix(col, lc, k);
+    }
+    if (y < h2) {
+        c = mix(col, mid, 0.78) + vec3(1.0, 0.8, 0.5) * gold * side * 0.12 * smoothstep(h2 - 0.004, h2, y);
+    }
+    if (y < h3) {
+        c = mix(col, near, 0.9);
+    }
+    // the very bottom melts into the horizon haze, so terrain fog meets it smoothly
+    // below the horizon: distant land, fading into a soft haze further down
+    // (fades into the horizon colour right at the horizon, where the world's distance fog ends)
+    vec3 land = mix(mix(near, col, 0.3), col, smoothstep(-0.10, 0.0, y));
+    return y < 0.0 ? land : c;
+}
+
 vec3 hue(float h) {
     return clamp(abs(fract(vec3(h) + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
 }
@@ -381,6 +444,12 @@ void main() {
 
     if (mode > 0.5) {
         vec4 k = clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);
+        if ((flags & F_MOUNTAINS) != 0 && dir.y < 0.26) {
+            vec3 hs = landHeights(atan(dir.z, dir.x));
+            if (dir.y < max(hs.x, max(hs.y, hs.z))) {
+                k = vec4(0.0); // painted clouds sit behind the painted mountains
+            }
+        }
         float sd = dot(dir, sunDir);
         if ((flags & F_GODRAYS) != 0 && k.a < 0.5 && gold * day > 0.05 && sd > 0.35 && dir.y > 0.0 && layers != 0) {
             // beams of warm light where the sky between this pixel and the sun is free of clouds
@@ -426,6 +495,10 @@ void main() {
         float vis = night * clear * sstep(0.0, 0.12, dir.y);
         float visLow = night * clear * sstep(0.02, 0.08, dir.y);
         col = nightSky(col, dir, sunDir, vis, visLow, tm, flags, auroraStrength, milkyStrength, shootPeriod);
+    }
+
+    if ((flags & F_MOUNTAINS) != 0) {
+        col = horizonLand(col, dir, sunDir, day, gold, night, org, rain);
     }
 
     float rbow = TextureMat[2].z;

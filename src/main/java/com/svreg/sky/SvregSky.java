@@ -11,5 +11,6 @@ public class SvregSky implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		LOG.info("SvregSky loaded");
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(com.svreg.sky.sound.Ambience::tick);
 	}
 }

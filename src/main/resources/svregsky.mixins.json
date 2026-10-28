@@ -11,7 +11,8 @@
 		"SpriteContentsMixin",
 		"BiomeWaterMixin",
 		"ShaderManagerMixin",
-		"OptionsScreenMixin"
+		"OptionsScreenMixin",
+		"BiomeColorMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

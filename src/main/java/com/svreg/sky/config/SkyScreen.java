@@ -54,6 +54,9 @@ public class SkyScreen extends OptionsSubScreen {
 				bool("cirrus_sky", SkySettings.cirrusSky, v -> SkySettings.cirrusSky = v),
 				choice("sunset_style", List.of("auto", "orange", "magenta"), SkySettings.sunsetStyle, v -> SkySettings.sunsetStyle = v),
 				bool("sun_rays", SkySettings.sunRays, v -> SkySettings.sunRays = v),
+				bool("horizon_mountains", SkySettings.horizonMountains, v -> SkySettings.horizonMountains = v),
+				percent("color_grading", 100, SkySettings.colorGrading, v -> SkySettings.colorGrading = v),
+				percent("morning_mist", 100, SkySettings.morningMist, v -> SkySettings.morningMist = v),
 				percent("fog_tint", 100, SkySettings.fogTint, v -> SkySettings.fogTint = v));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
@@ -103,7 +106,10 @@ public class SkyScreen extends OptionsSubScreen {
 				bool("water_sparkles", SkySettings.waterSparkles, v -> SkySettings.waterSparkles = v),
 				percent("wind_line_amount", 300, SkySettings.windLineAmount, v -> SkySettings.windLineAmount = v),
 				percent("far_grass_tint", 100, SkySettings.farGrassTint, v -> SkySettings.farGrassTint = v),
-				bool("turquoise_water", SkySettings.waterColor >= 0, v -> SkySettings.waterColor = v ? 0x4FD6E3 : -1));
+				bool("turquoise_water", SkySettings.waterColor >= 0, v -> SkySettings.waterColor = v ? 0x4FD6E3 : -1),
+				bool("ghibli_biome_colors", SkySettings.ghibliBiomes, v -> SkySettings.ghibliBiomes = v),
+				bool("ambient_sounds", SkySettings.ambientSounds, v -> SkySettings.ambientSounds = v),
+				percent("ambient_volume", 100, SkySettings.ambientVolume, v -> SkySettings.ambientVolume = v));
 	}
 
 	@Override

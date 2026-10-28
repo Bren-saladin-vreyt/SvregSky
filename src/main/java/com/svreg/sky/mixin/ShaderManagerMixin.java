@@ -21,6 +21,11 @@ public abstract class ShaderManagerMixin {
 				com.svreg.sky.SvregSky.LOG.info("SvregSky: wind added to Sodium terrain shader");
 			}
 			cir.setReturnValue(patched);
+		} else if (src != null && type == ShaderType.FRAGMENT && "sodium".equals(id.getNamespace()) && id.getPath().equals("blocks/block_layer_opaque")) {
+			String vsh = ((ShaderManager) (Object) this).getShader(id, ShaderType.VERTEX);
+			if (vsh != null && vsh.contains("v_svMist")) {
+				cir.setReturnValue(Wind.patchFragmentShader(src));
+			}
 		}
 	}
 }

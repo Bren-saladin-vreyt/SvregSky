@@ -69,6 +69,12 @@ public final class SkySettings {
 	public static float cloudShadows = 0.6F;
 	public static boolean rainbow = true;
 	public static boolean cloudGodRays = true;
+	public static boolean horizonMountains = true;
+	public static float colorGrading = 0.7F;
+	public static float morningMist = 0.7F;
+	public static boolean ghibliBiomes = true;
+	public static boolean ambientSounds = true;
+	public static float ambientVolume = 0.8F;
 	public static float windLineAmount = 1.0F;
 	public static int waterColor = 0x4FD6E3; // -1 = vanilla
 	public static volatile int version;
@@ -137,6 +143,12 @@ public final class SkySettings {
 			cloudShadows = Math.max(0, Math.min(1, num(o, "cloud_shadows", cloudShadows)));
 			rainbow = bool(o, "rainbow", rainbow);
 			cloudGodRays = bool(o, "cloud_god_rays", cloudGodRays);
+			horizonMountains = bool(o, "horizon_mountains", horizonMountains);
+			colorGrading = Math.max(0, Math.min(1, num(o, "color_grading", colorGrading)));
+			morningMist = Math.max(0, Math.min(1, num(o, "morning_mist", morningMist)));
+			ghibliBiomes = bool(o, "ghibli_biome_colors", ghibliBiomes);
+			ambientSounds = bool(o, "ambient_sounds", ambientSounds);
+			ambientVolume = Math.max(0, Math.min(1, num(o, "ambient_volume", ambientVolume)));
 			windLineAmount = Math.max(0, Math.min(3, num(o, "wind_line_amount", windLineAmount)));
 			if (o.has("water_color")) {
 				String wc = o.get("water_color").getAsString().trim();
