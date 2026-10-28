@@ -126,7 +126,10 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("auto_fps", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("bloom", true);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("paper_texture", true);
+				com.svreg.sky.sky.CirrusSky.forceTowers = true;
 			});
+			sp.getServer().runCommand("weather clear");
+			context.waitTicks(200);
 			sp.getServer().runCommand("time add 24000"); // a different day (towers are on most summer days)
 			shot(context, sp, 9000, 120, -4, "za_towers_afternoon");
 			shot(context, sp, 9000, -60, -4, "za2_towers_other_side");

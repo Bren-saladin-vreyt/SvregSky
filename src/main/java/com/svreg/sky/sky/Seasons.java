@@ -20,7 +20,7 @@ public final class Seasons {
 			summer = 1;
 			return;
 		}
-		double days = mc.level.getGameTime() / 24000.0 + DAYS * 0.5; // a new world starts in mid-spring
+		double days = mc.level.getOverworldClockTime() / 24000.0 + DAYS * 0.5; // a new world starts in mid-spring
 		double pos = (days / DAYS) % 4.0;                              // 0 spring, 1 summer, 2 autumn, 3 winter
 		float[] w = new float[4];
 		int i = (int) Math.floor(pos);

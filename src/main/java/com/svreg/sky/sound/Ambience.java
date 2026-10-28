@@ -202,7 +202,7 @@ public final class Ambience {
 			}
 			// a short original piece once each sunrise and sunset
 			if (SkySettings.on("ghibli_music") && open > 0 && CirrusSky.goldLevel() > 0.55F) {
-				long dayNo = mc.level.getGameTime() / 24000L;
+				long dayNo = mc.level.getOverworldClockTime() / 24000L;
 				String which = CirrusSky.sunDirection().x > 0 ? "rise" : "set";
 				if (dayNo != lastMusicDay || !which.equals(lastMusic)) {
 					lastMusicDay = dayNo;

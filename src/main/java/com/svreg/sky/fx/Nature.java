@@ -354,7 +354,7 @@ public final class Nature {
 					p.vx = i == 0 ? 0 : side * row * 2.2F; // sideways offset in the V
 					p.vz = -row * 2.0F;                    // trailing behind the leader
 					p.phase = RNG.nextFloat() * 6.28F;
-					p.size = 0.55F + RNG.nextFloat() * 0.2F;
+					p.size = 0.9F + RNG.nextFloat() * 0.3F;
 				}
 			}
 		} else {

@@ -60,6 +60,8 @@ public final class CirrusSky {
 	private static float day = 1, gold, night, rain, rise, org;
 	private static float rainbowLevel, flash, dailyCoverage, towerAmt, towerSeed, wet;
 	private static long wetNanos;
+	/** test hook: towers every day */
+	public static boolean forceTowers;
 	private static int moonPhase;
 	private static boolean rainbowArmed;
 	private static long rainbowStart;
@@ -162,7 +164,7 @@ public final class CirrusSky {
 		// daily variety: each day gets its own amount of cloud
 		dailyCoverage = 0;
 		if (SkySettings.on("daily_variety") && mcw.level != null) {
-			long dayIndex = Math.floorDiv(mcw.level.getGameTime(), 24000L);
+			long dayIndex = Math.floorDiv(mcw.level.getOverworldClockTime(), 24000L);
 			double h = Math.sin(dayIndex * 12.9898 + 78.233) * 43758.5453;
 			h -= Math.floor(h);
 			dailyCoverage = (float) ((h - 0.45) * 0.16);
@@ -170,11 +172,11 @@ public final class CirrusSky {
 		// towering cumulonimbus on the horizon: most summer days, some spring days, building up through the afternoon
 		towerAmt = 0;
 		if (SkySettings.on("cloud_towers") && mcw.level != null) {
-			long dayIndex = Math.floorDiv(mcw.level.getGameTime(), 24000L);
+			long dayIndex = Math.floorDiv(mcw.level.getOverworldClockTime(), 24000L);
 			double h = Math.sin(dayIndex * 7.233 + 11.17) * 15731.743;
 			h -= Math.floor(h);
 			float chance = Seasons.summer() * 0.75F + Seasons.spring() * 0.35F + Seasons.autumn() * 0.2F + Seasons.winter() * 0.05F;
-			if (h < chance) {
+			if (h < chance || forceTowers) {
 				float afternoon = sunDir.x < 0 ? 1.0F : 0.55F; // grow taller after noon (sun in the west)
 				towerAmt = afternoon * Math.max(0.35F, day) * (1 - rain * 0.6F);
 			}
