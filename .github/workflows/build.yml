@@ -110,21 +110,12 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { grep -rn -E 'hideGui' $M/client --include=*.java | head -4;
-            grep -n -E 'public static final BindGroupLayout [A-Z_0-9]+' $M/client/renderer/BindGroupLayouts.java | head -12;
-            grep -n -E 'copyTextureToTexture|copyTextureToBuffer|createRenderPass\(' src2/com/mojang/blaze3d/systems/CommandEncoder.java | head -6;
+          { grep -rn -E 'public (long|int|float|double) [a-zA-Z]*(DayTime|dayTime|ClockTime|TimeOfDay|getDay)[a-zA-Z]*\(' $M/world/level/Level.java $M/client/multiplayer/ClientLevel.java $M/world/level/LevelReader.java $M/world/level/LevelTimeAccess.java $M/world/level/storage/LevelData.java 2>/dev/null | head -12;
+            grep -rln -E 'class .*Clock' $M/world 2>/dev/null | head -6;
           } > probe/a.txt
-          { grep -n -E 'GpuTexture createTexture|GpuTextureView createTextureView|GpuSampler createSampler|getSampler' src2/com/mojang/blaze3d/systems/GpuDevice.java | head -8;
-            grep -rn -E 'public static GpuSampler|getSampler\(' src2/com/mojang/blaze3d/systems/RenderSystem.java | head -4;
-            grep -n -E 'public KeyMapping\(|class Category|public static final Category [A-Z_]+|record Category' $M/client/KeyMapping.java | head -8;
-          } > probe/b.txt
-          { grep -rn -E 'registerKeyBinding|registerKeyMapping' ~/.gradle/caches 2>/dev/null | head -0;
-            grep -n -E 'public boolean consumeClick|public static final int GLFW_KEY_(F8|K|J)\b' $M/client/KeyMapping.java | head -3;
-            grep -n -E 'public .* (keyMappings|keyScreenshot|keyFullscreen)' $M/client/Options.java | head -3;
-            grep -n -E 'FilterMode|AddressMode|createSampler' src2/com/mojang/blaze3d/systems/GpuDevice.java src2/com/mojang/blaze3d/textures/*.java | head -6;
-          } > probe/c.txt
-          { find ~/.gradle -name 'fabric-key*binding*.jar' 2>/dev/null | head -2; for j in $(find ~/.gradle -name 'fabric-key*binding*.jar' | head -1); do unzip -l $j | grep -i -E 'Helper|class' | head -5; done;
-          } > probe/d.txt
+          { grep -rn -E 'public [a-zA-Z<>]+ [a-zA-Z]+\(' $M/world/clock/*.java 2>/dev/null | head -25; } > probe/b.txt
+          { grep -rn -E 'ClockTime|getDayTime|dayTime' $M/client/renderer/SkyRenderer.java $M/client/renderer/LevelRenderer.java $M/client/renderer/state/*.java $M/client/renderer/state/level/*.java 2>/dev/null | head -12; } > probe/c.txt
+          { grep -rn -E 'getDayTime|clockTime|getTotalTicks|totalTicks' $M/client/multiplayer/ClientLevel.java $M/client/renderer/*.java 2>/dev/null | head -12; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1

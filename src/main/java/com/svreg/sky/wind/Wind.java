@@ -217,7 +217,7 @@ public final class Wind {
 			                bool svIsLeaf = svK == 26;
 			                vec3 svOut = svC;
 			                // spring
-			                vec3 svSpr = svIsLeaf && svH < 0.22 ? vec3(1.0, 0.78, 0.86) * max(svL / 0.5, 0.95) : svC * vec3(0.96, 1.08, 0.90);
+			                vec3 svSpr = svIsLeaf && svH < 0.22 ? vec3(1.0, 0.84, 0.91) : svC * vec3(0.96, 1.08, 0.90);
 			                svOut = mix(svOut, svSpr, svregsky_Season.x);
 			                // autumn
 			                vec3 svAut = svIsLeaf
