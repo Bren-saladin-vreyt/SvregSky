@@ -335,13 +335,19 @@ public final class Wind {
 			            vec3 svHz = mix(svregsky_SkyB.rgb, svregsky_SkyA.rgb, svToward * svToward);
 			            vec3 svSky = mix(svHz, svregsky_SkyC.rgb, smoothstep(0.0, 0.55, svUp));
 			            float svFres = 0.22 + 0.6 * pow(1.0 - clamp(-svV.y, 0.0, 1.0), 3.0);
-			            color.rgb = mix(color.rgb, svSky, svFres * 0.62);
+			            // lighten toward the sky (keeps the water's own turquoise where the sky is darker)
+			            vec3 svBase = color.rgb;
+			            color.rgb = mix(svBase, max(svBase, svSky * 0.95) * vec3(0.96, 1.02, 1.02), svFres * 0.6);
 			            vec3 svL = svregsky_SkyC.w > 0.5 ? -svSunD : svSunD;
 			            float svSp = dot(svR, normalize(svL));
 			            float svLineK = step(0.90, fract(dot(svWp.xz, vec2(0.6, 0.8)) * 1.4 + svWv.x * 0.35 + svT * 0.35));
 			            float svGlint = (step(0.9965, svSp) + svLineK * smoothstep(0.955, 0.992, svSp) * 0.7) * step(-0.05, svL.y);
 			            vec3 svLc = svregsky_SkyC.w > 0.5 ? vec3(0.80, 0.86, 1.0) * 0.8 : mix(vec3(1.0, 0.97, 0.88), vec3(1.0, 0.72, 0.42), v_svInfo.z);
 			            color.rgb += svLc * svGlint;
+			            // painted wave lines drifting across the surface
+			            float svLines = step(0.93, fract(dot(svWp.xz, vec2(0.31, 0.95)) * 0.55 + svWv.y * 0.12 + svT * 0.12))
+			                          * step(0.5, fract(dot(svWp.xz, vec2(0.95, -0.31)) * 0.2 + svT * 0.05));
+			            color.rgb = mix(color.rgb, vec3(0.92, 0.98, 1.0), svLines * 0.18 * v_svInfo.y);
 			        } else if (svregsky_SkyB.w > 0.5 && v_svInfo.x > 0.6 && v_svInfo.y > 0.05) {
 			            // anime light: faces toward the sun a touch warmer, faces away cool lavender-blue
 			            float svD = dot(svN, normalize(vec3(svSunD.x, max(svSunD.y, 0.2), svSunD.z)));
