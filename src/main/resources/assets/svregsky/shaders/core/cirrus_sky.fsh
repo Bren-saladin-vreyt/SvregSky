@@ -9,7 +9,7 @@ precision highp float;
 #moj_import <minecraft:dynamictransforms.glsl>
 
 uniform sampler2D Sampler0; // baked cloud density: R = density, G/B = 16-bit cluster shape
-uniform sampler2D Sampler1; // baked cumulonimbus sprites (8 x 320x256): R = light band 0..4, G = rim, B = height, A = 255 cloud / 110 rain
+uniform sampler2D Sampler1; // baked cumulonimbus sprites (2 rows of 8 x 320x256): R = light band 0..4, G = rim, B = height, A = 255 cloud / 110 rain
 
 in vec3 skyDir;
 
@@ -490,8 +490,9 @@ vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rai
         float px = du / W * 64.0 * side + 160.0;
         float py = dir.y / W * 64.0;
         if (px >= 0.0 && px < 320.0 && py >= 0.0 && py < 256.0 && res.a < 0.5) {
-            float pick = mod(fi * 3.0 + floor(seed), 8.0);    // 8 irregular shapes, a new mix every day
-            vec4 t = texelFetch(Sampler1, ivec2(int(px) + int(pick) * 320, 255 - int(py)), 0);
+            float pick = mod(fi * 5.0 + floor(seed) * 3.0, 16.0); // 16 irregular shapes, a new mix every day
+            int ip = int(pick);
+            vec4 t = texelFetch(Sampler1, ivec2(int(px) + (ip - (ip / 8) * 8) * 320, (ip / 8) * 256 + 255 - int(py)), 0);
             if (t.a > 0.7) {
                 float band = floor(t.r * 4.0 + 0.5);
                 vec3 col = band < 0.5 ? c0 : (band < 1.5 ? c1 : (band < 2.5 ? c2 : (band < 3.5 ? c3 : c4)));
