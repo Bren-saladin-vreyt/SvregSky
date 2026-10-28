@@ -112,17 +112,16 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { grep -rn -E 'public (long|int|float|double) [a-zA-Z]*(DayTime|dayTime|ClockTime|TimeOfDay|getDay)[a-zA-Z]*\(' $M/world/level/Level.java $M/client/multiplayer/ClientLevel.java $M/world/level/LevelReader.java $M/world/level/LevelTimeAccess.java $M/world/level/storage/LevelData.java 2>/dev/null | head -12;
-            grep -rln -E 'class .*Clock' $M/world 2>/dev/null | head -6;
-          } > probe/a.txt
-          { grep -rn -E 'public [a-zA-Z<>]+ [a-zA-Z]+\(' $M/world/clock/*.java 2>/dev/null | head -25; } > probe/b.txt
-          { grep -rn -E 'ClockTime|getDayTime|dayTime' $M/client/renderer/SkyRenderer.java $M/client/renderer/LevelRenderer.java $M/client/renderer/state/*.java $M/client/renderer/state/level/*.java 2>/dev/null | head -12; } > probe/c.txt
-          { grep -rn -E 'getDayTime|clockTime|getTotalTicks|totalTicks' $M/client/multiplayer/ClientLevel.java $M/client/renderer/*.java 2>/dev/null | head -12; } > probe/d.txt
+          SJ=$(find ~/.gradle -name 'sodium-mc26.2-0.9.2-fabric.jar' | head -1); mkdir -p sod; unzip -o -q "$SJ" 'assets/sodium/shaders/*' -d sod
+          ls -R sod/assets/sodium/shaders > probe/a.txt
+          { for f in $(find sod/assets/sodium/shaders -name '*.glsl' -o -name '*.vsh' | grep -i -E 'vertex|block_layer_opaque.vsh|chunk'); do echo "== $f"; grep -n -E 'position|_vert_|translation|in |out |uniform' $f | head -40; done; } > probe/b.txt
+          { cat sod/assets/sodium/shaders/blocks/block_layer_opaque.vsh | head -80; } > probe/c.txt
+          { cat sod/assets/sodium/shaders/blocks/block_layer_opaque.fsh | head -60; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
         run: |
-          for part in $(ls probe/a.part.* probe/b.part.* 2>/dev/null | head -10); do
+          for part in $(ls probe/a.part.* probe/b.part.* 2>/dev/null | head -20); do
             body=$(python3 -c "import sys;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
             echo "::notice title=probe-$(basename $part)::$body"
           done
