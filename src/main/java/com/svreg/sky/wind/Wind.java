@@ -256,8 +256,8 @@ public final class Wind {
 			        }
 			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, svG) * svExtra;
 			        // wet ground after rain: darker, a little cooler, outdoors only
-			        float svWet = svregsky_Season.w * smoothstep(0.85, 0.95, svSkyL);
-			        svCol *= mix(vec3(1.0), vec3(0.78, 0.80, 0.86), svWet);
+			        float svWet = svregsky_Season.w * smoothstep(0.80, 0.92, svSkyL);
+			        svCol *= mix(vec3(1.0), vec3(0.68, 0.71, 0.79), svWet);
 			        float svLum = dot(svCol, vec3(0.30, 0.59, 0.11));
 			        v_Color.rgb = mix(vec3(svLum), svCol, 1.0 + 0.10 * svG);
 			        // low morning mist in valleys and over water

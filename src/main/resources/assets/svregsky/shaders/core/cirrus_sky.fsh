@@ -469,9 +469,10 @@ vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rai
     vec3 litC = mix(vec3(1.0, 0.99, 0.96), mix(vec3(1.0, 0.80, 0.58), vec3(1.0, 0.72, 0.64), org), gold);
     vec3 midC = mix(vec3(0.86, 0.89, 0.97), mix(vec3(0.92, 0.70, 0.66), vec3(0.88, 0.66, 0.72), org), gold);
     vec3 shadeC = mix(vec3(0.68, 0.75, 0.92), vec3(0.62, 0.55, 0.76), gold);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         float fi = float(i);
-        float c = hash2(vec2(seed, fi * 3.7)) * 6.2832 - 3.1416;
+        // one tower in each quarter of the horizon, at a random spot within it
+        float c = fi * 1.5708 + hash2(vec2(seed, fi * 3.7)) * 1.2 - 3.1416;
         float H = 0.30 + 0.15 * hash2(vec2(fi + 1.3, seed + 3.0));
         float W = 0.15 + 0.07 * hash2(vec2(seed + 7.0, fi));
         float du = g.x - c;

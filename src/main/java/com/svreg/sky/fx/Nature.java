@@ -105,8 +105,8 @@ public final class Nature {
 				sLeaves++;
 				continue;
 			}
-			if (sGround.size() < 90 && (x * 5 + z * 11) % 4 == 0 && s.isSolidRender() && level.getBlockState(m.above()).isAir()
-					&& level.canSeeSky(m.above())) {
+			if (sGround.size() < 90 && (x * 5 + z * 11) % 4 == 0 && s.isSolidRender() && !level.getBlockState(m.above()).isSolidRender()
+					&& level.getFluidState(m.above()).isEmpty() && level.canSeeSky(m.above())) {
 				sGround.add(m.immutable());
 			}
 			if (s.is(BlockTags.FLOWERS) || s.is(BlockTags.SMALL_FLOWERS)) {
