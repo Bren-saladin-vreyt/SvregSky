@@ -90,6 +90,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("ghibli_snow"),
 				flag("seasons"),
 				flag("cloud_towers"),
+				choice("tower_style", List.of("mixed", "tower", "wide", "anvil"), SkySettings.towerStyle, v -> SkySettings.towerStyle = v),
 				flag("valley_fog"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));

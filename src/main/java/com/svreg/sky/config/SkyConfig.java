@@ -130,6 +130,7 @@ public final class SkyConfig {
 			o.addProperty(e.getKey(), e.getValue());
 		}
 		o.addProperty("preset", Presets.current);
+		o.addProperty("tower_style", SkySettings.towerStyle);
 		o.addProperty("water_color", SkySettings.waterColor < 0 ? "" : String.format("#%06X", SkySettings.waterColor));
 		String key = worldKey();
 		if (SkySettings.on("per_world") && key != null) {

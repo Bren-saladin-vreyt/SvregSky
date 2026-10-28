@@ -9,7 +9,7 @@ precision highp float;
 #moj_import <minecraft:dynamictransforms.glsl>
 
 uniform sampler2D Sampler0; // baked cloud density: R = density, G/B = 16-bit cluster shape
-uniform sampler2D Sampler1; // baked cumulonimbus tower sprites (4 x 160x160): R = light band, G = rim, B = height, A = coverage
+uniform sampler2D Sampler1; // baked cumulonimbus sprites (6 x 320x256): R = light band 0..4, G = rim, B = height, A = 255 cloud / 110 rain
 
 in vec3 skyDir;
 
@@ -463,39 +463,50 @@ vec3 sunAndMoon(vec3 col, vec3 dir, vec3 sunDir, float day, float gold, float ni
 // towering summer cumulonimbus on the horizon (Laputa-style), drawn in the cloud pass.
 // The puffy toon shapes are pre-baked into a sprite atlas (Sampler1), so the shader only does a few texel reads:
 // cheap, and it draws the same on phone GPUs as on PCs.
-vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rain, float org, float amt, float seed) {
+vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rain, float org, float amtStyle, float seed) {
     vec4 res = vec4(0.0);
-    if (amt < 0.01 || dir.y < -0.03 || dir.y > 0.75) {
+    float style = floor(amtStyle / 2.0);        // 0 mixed, 1 towers, 2 wide storms, 3 anvils
+    float amt = amtStyle - style * 2.0;
+    if (amt < 0.01 || dir.y < -0.03 || dir.y > 0.9) {
         return res;
     }
     float az = atan(dir.z, dir.x);
     float sunAz = atan(sunDir.z, sunDir.x);
-    vec3 litC = mix(vec3(1.0, 0.99, 0.96), mix(vec3(1.0, 0.80, 0.58), vec3(1.0, 0.72, 0.64), org), gold);
-    vec3 midC = mix(vec3(0.86, 0.89, 0.97), mix(vec3(0.92, 0.70, 0.66), vec3(0.88, 0.66, 0.72), org), gold);
-    vec3 shadeC = mix(vec3(0.68, 0.75, 0.92), vec3(0.62, 0.55, 0.76), gold);
+    // five toon tones: dark base, shade, mid, lit, highlight (day -> golden hour)
+    vec3 c0 = mix(vec3(0.36, 0.41, 0.55), vec3(0.38, 0.33, 0.50), gold);
+    vec3 c1 = mix(vec3(0.59, 0.65, 0.81), vec3(0.62, 0.50, 0.66), gold);
+    vec3 c2 = mix(vec3(0.80, 0.84, 0.94), mix(vec3(0.90, 0.68, 0.64), vec3(0.88, 0.58, 0.62), org), gold);
+    vec3 c3 = mix(vec3(0.95, 0.96, 0.98), mix(vec3(1.00, 0.82, 0.62), vec3(1.00, 0.70, 0.58), org), gold);
+    vec3 c4 = mix(vec3(1.00, 0.99, 0.96), mix(vec3(1.00, 0.91, 0.74), vec3(1.00, 0.82, 0.68), org), gold);
     float sd = fract(seed * 0.1173) * 10.0;
     for (int i = 0; i < 4; i++) {
         float fi = float(i);
-        // one tower in each quarter of the horizon, at a random spot within it
+        // one cloud in each quarter of the horizon, at a random spot within it
         float c = fi * 1.5708 + hash2(vec2(sd, fi * 3.7)) * 1.2 - 3.1416;
-        float W = (0.15 + 0.06 * hash2(vec2(sd + 7.0, fi))) * (0.75 + 0.25 * amt);
+        float W = (0.095 + 0.035 * hash2(vec2(sd + 7.0, fi))) * (0.75 + 0.25 * amt);
         float du = az - c;
         du -= 6.2832 * floor((du + 3.1416) / 6.2832);
         float side = sin(sunAz - c) >= 0.0 ? 1.0 : -1.0;   // baked lit from the right: mirror for the other side
-        float px = du / W * 50.0 * side + 80.0;
-        float py = dir.y / W * 50.0;
-        if (px >= 0.0 && px < 160.0 && py >= 0.0 && py < 160.0 && res.a < 0.5) {
-            int variant = int(mod(fi + floor(sd), 4.0));
-            vec4 t = texelFetch(Sampler1, ivec2(int(px) + variant * 160, 159 - int(py)), 0);
-            if (t.a > 0.5) {
-                vec3 col = t.r > 0.8 ? litC : (t.r > 0.45 ? midC : shadeC);
-                col = mix(col, vec3(1.0), t.g * 0.35 * day);                        // bright rim toward the sun
-                float v = t.b * 255.0 / 200.0;                                       // 0 base .. 1 crown
-                col *= mix(0.88, 1.0, clamp(v * 3.0, 0.0, 1.0));                     // darker base
-                col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));         // night silhouettes
+        float px = du / W * 64.0 * side + 160.0;
+        float py = dir.y / W * 64.0;
+        if (px >= 0.0 && px < 320.0 && py >= 0.0 && py < 256.0 && res.a < 0.5) {
+            float pick = mod(fi + floor(sd), 6.0);
+            if (style > 0.5) {
+                pick = (style - 1.0) * 2.0 + mod(fi + floor(sd), 2.0);
+            }
+            vec4 t = texelFetch(Sampler1, ivec2(int(px) + int(pick) * 320, 255 - int(py)), 0);
+            if (t.a > 0.7) {
+                float band = floor(t.r * 4.0 + 0.5);
+                vec3 col = band < 0.5 ? c0 : (band < 1.5 ? c1 : (band < 2.5 ? c2 : (band < 3.5 ? c3 : c4)));
+                col = mix(col, vec3(1.0, 0.98, 0.92), t.g * 0.35 * max(day, gold));   // bright rim toward the sun
+                col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));          // night silhouettes
                 col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.85, rain * 0.7);
-                col = mix(col, vec3(0.80, 0.86, 0.95), 0.22 * (1.0 - clamp(v, 0.0, 1.0)) * day * (1.0 - gold)); // aerial haze
+                col = mix(col, vec3(0.80, 0.86, 0.95), 0.25 * (1.0 - t.b) * day * (1.0 - gold)); // aerial haze low down
                 res = vec4(col, smoothstep(0.0, 0.2, amt) * smoothstep(-0.03, 0.03, dir.y));
+            } else if (t.a > 0.2) {
+                // rain falling from the dark base
+                vec3 rc = mix(c1, c0, 0.4);
+                res = vec4(rc, 0.35 * smoothstep(0.0, 0.2, amt) * (0.4 + 0.6 * t.b) * smoothstep(-0.03, 0.03, dir.y));
             }
         }
     }

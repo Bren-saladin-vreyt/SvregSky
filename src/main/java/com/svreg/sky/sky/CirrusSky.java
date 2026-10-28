@@ -268,6 +268,15 @@ public final class CirrusSky {
 		return night;
 	}
 
+	private static float towerStyleIndex() {
+		return switch (SkySettings.towerStyle) {
+			case "tower" -> 1;
+			case "wide" -> 2;
+			case "anvil" -> 3;
+			default -> 0;
+		};
+	}
+
 	/** how wet the ground is (rises with rain, dries slowly after) */
 	public static float wetness() {
 		return wet;
@@ -339,7 +348,7 @@ public final class CirrusSky {
 			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));
 			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).setTranslation(0, 0, 0).scale(scale);
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, extra,
-					mode > 0.5F ? new Vector3f(flash, towerAmt, towerSeed) : new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
+					mode > 0.5F ? new Vector3f(flash, Math.min(towerAmt, 1.0F) + 2.0F * towerStyleIndex(), towerSeed) : new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
 
 			AbstractTexture tex = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
 			AbstractTexture towerTex = mc.getTextureManager().getTexture(TOWERS);

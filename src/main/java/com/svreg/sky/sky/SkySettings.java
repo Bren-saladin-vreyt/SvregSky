@@ -141,6 +141,8 @@ public final class SkySettings {
 	public static int photoTime = 12300;
 	public static String photoWeather = "clear";
 	public static String photoTimelapse = "off"; // off / slow / fast
+	/** horizon cumulonimbus look: mixed (random each day) / tower / wide / anvil */
+	public static String towerStyle = "mixed";
 
 	/** photo-mode time-lapse: the sky turns on its own (a day in about two minutes, or thirty seconds) */
 	public static void tickPhoto() {
@@ -190,6 +192,9 @@ public final class SkySettings {
 
 	/** applies the keys present in o; missing keys keep their current value */
 	public static void apply(JsonObject o) {
+		if (o.has("tower_style")) {
+			towerStyle = o.get("tower_style").getAsString();
+		}
 		if (o.has("preset")) {
 			com.svreg.sky.config.Presets.current = o.get("preset").getAsString();
 		}

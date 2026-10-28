@@ -104,5 +104,10 @@
   "svregsky.key.photo": "Mode Foto On/Off",
   "svregsky.key.timelapse": "Ganti Time-lapse",
   "svregsky.photo.on": "Mode foto ON (F1 buat sembunyiin HUD)",
-  "svregsky.photo.off": "Mode foto OFF"
+  "svregsky.photo.off": "Mode foto OFF",
+  "svregsky.options.tower_style": "Bentuk Awan Raksasa",
+  "svregsky.options.tower_style.mixed": "Campur (acak)",
+  "svregsky.options.tower_style.tower": "Menara",
+  "svregsky.options.tower_style.wide": "Badai Lebar",
+  "svregsky.options.tower_style.anvil": "Landasan"
 }

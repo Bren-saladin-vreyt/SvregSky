@@ -104,5 +104,10 @@
   "svregsky.key.photo": "Toggle Photo Mode",
   "svregsky.key.timelapse": "Cycle Time-lapse",
   "svregsky.photo.on": "Photo mode ON (F1 hides the HUD)",
-  "svregsky.photo.off": "Photo mode OFF"
+  "svregsky.photo.off": "Photo mode OFF",
+  "svregsky.options.tower_style": "Towering Cloud Shape",
+  "svregsky.options.tower_style.mixed": "Mixed (random)",
+  "svregsky.options.tower_style.tower": "Tower",
+  "svregsky.options.tower_style.wide": "Wide Storm",
+  "svregsky.options.tower_style.anvil": "Anvil"
 }
