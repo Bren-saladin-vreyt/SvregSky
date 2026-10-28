@@ -473,7 +473,7 @@ vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rai
         float fi = float(i);
         // one tower in each quarter of the horizon, at a random spot within it
         float c = fi * 1.5708 + hash2(vec2(seed, fi * 3.7)) * 1.2 - 3.1416;
-        float H = 0.30 + 0.15 * hash2(vec2(fi + 1.3, seed + 3.0));
+        float H = (0.30 + 0.15 * hash2(vec2(fi + 1.3, seed + 3.0))) * (0.6 + 0.4 * amt); // they grow through the afternoon
         float W = 0.15 + 0.07 * hash2(vec2(seed + 7.0, fi));
         float du = g.x - c;
         du -= 6.2832 * floor((du + 3.1416) / 6.2832);
@@ -510,7 +510,7 @@ vec4 towers(vec3 dir, vec3 sunDir, float day, float gold, float night, float rai
         col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));              // night silhouettes
         col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.85, rain * 0.7);
         col = mix(col, vec3(0.80, 0.86, 0.95), 0.22 * (1.0 - g.y / H) * day * (1.0 - gold)); // aerial haze
-        return vec4(col, amt * smoothstep(-0.03, 0.03, dir.y));
+        return vec4(col, smoothstep(0.0, 0.2, amt) * smoothstep(-0.03, 0.03, dir.y));
     }
     return vec4(0.0);
 }

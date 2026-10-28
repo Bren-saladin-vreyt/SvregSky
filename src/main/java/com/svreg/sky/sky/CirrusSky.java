@@ -186,7 +186,8 @@ public final class CirrusSky {
 		long wn = System.nanoTime();
 		float wdt = wetNanos == 0 ? 0 : (float) Math.min(0.2, (wn - wetNanos) / 1e9);
 		wetNanos = wn;
-		wet = Math.max(rain, wet - wdt / 150F);
+		float rainNow = mcw.level != null ? Math.max(rain, mcw.level.getRainLevel(1.0F)) : rain;
+		wet = Math.max(rainNow, wet - wdt / 150F);
 		// rainbow: shows up for a while after a rain shower ends, while the sun is up
 		long nowMs = System.currentTimeMillis();
 		if (rain > 0.35F) {
