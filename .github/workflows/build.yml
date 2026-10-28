@@ -107,6 +107,7 @@ jobs:
           SRC=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*sources*.jar' 2>/dev/null | grep -i minecraft | grep -v -i fabric-api | head -1)
           JAR=$(find ~/.gradle "$GITHUB_WORKSPACE/.gradle" -name '*.jar' 2>/dev/null | grep -i minecraft | grep -v -i -E 'sources|fabric-api|loader' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q dynamictransforms.glsl && echo {}' | head -1)
           mkdir -p probe x
+          set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
           { grep -n -E 'coldEnoughToSnow|getPrecipitationAt|public boolean warmEnoughToRain' $M/world/level/biome/Biome.java;
