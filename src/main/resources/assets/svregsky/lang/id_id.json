@@ -146,5 +146,6 @@
   "svregsky.options.shadow_color": "§a● §rWarna Bayangan",
   "svregsky.options.shadow_color.anime": "Anime (biru-ungu)",
   "svregsky.options.shadow_color.neutral": "Netral (abu gelap)",
-  "svregsky.options.shadow_color.warm": "Hangat (coklat sore)"
+  "svregsky.options.shadow_color.warm": "Hangat (coklat sore)",
+  "svregsky.options.shadow_debug": "§7● §rCek Bayangan (debug warna)"
 }

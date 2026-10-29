@@ -91,6 +91,18 @@ void main() {
     highp float vig = TextureMat[1].x;
     highp float outline = TextureMat[1].y;
 
+    if (TextureMat[3].x > 0.5) {
+        // shadow check: red = distance (dark near, bright far), green = phone depth mode, blue = shadowed, grey = sky / no depth
+        highp float d = texture(Sampler0, uv).r;
+        if (d <= 0.00001 || d >= 0.99999) {
+            fragColor = vec4(0.5, 0.5, 0.5, 0.85);
+            return;
+        }
+        highp vec3 p = viewPos(uv, d, inverse(ProjMat));
+        highp float occ = sunShadow(uv, textureSize(Sampler0, 0));
+        fragColor = vec4(clamp(length(p) / 64.0, 0.0, 1.0), d > 0.5 ? 1.0 : 0.0, occ > 0.0 ? 1.0 : 0.0, 0.85);
+        return;
+    }
     highp vec3 col = tint;
     highp float a = tintA;
     if (ColorModulator.w > 0.0) {

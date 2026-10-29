@@ -138,6 +138,7 @@ public final class SkySettings {
 		FLAGS.put("water_sparkle_dots", true);
 		FLAGS.put("water_sunset", true);
 		FLAGS.put("screen_shadows", false);
+		FLAGS.put("shadow_debug", false);
 		// comfort
 		FLAGS.put("per_world", false);
 	}

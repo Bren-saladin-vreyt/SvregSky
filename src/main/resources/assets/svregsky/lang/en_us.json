@@ -146,5 +146,6 @@
   "svregsky.options.shadow_color": "§a● §rShadow Colour",
   "svregsky.options.shadow_color.anime": "Anime (blue-violet)",
   "svregsky.options.shadow_color.neutral": "Neutral (dark grey)",
-  "svregsky.options.shadow_color.warm": "Warm (evening brown)"
+  "svregsky.options.shadow_color.warm": "Warm (evening brown)",
+  "svregsky.options.shadow_debug": "§7● §rShadow Check (debug colours)"
 }

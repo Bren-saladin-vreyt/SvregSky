@@ -67,6 +67,11 @@ public final class PostLook {
 		}
 	}
 
+	/** depth textures are not filterable on GLES (phones): a LINEAR sampler makes them read as 0 there, so always sample them NEAREST */
+	private static com.mojang.blaze3d.textures.GpuSampler depthSampler() {
+		return RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.NEAREST);
+	}
+
 	private static RenderPipeline simple(String name, ColorTargetState color, com.mojang.blaze3d.pipeline.BindGroupLayout samplers) {
 		Identifier sh = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/" + name);
 		return RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
@@ -122,7 +127,7 @@ public final class PostLook {
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", transforms);
 				pass.bindTexture("Sampler0", sceneView, any.getSampler());
-				pass.bindTexture("Sampler1", main.getDepthTextureView(), any.getSampler());
+				pass.bindTexture("Sampler1", main.getDepthTextureView(), depthSampler());
 				pass.setVertexBuffer(0, quad.slice());
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);
@@ -172,7 +177,7 @@ public final class PostLook {
 					r, g, bl, a,
 					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, paper ? 1 : 0,
 					shSteps, shRange, shGrow, shColor,
-					0, 0, 0, 0);
+					shDebug ? 1 : 0, 0, 0, 0);
 			// the sun in view space (the model-view here is the camera rotation)
 			Vector3f sunView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).transformDirection(new Vector3f(sunW)).normalize();
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(sunView.x, sunView.y, sunView.z, shadowK), new Vector3f(), params);
@@ -181,7 +186,7 @@ public final class PostLook {
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
 			}
-			if (!tone && !outline && !paper && shadowK <= 0) {
+			if (!tone && !outline && !paper && shadowK <= 0 && !shDebug) {
 				return;
 			}
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
@@ -191,7 +196,7 @@ public final class PostLook {
 				pass.setPipeline(pipeline);
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", transforms);
-				pass.bindTexture("Sampler0", main.getDepthTextureView(), any.getSampler());
+				pass.bindTexture("Sampler0", main.getDepthTextureView(), depthSampler());
 				pass.setVertexBuffer(0, quad.slice());
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);

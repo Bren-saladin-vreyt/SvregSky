@@ -133,6 +133,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 9800, 45, 18, "zu5_shadows_ultra_dark_neutral");
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "low"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.3F; com.svreg.sky.sky.SkySettings.shadowColor = "warm"; });
 			shot(context, sp, 9800, 45, 18, "zu6_shadows_low_light_warm");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("shadow_debug", true));
+			shot(context, sp, 9800, 45, 18, "zu7_shadows_debug");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("shadow_debug", false));
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "medium"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.45F; com.svreg.sky.sky.SkySettings.shadowColor = "anime"; });
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 
