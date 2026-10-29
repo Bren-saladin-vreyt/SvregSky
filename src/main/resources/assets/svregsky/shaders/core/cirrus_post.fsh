@@ -49,7 +49,7 @@ highp float sunShadow(highp vec2 uvp, ivec2 size) {
     highp float occ = 0.0;
     highp float stepLen = 0.12 + dist * 0.004;
     highp float t = stepLen * (0.5 + jitter);
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 18; i++) {
         highp vec3 q = p + L * t;
         highp vec4 c = ProjMat * vec4(q, 1.0);
         highp vec3 n = c.xyz / c.w;
@@ -61,7 +61,7 @@ highp float sunShadow(highp vec2 uvp, ivec2 size) {
         highp vec3 sp = viewPos(suv, sd, inv);
         // something in front of the ray point (closer to the camera), but not far in front (that would be a separate object)
         highp float gap = q.z - sp.z;            // view space looks down -z: closer = larger z
-        if (gap < -0.03 && gap > -2.5 && sd > 0.00001) {
+        if (gap < -0.03 && gap > -(5.0 + dist * 0.06) && sd > 0.00001) {
             occ = 1.0;
             break;
         }
