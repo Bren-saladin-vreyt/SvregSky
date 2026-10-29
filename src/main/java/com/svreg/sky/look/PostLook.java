@@ -137,7 +137,7 @@ public final class PostLook {
 		boolean tone = SkySettings.on("film_tone"), outline = SkySettings.on("cartoon_outline"), paper = SkySettings.on("paper_texture");
 		boolean bloom = SkySettings.on("bloom"), dof = SkySettings.photoMode && SkySettings.on("photo_dof");
 		Vector3f sunW = CirrusSky.sunDirection();
-		float shadowK = SkySettings.on("screen_shadows") && sunW.y > 0.04F ? 0.42F * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
+		float shadowK = SkySettings.on("screen_shadows") && sunW.y > 0.04F ? SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
 		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0)) {
 			return;
 		}
@@ -159,10 +159,19 @@ public final class PostLook {
 					a = a + k;
 				}
 			}
+			// shadow quality: march steps, reach in blocks, step growth
+			float shSteps = 16, shRange = 64, shGrow = 1.25F;
+			switch (SkySettings.shadowQuality) {
+				case "low" -> { shSteps = 10; shRange = 40; shGrow = 1.35F; }
+				case "high" -> { shSteps = 22; shRange = 96; shGrow = 1.2F; }
+				case "ultra" -> { shSteps = 30; shRange = 128; shGrow = 1.15F; }
+				default -> { }
+			}
+			float shColor = switch (SkySettings.shadowColor) { case "neutral" -> 1; case "warm" -> 2; default -> 0; };
 			Matrix4f params = new Matrix4f(
 					r, g, bl, a,
 					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, paper ? 1 : 0,
-					0, 0, 0, 0,
+					shSteps, shRange, shGrow, shColor,
 					0, 0, 0, 0);
 			// the sun in view space (the model-view here is the camera rotation)
 			Vector3f sunView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).transformDirection(new Vector3f(sunW)).normalize();

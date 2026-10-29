@@ -23,33 +23,45 @@ in highp vec2 uv;
 
 out highp vec4 fragColor;
 
+
+// Desktop GL uses glClipControl(zero-to-one) with reverse depth, so scene depth (0..0.5) is NDC z directly.
+// Phones (GLES / MobileGlues) usually lack clip control: depth is then (ndc + 1) / 2 and always > 0.5.
+highp float ndcZ(highp float d) {
+    return d > 0.5 ? d * 2.0 - 1.0 : d;
+}
+
 highp float depthAt(ivec2 p, ivec2 size) {
-    return texelFetch(Sampler0, clamp(p, ivec2(0), size - 1), 0).r;
+    return ndcZ(texelFetch(Sampler0, clamp(p, ivec2(0), size - 1), 0).r);
 }
 
 highp vec3 viewPos(highp vec2 uvp, highp float d, highp mat4 inv) {
-    highp vec4 v = inv * vec4(uvp * 2.0 - 1.0, d, 1.0);
+    highp vec4 v = inv * vec4(uvp * 2.0 - 1.0, ndcZ(d), 1.0);
     return v.xyz / v.w;
 }
 
 // screen-space sun shadows: march from each pixel toward the sun and see if the depth buffer has something in front
 highp float sunShadow(highp vec2 uvp, ivec2 size) {
     highp float d = texture(Sampler0, uvp).r;
-    if (d <= 0.00001 || d >= 0.99999) {
-        return 0.0;  // sky
+    if (d <= 0.00001 || d >= 0.99999 || abs(d - 0.5) < 0.000002) {
+        return 0.0;  // sky (cleared depth is 0, 1 or 0.5 depending on the depth convention)
     }
     highp mat4 inv = inverse(ProjMat);
     highp vec3 p = viewPos(uvp, d, inv);
     highp vec3 L = normalize(ColorModulator.xyz);
     highp float dist = length(p);
-    if (dist > 96.0) {
+    highp float range = TextureMat[2].y;
+    if (dist > range) {
         return 0.0;
     }
     highp float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
     highp float occ = 0.0;
     highp float stepLen = 0.12 + dist * 0.004;
     highp float t = stepLen * (0.5 + jitter);
-    for (int i = 0; i < 18; i++) {
+    int steps = int(TextureMat[2].x + 0.5);
+    for (int i = 0; i < 32; i++) {
+        if (i >= steps) {
+            break;
+        }
         highp vec3 q = p + L * t;
         highp vec4 c = ProjMat * vec4(q, 1.0);
         highp vec3 n = c.xyz / c.w;
@@ -66,11 +78,11 @@ highp float sunShadow(highp vec2 uvp, ivec2 size) {
             break;
         }
         t += stepLen;
-        stepLen *= 1.22;
+        stepLen *= TextureMat[2].z;
     }
     // fade out with distance and at the screen edges
     highp vec2 e = min(uvp, 1.0 - uvp);
-    return occ * (1.0 - smoothstep(48.0, 96.0, dist)) * smoothstep(0.0, 0.03, min(e.x, e.y));
+    return occ * (1.0 - smoothstep(range * 0.5, range, dist)) * smoothstep(0.0, 0.03, min(e.x, e.y));
 }
 
 void main() {
@@ -85,7 +97,9 @@ void main() {
         ivec2 sz = textureSize(Sampler0, 0);
         highp float sh = sunShadow(uv, sz) * ColorModulator.w;
         // anime shadow: cool blue-violet, laid under the tint
-        col = mix(col, vec3(0.20, 0.22, 0.42), sh / max(a + sh, 1e-4));
+        highp float ci = TextureMat[2].w;
+        highp vec3 shc = ci < 0.5 ? vec3(0.20, 0.22, 0.42) : ci < 1.5 ? vec3(0.08, 0.08, 0.10) : vec3(0.30, 0.17, 0.10);
+        col = mix(col, shc, sh / max(a + sh, 1e-4));
         a = 1.0 - (1.0 - a) * (1.0 - sh);
     }
 

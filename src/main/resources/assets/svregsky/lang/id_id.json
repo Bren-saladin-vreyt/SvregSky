@@ -136,5 +136,15 @@
   "svregsky.options.ghibli_style.mixed": "Campur Semua",
   "svregsky.options.ghibli_amount": "§e● §rJumlah Awan 3D Ghibli",
   "svregsky.options.ghibli_size": "§e● §rUkuran Awan 3D Ghibli",
-  "svregsky.options.screen_shadows": "§e● §rBayangan Matahari (Layar)"
+  "svregsky.options.screen_shadows": "§e● §rBayangan Matahari (Layar)",
+  "svregsky.options.shadow_quality": "§e● §rKualitas Bayangan",
+  "svregsky.options.shadow_quality.low": "Rendah (ringan, 40 blok)",
+  "svregsky.options.shadow_quality.medium": "Sedang (64 blok)",
+  "svregsky.options.shadow_quality.high": "Tinggi (96 blok)",
+  "svregsky.options.shadow_quality.ultra": "Ultra (128 blok, berat)",
+  "svregsky.options.shadow_darkness": "§a● §rKegelapan Bayangan",
+  "svregsky.options.shadow_color": "§a● §rWarna Bayangan",
+  "svregsky.options.shadow_color.anime": "Anime (biru-ungu)",
+  "svregsky.options.shadow_color.neutral": "Netral (abu gelap)",
+  "svregsky.options.shadow_color.warm": "Hangat (coklat sore)"
 }
