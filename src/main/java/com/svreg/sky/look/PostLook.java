@@ -143,7 +143,8 @@ public final class PostLook {
 		boolean bloom = SkySettings.on("bloom"), dof = SkySettings.photoMode && SkySettings.on("photo_dof");
 		Vector3f sunW = CirrusSky.sunDirection();
 		float shadowK = SkySettings.on("screen_shadows") && sunW.y > 0.04F ? SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
-		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0)) {
+		boolean shDebug = SkySettings.on("screen_shadows") && SkySettings.on("shadow_debug");
+		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug)) {
 			return;
 		}
 		try {
