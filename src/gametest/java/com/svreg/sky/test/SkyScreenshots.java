@@ -186,6 +186,18 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 12300, -90, -12, "zo2_ghibli_golden_east");
 			shot(context, sp, 12700, 90, 4, "zp_ghibli_sunset_water");
 			shot(context, sp, 18000, 0, -20, "zq_ghibli_night");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli_mix";
+				com.svreg.sky.sky.SkySettings.version++;
+			});
+			shot(context, sp, 6000, 160, -25, "zs_ghibli_mix_noon");
+			shot(context, sp, 12300, 90, -10, "zs2_ghibli_mix_golden");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli";
+				com.svreg.sky.sky.SkySettings.version++;
+			});
+			sp.getServer().runCommand("time add 48000");
+			shot(context, sp, 6000, 160, -25, "zt_ghibli_other_day");
 
 			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");

@@ -363,7 +363,7 @@ public final class CirrusSky {
 		if (SkySettings.on("cloud_rows")) f |= 8192;
 		if (SkySettings.on("cirrus_layer")) f |= 16384;
 		if (ghibli) {
-			f |= 32768; // the 3D clouds replace the painted cumulus
+			if (!SkySettings.ghibliMix()) f |= 32768; // the 3D clouds replace the painted cumulus (the mix keeps the far painted layers)
 			if (SkySettings.on("light_rays") && GhibliClouds.gridVersion() > 0) f |= 65536;
 		}
 		draw(cloudPipeline, f, 1.0F, "SvregSky clouds");
@@ -395,7 +395,7 @@ public final class CirrusSky {
 					offX, offZ, rainbowLevel, SkySettings.aurora,
 					flags, coverage(), slotC, mode);
 			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
-			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers;
+			float layers = SkySettings.cloud3d() || SkySettings.ghibliMix() ? -Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers;
 			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, layers, org);
 			// a big cube (far inside the far plane) so the walking bob's small camera shift can't make the sky wobble
 			int chunks = Math.max(2, mc.options.getEffectiveRenderDistance());

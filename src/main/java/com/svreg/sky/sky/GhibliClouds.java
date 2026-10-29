@@ -77,96 +77,10 @@ public final class GhibliClouds {
 
 	// ------------------------------------------------------------------ grid
 	private static void generate(long seed) {
-		Random rng = new Random(seed);
-		int n = NX * NY * NZ;
-		float[] best = new float[n];
-		java.util.Arrays.fill(best, -1e9F);
-		byte[] nn = new byte[n * 3];
-		int count = 40 + rng.nextInt(16);
-		for (int c = 0; c < count; c++) {
-			float cx = rng.nextFloat() * NX, cz = rng.nextFloat() * NZ;
-			float R = (float) Math.max(4, Math.min(20, Math.exp(Math.log(9.0) + rng.nextGaussian() * 0.45)));
-			float base = 1.0F + rng.nextFloat() * 2.0F;
-			float tall = rng.nextFloat();
-			float H = Math.min(NY - 1.5F, R * (0.55F + 0.9F * tall * tall));
-			int body = (int) (4 + R * 0.5F);
-			for (int i = 0; i < body; i++) {
-				double a = rng.nextDouble() * Math.PI * 2;
-				float d = rng.nextFloat() * 0.75F * R;
-				float r = R * (0.32F + rng.nextFloat() * 0.18F);
-				puff(best, nn, cx + (float) Math.cos(a) * d, base + r * 0.55F, cz + (float) Math.sin(a) * d, r, 0);
-			}
-			float lx = (float) rng.nextGaussian() * 0.15F, lz = (float) rng.nextGaussian() * 0.15F;
-			float y = base + R * 0.4F;
-			for (int k = 0; k < 12 && y < base + H; k++) {
-				float t = (y - base) / Math.max(H, 1);
-				float r = R * (0.48F - 0.26F * t) * (0.85F + rng.nextFloat() * 0.3F);
-				int m = 1 + rng.nextInt(2);
-				for (int j = 0; j < m; j++) {
-					puff(best, nn, cx + lx * (y - base) + (float) rng.nextGaussian() * 0.18F * R, y,
-							cz + lz * (y - base) + (float) rng.nextGaussian() * 0.18F * R, r, 0.2F);
-				}
-				y += r * (0.55F + rng.nextFloat() * 0.25F);
-			}
-			int bumps = (int) (10 + R * 2.2F);
-			for (int i = 0; i < bumps; i++) {
-				double a = rng.nextDouble() * Math.PI * 2;
-				float d = (0.2F + rng.nextFloat() * 0.8F) * R * 0.85F;
-				float px = cx + (float) Math.cos(a) * d, pz = cz + (float) Math.sin(a) * d;
-				int top = -1;
-				for (int yy = NY - 1; yy >= 0; yy--) {
-					if (best[idx((int) Math.floor(px), yy, (int) Math.floor(pz))] > -1e8F) {
-						top = yy;
-						break;
-					}
-				}
-				if (top < 0) {
-					continue;
-				}
-				puff(best, nn, px, top + 0.5F - rng.nextFloat() * 0.6F, pz, R * (0.10F + rng.nextFloat() * 0.12F) + 0.8F, 0.5F);
-			}
-		}
-		byte[] o = new byte[n];
-		for (int i = 0; i < n; i++) {
-			o[i] = (byte) (best[i] > -1e8F ? 1 : 0);
-		}
-		// the bottom row stays empty, so bases are flat
-		for (int x = 0; x < NX; x++) {
-			for (int z = 0; z < NZ; z++) {
-				o[idx(x, 0, z)] = 0;
-			}
-		}
-		nrm = nn;
-		occ = o;
+		GhibliGen g = new GhibliGen(NX, NY, NZ, seed).generate();
+		nrm = g.nrm;
+		occ = g.occ;
 		gridVersion++;
-	}
-
-	private static void puff(float[] best, byte[] nn, float cx, float cy, float cz, float r, float prio) {
-		int x0 = (int) Math.floor(cx - r - 1), x1 = (int) Math.ceil(cx + r + 1);
-		int y0 = Math.max(0, (int) Math.floor(cy - r - 1)), y1 = Math.min(NY - 1, (int) Math.ceil(cy + r + 1));
-		int z0 = (int) Math.floor(cz - r - 1), z1 = (int) Math.ceil(cz + r + 1);
-		float rr = r * r;
-		for (int x = x0; x <= x1; x++) {
-			float dx = x + 0.5F - cx;
-			for (int y = y0; y <= y1; y++) {
-				float dy = y + 0.5F - cy;
-				for (int z = z0; z <= z1; z++) {
-					float dz = z + 0.5F - cz;
-					float d2 = dx * dx + dy * dy + dz * dz;
-					if (d2 >= rr) {
-						continue;
-					}
-					float score = (rr - d2) / r + prio; // the frontmost puff wins, so each bump keeps its own rounded light
-					int i = idx(x, y, z);
-					if (score > best[i]) {
-						best[i] = score;
-						nn[i * 3] = (byte) Math.round(dx / r * 127);
-						nn[i * 3 + 1] = (byte) Math.round(dy / r * 127);
-						nn[i * 3 + 2] = (byte) Math.round(dz / r * 127);
-					}
-				}
-			}
-		}
 	}
 
 	// ------------------------------------------------------------------ mesh

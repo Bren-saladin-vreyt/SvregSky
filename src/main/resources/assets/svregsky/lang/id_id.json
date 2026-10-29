@@ -121,5 +121,6 @@
   "svregsky.options.cloud_rows": "§e● §rDeretan Awan Berlapis",
   "svregsky.options.cirrus_layer": "§a● §rAwan Cirrus Tipis",
   "svregsky.options.light_rays": "§c● §rBerkas Cahaya (3D Ghibli)",
-  "svregsky.options.water_sparkle_dots": "§a● §rKilau Titik di Air"
+  "svregsky.options.water_sparkle_dots": "§a● §rKilau Titik di Air",
+  "svregsky.options.cloud_mode.3d_ghibli_mix": "3D Ghibli + Lukisan"
 }

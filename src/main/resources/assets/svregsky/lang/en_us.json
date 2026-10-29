@@ -121,5 +121,6 @@
   "svregsky.options.cloud_rows": "§e● §rLayered Cloud Rows",
   "svregsky.options.cirrus_layer": "§a● §rThin Cirrus",
   "svregsky.options.light_rays": "§c● §rLight Rays (3D Ghibli)",
-  "svregsky.options.water_sparkle_dots": "§a● §rWater Sparkle Dots"
+  "svregsky.options.water_sparkle_dots": "§a● §rWater Sparkle Dots",
+  "svregsky.options.cloud_mode.3d_ghibli_mix": "3D Ghibli + Painted"
 }

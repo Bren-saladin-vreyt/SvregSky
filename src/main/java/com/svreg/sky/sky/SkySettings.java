@@ -171,7 +171,12 @@ public final class SkySettings {
 
 	/** puffy 3D Ghibli clouds (their own mesh, no painted cumulus) */
 	public static boolean cloudGhibli() {
-		return "3d_ghibli".equals(cloudMode);
+		return "3d_ghibli".equals(cloudMode) || "3d_ghibli_mix".equals(cloudMode);
+	}
+
+	/** 3D Ghibli clouds near, painted cloud layers further out */
+	public static boolean ghibliMix() {
+		return "3d_ghibli_mix".equals(cloudMode);
 	}
 
 	/** pure 3D sunset-reference clouds, no painted layers */
