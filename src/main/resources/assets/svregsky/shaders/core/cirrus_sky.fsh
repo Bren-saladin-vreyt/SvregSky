@@ -14,7 +14,8 @@ layout(std140) uniform DynamicTransforms {
 };
 
 uniform highp sampler2D Sampler0; // baked cloud density: R = density, G/B = 16-bit cluster shape
-uniform highp sampler2D Sampler1; // baked cumulonimbus sprites (2 rows of 8 x 320x256): R = light band 0..4, G = rim, B = height, A = 255 cloud / 110 rain
+uniform highp sampler2D Sampler1;
+uniform highp sampler2D Sampler2; // 3D Ghibli cloud footprint (for light rays) // baked cumulonimbus sprites (2 rows of 8 x 320x256): R = light band 0..4, G = rim, B = height, A = 255 cloud / 110 rain
 
 in highp vec3 skyDir;
 
@@ -468,52 +469,196 @@ highp vec3 sunAndMoon(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp f
 // towering summer cumulonimbus on the horizon (Laputa-style), drawn in the cloud pass.
 // The puffy toon shapes are pre-baked into a sprite atlas (Sampler1), so the shader only does a few texel reads:
 // cheap, and it draws the same on phone GPUs as on PCs.
+const int F_MEGA = 1024;
+const int F_LINING = 2048;
+const int F_TLIGHT = 4096;
+const int F_ROWS = 8192;
+const int F_CIRRUS = 16384;
+const int F_NOPAINT = 32768;
+const int F_RAYS3D = 65536;
+bool tflag(int b) {
+    return (int(TextureMat[3].x + 0.5) & b) != 0;
+}
+
+// ---- experimental cumulonimbus: depth rows, one mega storm, lightning inside, silver lining + sun beams, mackerel sky
+highp vec4 towerTex(highp float px, highp float py, highp float pick) {
+    int ip = int(pick);
+    return texelFetch(Sampler1, ivec2(int(px) + (ip - (ip / 8) * 8) * 320, (ip / 8) * 256 + 255 - int(py)), 0);
+}
+
+// tower slot k (0..11): row = k / 4 (0 near .. 2 far)
+void towerSlot(int k, highp float sd, highp float amt, out highp float c, out highp float W, out highp float haze, out highp float pick) {
+    highp float fk = float(k);
+    int row = k / 4;
+    highp float fi = float(k - row * 4);
+    highp float rs = row == 0 ? 1.0 : (row == 1 ? 0.62 : 0.40);
+    c = fi * 1.5708 + hash2(vec2(sd + float(row) * 13.1, fi * 3.7)) * 1.5 - 3.1416 + float(row) * 0.6;
+    W = (0.095 + 0.035 * hash2(vec2(sd + 7.0 + float(row) * 5.3, fi))) * (0.75 + 0.25 * amt) * rs;
+    if (k == 0 && tflag(F_MEGA)) W *= 2.1;
+    haze = row == 0 ? 0.0 : (row == 1 ? 0.30 : 0.55);
+    pick = mod(fk * 5.0 + floor(sd * 10.0) * 3.0, 16.0);
+}
+
+// sprite lookup for slot k: the mega slot reads the big, detailed mega sprites
+highp vec4 slotTex(int k, highp float du, highp float y, highp float side, highp float W, highp float pick, highp float sd, out bool inside) {
+    // true angles on the sky: azimuth shrinks with height (cos of elevation), height is the elevation angle
+    highp float yc = clamp(y, -0.999, 0.999);
+    du *= sqrt(1.0 - yc * yc);
+    y = asin(yc);
+    if (k == 0 && tflag(F_MEGA)) {
+        highp float px = du / W * 96.0 * side + 240.0;
+        highp float py = y / W * 96.0;
+        inside = px >= 0.0 && px < 480.0 && py >= 0.0 && py < 480.0;
+        if (!inside) return vec4(0.0);
+        int m = int(mod(floor(sd * 10.0), 6.0));
+        return texelFetch(Sampler1, ivec2(int(px) + m * 480, 512 + 479 - int(py)), 0);
+    }
+    highp float px = du / W * 64.0 * side + 160.0;
+    highp float py = y / W * 64.0;
+    inside = px >= 0.0 && px < 320.0 && py >= 0.0 && py < 256.0;
+    if (!inside) return vec4(0.0);
+    return towerTex(px, py, pick);
+}
+
+highp float towerCover(highp float az, highp float y, highp float sunAz, highp float sd, highp float amt) {
+    for (int k = 0; k < 12; k++) {
+        if (k >= (tflag(F_ROWS) ? 12 : 4)) break;
+        highp float c, W, haze, pick;
+        towerSlot(k, sd, amt, c, W, haze, pick);
+        highp float du = az - c;
+        du -= 6.2832 * floor((du + 3.1416) / 6.2832);
+        highp float side = sin(sunAz - c) >= 0.0 ? 1.0 : -1.0;
+        bool inside;
+        if (slotTex(k, du, y, side, W, pick, sd, inside).a > 0.7) {
+            return 1.0;
+        }
+    }
+    return 0.0;
+}
+
 highp vec4 towers(highp vec3 dir, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float rain, highp float org, highp float amtStyle, highp float seed) {
     highp vec4 res = vec4(0.0);
-    highp float style = floor(amtStyle / 2.0);        // 0 mixed, 1 towers, 2 wide storms, 3 anvils
-    highp float amt = amtStyle - style * 2.0;
-    if (amt < 0.01 || dir.y < -0.03 || dir.y > 0.9) {
+    highp float amt = amtStyle - floor(amtStyle / 2.0) * 2.0;
+    if (amt < 0.01 || dir.y < -0.03 || dir.y > 1.2) {
         return res;
     }
     highp float az = atan(dir.z, dir.x);
     highp float sunAz = atan(sunDir.z, sunDir.x);
-    // five toon tones: dark base, shade, mid, lit, highlight (day -> golden hour)
     highp vec3 c0 = mix(vec3(0.36, 0.41, 0.55), vec3(0.38, 0.33, 0.50), gold);
     highp vec3 c1 = mix(vec3(0.59, 0.65, 0.81), vec3(0.62, 0.50, 0.66), gold);
     highp vec3 c2 = mix(vec3(0.80, 0.84, 0.94), mix(vec3(0.90, 0.68, 0.64), vec3(0.88, 0.58, 0.62), org), gold);
     highp vec3 c3 = mix(vec3(0.95, 0.96, 0.98), mix(vec3(1.00, 0.82, 0.62), vec3(1.00, 0.70, 0.58), org), gold);
     highp vec3 c4 = mix(vec3(1.00, 0.99, 0.96), mix(vec3(1.00, 0.91, 0.74), vec3(1.00, 0.82, 0.68), org), gold);
+    highp vec3 hazeC = mix(vec3(0.80, 0.86, 0.95), vec3(0.98, 0.72, 0.62), gold);
     highp float sd = fract(seed * 0.1173) * 10.0;
-    for (int i = 0; i < 4; i++) {
-        highp float fi = float(i);
-        // one cloud in each quarter of the horizon, at a random spot within it
-        highp float c = fi * 1.5708 + hash2(vec2(sd, fi * 3.7)) * 1.2 - 3.1416;
-        highp float W = (0.095 + 0.035 * hash2(vec2(sd + 7.0, fi))) * (0.75 + 0.25 * amt);
+    for (int k = 0; k < 12; k++) {
+        if (k >= (tflag(F_ROWS) ? 12 : 4)) break;
+        highp float c, W, haze, pick;
+        towerSlot(k, sd, amt, c, W, haze, pick);
         highp float du = az - c;
         du -= 6.2832 * floor((du + 3.1416) / 6.2832);
-        highp float side = sin(sunAz - c) >= 0.0 ? 1.0 : -1.0;   // baked lit from the right: mirror for the other side
-        highp float px = du / W * 64.0 * side + 160.0;
+        highp float side = sin(sunAz - c) >= 0.0 ? 1.0 : -1.0;
+        bool inside;
+        highp vec4 t = res.a < 0.5 ? slotTex(k, du, dir.y, side, W, pick, sd, inside) : vec4(0.0);
+        highp float px = du / W * 64.0;   // sprite-space helpers for the lightning spot (64 px per unit)
         highp float py = dir.y / W * 64.0;
-        if (px >= 0.0 && px < 320.0 && py >= 0.0 && py < 256.0 && res.a < 0.5) {
-            highp float pick = mod(fi * 5.0 + floor(seed) * 3.0, 16.0); // 16 irregular shapes, a new mix every day
-            int ip = int(pick);
-            highp vec4 t = texelFetch(Sampler1, ivec2(int(px) + (ip - (ip / 8) * 8) * 320, (ip / 8) * 256 + 255 - int(py)), 0);
+        if (inside && res.a < 0.5) {
             if (t.a > 0.7) {
                 highp float band = floor(t.r * 4.0 + 0.5);
                 highp vec3 col = band < 0.5 ? c0 : (band < 1.5 ? c1 : (band < 2.5 ? c2 : (band < 3.5 ? c3 : c4)));
-                col = mix(col, vec3(1.0, 0.98, 0.92), t.g * 0.35 * max(day, gold));   // bright rim toward the sun
-                col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));          // night silhouettes
+                col = mix(col, vec3(1.0, 0.98, 0.92), t.g * 0.35 * max(day, gold));
+                if (tflag(F_LINING)) {
+                // silver lining: the sun hides behind this tower -> its edges toward the sun glow gold-white
+                highp float sunDu = sunAz - c;
+                sunDu -= 6.2832 * floor((sunDu + 3.1416) / 6.2832);
+                highp float behind = smoothstep(1.4, 0.4, abs(sunDu) / W) * step(-0.05, sunDir.y);
+                highp float edge = 0.0;
+                if (behind > 0.0) {
+                    highp vec2 toSun = normalize(vec2(sunDu - du, sunDir.y - dir.y) + vec2(1e-5));
+                    for (int e = 1; e <= 3; e++) {
+                        highp vec2 q = vec2(du, dir.y) + toSun * float(e) * W * 0.045;
+                        bool ins;
+                        if (slotTex(k, q.x, q.y, side, W, pick, sd, ins).a < 0.7) {
+                            edge = max(edge, 1.0 - float(e - 1) / 3.0);
+                        }
+                    }
+                }
+                col = mix(col, mix(vec3(1.0, 0.98, 0.90), vec3(1.0, 0.90, 0.62), gold), edge * behind);
+                col = mix(col, col * vec3(0.72, 0.66, 0.80), behind * (1.0 - edge) * gold);
+                }
+                col = mix(col, vec3(0.16, 0.20, 0.34), night * (1.0 - day));
+                if (tflag(F_TLIGHT)) {
+                // lightning glowing inside the storm cloud
+                // a flash somewhere inside the cloud: violet-white core, toon bands fading out
+                highp vec2 fc = vec2(-90.0 + 180.0 * hash2(vec2(sd, floor(ModelOffset.x * 9.0))), 90.0 + 130.0 * hash2(vec2(floor(ModelOffset.x * 9.0), sd)));
+                highp float fd = length(vec2(px, py) - fc) / 120.0 + (noise(vec2(px, py) / 22.0 + sd) - 0.5) * 0.7;
+                highp float fl = ModelOffset.x * (fd < 0.25 ? 1.0 : (fd < 0.7 ? 0.5 : (fd < 1.2 ? 0.2 : 0.0)));
+                col = mix(col, mix(vec3(0.62, 0.42, 0.80), vec3(0.96, 0.88, 1.0), step(0.9, fl)), fl * 0.8);
+                }
                 col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.85, rain * 0.7);
-                col = mix(col, vec3(0.80, 0.86, 0.95), 0.25 * (1.0 - t.b) * day * (1.0 - gold)); // aerial haze low down
+                col = mix(col, hazeC, 0.25 * (1.0 - t.b) * day * (1.0 - gold));
+                col = mix(col, hazeC * mix(1.0, 0.35, night), haze);             // far rows fade into the sky
                 res = vec4(col, smoothstep(0.0, 0.2, amt) * smoothstep(-0.03, 0.03, dir.y));
             } else if (t.a > 0.2) {
-                // rain falling from the dark base
                 highp vec3 rc = mix(c1, c0, 0.4);
-                res = vec4(rc, 0.35 * smoothstep(0.0, 0.2, amt) * (0.4 + 0.6 * t.b) * smoothstep(-0.03, 0.03, dir.y));
+                res = vec4(mix(rc, hazeC, haze), 0.35 * smoothstep(0.0, 0.2, amt) * (0.4 + 0.6 * t.b) * smoothstep(-0.03, 0.03, dir.y));
             }
         }
     }
+    if (tflag(F_LINING)) {
+    if (res.a < 0.5 && gold > 0.05 && sunDir.y > -0.05) {
+        // sun beams fanning out from behind a tower: march toward the sun, gaps let light through
+        highp float dAz = sunAz - az;
+        dAz -= 6.2832 * floor((dAz + 3.1416) / 6.2832);
+        highp vec2 toSun = vec2(dAz, sunDir.y - dir.y);
+        highp float dist = length(toSun);
+        if (dist < 0.9 && towerCover(sunAz, sunDir.y, sunAz, sd, amt) > 0.5) {
+            highp float lit = 0.0;
+            for (int s = 1; s <= 8; s++) {
+                highp vec2 p = vec2(az, dir.y) + toSun * (float(s) / 8.0);
+                lit += 1.0 - towerCover(p.x, p.y, sunAz, sd, amt);
+            }
+            lit /= 8.0;
+            highp float ang = atan(toSun.y, toSun.x);
+            highp float streak = smoothstep(0.2, 0.8, 0.5 + 0.5 * sin(ang * 26.0 + sd * 5.0) * sin(ang * 11.0 + 1.3));
+            highp float b = lit * streak * (1.0 - smoothstep(0.05, 1.1, dist)) * gold;
+            res = vec4(mix(vec3(1.0, 0.88, 0.62), vec3(1.0, 0.80, 0.58), org), b * 0.75);
+        }
+    }
+    }
     return res;
+}
+
+
+
+// high, thin painted cirrus streaks above everything else (cloud pass)
+highp vec4 cirrus(highp vec3 d, highp float day, highp float gold, highp float night, highp float org, highp vec2 off) {
+    if (d.y < 0.03) return vec4(0.0);
+    highp vec2 q = d.xz / d.y * 0.9 + off * 0.05;
+    q = floor(q * 60.0) / 60.0;
+    highp vec2 r = vec2(q.x * 0.9 + q.y * 0.45, -q.x * 0.45 + q.y * 0.9);
+    highp float streak = noise(r * vec2(0.8, 4.0)) * 0.65 + noise(r * vec2(2.0, 9.0)) * 0.35;
+    highp float field = noise(q * 0.35 + 7.0);
+    highp float a = smoothstep(0.6, 0.8, streak) * smoothstep(0.55, 0.75, field) * smoothstep(0.03, 0.15, d.y);
+    highp vec3 c = mix(vec3(1.0), mix(vec3(1.0, 0.80, 0.82), vec3(1.0, 0.86, 0.62), org), gold);
+    c = mix(c, vec3(0.30, 0.33, 0.50), night * (1.0 - day));
+    return vec4(c, a * 0.45 * max(max(day, gold), 0.35));
+}
+
+// crepuscular rays under the 3D Ghibli clouds: Sampler2 = cloud footprint (which columns hold cloud)
+highp float rays3d(highp vec3 dir, highp vec3 sunDir) {
+    if (sunDir.y < 0.03 || dir.y < 0.0) return 0.0;
+    highp float base = TextureMat[3].z;             // cloud base height above the camera (blocks)
+    highp vec2 off = TextureMat[2].xy;              // camera position in footprint texels
+    highp float tEnd = min(base / max(dir.y, 0.02), 1400.0);
+    highp float lit = 0.0;
+    for (int i = 0; i < 14; i++) {
+        highp vec3 p = dir * (tEnd * (float(i) + 0.5) / 14.0);
+        highp vec3 q = p + sunDir * ((base + 20.0 - p.y) / sunDir.y);
+        highp vec2 uv = fract((q.xz / 4.0 + off) / 256.0);
+        lit += texture(Sampler2, uv).r > 0.5 ? 0.0 : 1.0;
+    }
+    return lit / 14.0;
 }
 
 highp vec3 hue(highp float h) {
@@ -541,7 +686,19 @@ void main() {
     int layers = int(round(ColorModulator.z));
 
     if (mode > 0.5) {
-        highp vec4 k = clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);
+        highp vec4 k = tflag(F_NOPAINT) ? vec4(0.0) : clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);
+        if (tflag(F_CIRRUS)) {
+            highp vec4 ci = cirrus(dir, day, gold, TextureMat[1].z, org, cloudOff);
+            k = vec4(mix(ci.rgb, k.rgb, k.a), max(k.a, ci.a));
+        }
+        if (tflag(F_RAYS3D) && k.a < 0.5) {
+            highp float sk = pow(max(dot(dir, sunDir), 0.0), 2.0) * (0.25 + 0.4 * gold) * max(day, gold) * (1.0 - rain);
+            if (sk > 0.01) {
+                highp float lit = rays3d(dir, sunDir);
+                highp vec3 rc = mix(vec3(1.0, 0.97, 0.88), mix(vec3(1.0, 0.74, 0.70), vec3(1.0, 0.80, 0.45), org), gold);
+                k = vec4(mix(rc, k.rgb, k.a), max(k.a, lit * sk * 0.5));
+            }
+        }
         if ((flags & F_TOWERS) != 0) {
             highp vec4 tw = towers(dir, sunDir, day, gold, night, rain, org, ModelOffset.y, ModelOffset.z);
             // the far, low painted clouds sit behind the towers; high ones (overhead) pass in front

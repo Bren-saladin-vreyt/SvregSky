@@ -172,11 +172,30 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("face_light", true));
 			shot(context, sp, 3000, 30, 5, "zm_face_light_on");
 
+			// batch 5: 3D Ghibli clouds, MEGA cumulonimbus, beams, sunset water
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli";
+				com.svreg.sky.sky.SkySettings.paintedClouds = true;
+				com.svreg.sky.sky.CirrusSky.forceTowers = true;
+				com.svreg.sky.sky.SkySettings.version++;
+			});
+			context.waitTicks(100);
+			shot(context, sp, 6000, 160, -25, "zn_ghibli_noon");
+			shot(context, sp, 6000, 40, -8, "zn2_ghibli_noon_horizon");
+			shot(context, sp, 12300, 90, -10, "zo_ghibli_golden_west");
+			shot(context, sp, 12300, -90, -12, "zo2_ghibli_golden_east");
+			shot(context, sp, 12700, 90, 4, "zp_ghibli_sunset_water");
+			shot(context, sp, 18000, 0, -20, "zq_ghibli_night");
+
 			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~40 ~-10");
 			context.waitTicks(40);
 			shot(context, sp, 6000, 0, 55, "v_cloud_shadows");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 230 ~");
+			context.waitTicks(60);
+			shot(context, sp, 6000, 160, 15, "zr_ghibli_above");
+			shot(context, sp, 12600, 90, 8, "zr2_ghibli_above_sunset");
 		}
 	}
 

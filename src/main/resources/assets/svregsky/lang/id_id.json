@@ -113,5 +113,13 @@
   "svregsky.options.water_reflection": "§e● §rAir Cermin Langit",
   "svregsky.options.face_light": "§a● §rCahaya Anime di Blok",
   "svregsky.options.torch_glow": "§a● §rCahaya Obor & Lentera",
-  "svregsky.options.crickets": "§a● §rSuara Jangkrik"
+  "svregsky.options.crickets": "§a● §rSuara Jangkrik",
+  "svregsky.options.cloud_mode.3d_ghibli": "3D Ghibli",
+  "svregsky.options.cloud_mega": "§a● §rCumulonimbus MEGA",
+  "svregsky.options.tower_lightning": "§a● §rPetir di Awan Raksasa",
+  "svregsky.options.sun_beams": "§a● §rMatahari di Balik Awan + Sinar",
+  "svregsky.options.cloud_rows": "§e● §rDeretan Awan Berlapis",
+  "svregsky.options.cirrus_layer": "§a● §rAwan Cirrus Tipis",
+  "svregsky.options.light_rays": "§c● §rBerkas Cahaya (3D Ghibli)",
+  "svregsky.options.water_sparkle_dots": "§a● §rKilau Titik di Air"
 }

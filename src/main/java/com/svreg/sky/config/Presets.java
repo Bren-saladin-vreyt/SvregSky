@@ -14,7 +14,7 @@ public final class Presets {
 		boolean light = name.equals("light"), full = name.equals("full");
 		SkySettings.cirrusSky = true;
 		SkySettings.paintedClouds = true;
-		SkySettings.cloudMode = full ? "3d" : "painted";
+		SkySettings.cloudMode = full ? "3d_ghibli" : "painted";
 		SkySettings.cloudLayers = light ? 1 : full ? 3 : 2;
 		SkySettings.windLines = !light;
 		SkySettings.windLineAmount = full ? 1.5F : 1.0F;
@@ -33,6 +33,7 @@ public final class Presets {
 			boolean on = switch (k) {
 				case "cartoon_outline", "paper_texture" -> false;
 				case "bloom" -> full;
+				case "light_rays", "cloud_rows" -> full;
 				case "dragonflies", "dandelion_seeds", "fish_jumps", "bird_flocks", "puddles", "sky_reflection" -> !light;
 				case "butterflies", "light_motes", "rain_ripples", "shore_foam", "water_steam", "smoke_wisps", "window_glow", "film_tone" -> !light && (full || !(k.equals("light_motes") || k.equals("shore_foam")));
 				default -> true;

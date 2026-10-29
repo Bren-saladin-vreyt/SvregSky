@@ -113,5 +113,13 @@
   "svregsky.options.water_reflection": "§e● §rSky Mirror Water",
   "svregsky.options.face_light": "§a● §rAnime Block Light",
   "svregsky.options.torch_glow": "§a● §rTorch & Lantern Glow",
-  "svregsky.options.crickets": "§a● §rCrickets"
+  "svregsky.options.crickets": "§a● §rCrickets",
+  "svregsky.options.cloud_mode.3d_ghibli": "3D Ghibli",
+  "svregsky.options.cloud_mega": "§a● §rMEGA Cumulonimbus",
+  "svregsky.options.tower_lightning": "§a● §rLightning in Giant Clouds",
+  "svregsky.options.sun_beams": "§a● §rSun Behind Clouds + Beams",
+  "svregsky.options.cloud_rows": "§e● §rLayered Cloud Rows",
+  "svregsky.options.cirrus_layer": "§a● §rThin Cirrus",
+  "svregsky.options.light_rays": "§c● §rLight Rays (3D Ghibli)",
+  "svregsky.options.water_sparkle_dots": "§a● §rWater Sparkle Dots"
 }

@@ -63,11 +63,44 @@ public final class CirrusSky {
 	private static final Identifier TOWERS = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/towers.png");
 	/** test hook: towers every day */
 	public static boolean forceTowers;
+	private static boolean megaToday;
 	private static int moonPhase;
 	private static boolean rainbowArmed;
 	private static long rainbowStart;
 
 	private CirrusSky() {
+	}
+
+	private static final com.mojang.blaze3d.pipeline.BindGroupLayout THREE_SAMPLERS = com.mojang.blaze3d.pipeline.BindGroupLayout.builder()
+			.withSampler("Sampler0").withSampler("Sampler1").withSampler("Sampler2").build();
+	private static net.minecraft.client.renderer.texture.DynamicTexture footTex;
+	private static int footVersion = -1;
+
+	/** which grid columns hold 3D Ghibli cloud, as a 256 x 256 texture for the light rays */
+	private static AbstractTexture footprint(AbstractTexture fallback) {
+		if (!SkySettings.cloudGhibli()) {
+			return footTex != null ? footTex : fallback;
+		}
+		int v = GhibliClouds.gridVersion();
+		if (v != footVersion) {
+			byte[] f = GhibliClouds.footprint();
+			if (f != null) {
+				com.mojang.blaze3d.platform.NativeImage img = new com.mojang.blaze3d.platform.NativeImage(GhibliClouds.NX, GhibliClouds.NZ, false);
+				for (int z = 0; z < GhibliClouds.NZ; z++) {
+					for (int x = 0; x < GhibliClouds.NX; x++) {
+						img.setPixel(x, z, f[x + z * GhibliClouds.NX] != 0 ? 0xFFFFFFFF : 0xFF000000);
+					}
+				}
+				if (footTex == null) {
+					footTex = new net.minecraft.client.renderer.texture.DynamicTexture(() -> "SvregSky cloud footprint", img);
+				} else {
+					footTex.setPixels(img);
+					footTex.upload();
+				}
+				footVersion = v;
+			}
+		}
+		return footTex != null ? footTex : fallback;
 	}
 
 	private static RenderPipeline build(String name, ColorTargetState color) {
@@ -80,7 +113,7 @@ public final class CirrusSky {
 				.withCull(false)
 				.withDepthStencilState(Optional.empty())
 				.withColorTargetState(color)
-				.withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1)
+				.withBindGroupLayout(THREE_SAMPLERS)
 				.build();
 	}
 
@@ -182,6 +215,8 @@ public final class CirrusSky {
 				towerAmt = afternoon * Math.max(0.35F, day) * (1 - rain * 0.6F);
 			}
 			towerSeed = (float) (dayIndex % 97) * 1.37F + 3.1F;
+			double hm = Math.sin(dayIndex * 3.913 + 2.71) * 24634.6345;
+			megaToday = SkySettings.on("cloud_mega") && (hm - Math.floor(hm) < 0.4 || forceTowers);
 		}
 		// ground wetness: up while it rains, drying over a couple of minutes after
 		long wn = System.nanoTime();
@@ -320,7 +355,18 @@ public final class CirrusSky {
 		if (!SkySettings.paintedClouds || SkySettings.cloud3dFull() || !overworld || state == null || !init()) {
 			return;
 		}
-		draw(cloudPipeline, F_CLOUDS | (SkySettings.cloudGodRays ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0), 1.0F, "SvregSky clouds");
+		boolean ghibli = SkySettings.cloudGhibli();
+		int f = F_CLOUDS | (SkySettings.cloudGodRays && !ghibli ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0);
+		if (megaToday) f |= 1024;
+		if (SkySettings.on("sun_beams")) f |= 2048;
+		if (SkySettings.on("tower_lightning")) f |= 4096;
+		if (SkySettings.on("cloud_rows")) f |= 8192;
+		if (SkySettings.on("cirrus_layer")) f |= 16384;
+		if (ghibli) {
+			f |= 32768; // the 3D clouds replace the painted cumulus
+			if (SkySettings.on("light_rays") && GhibliClouds.gridVersion() > 0) f |= 65536;
+		}
+		draw(cloudPipeline, f, 1.0F, "SvregSky clouds");
 	}
 
 	private static boolean draw(RenderPipeline pipeline, int flags, float mode, String label) {
@@ -335,11 +381,19 @@ public final class CirrusSky {
 			float offZ = (float) (((windZ + pz) % 40.0 + 40.0) % 40.0);
 			float time = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
 
+			float slotC = SkySettings.shootingStarPeriod;
+			if (mode > 0.5F && SkySettings.cloudGhibli() && mc.player != null) {
+				// light rays: camera position in footprint texels, cloud base height above the camera
+				net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+				offX = (float) (((eye.x - GhibliClouds.windX()) / GhibliClouds.CELL) % GhibliClouds.NX);
+				offZ = (float) (((eye.z - GhibliClouds.windZ()) / GhibliClouds.CELL) % GhibliClouds.NZ);
+				slotC = (float) (GhibliClouds.baseY() - eye.y);
+			}
 			Matrix4f params = new Matrix4f(
 					sunDir.x, sunDir.y, sunDir.z, time,
 					day, gold, night, rain,
 					offX, offZ, rainbowLevel, SkySettings.aurora,
-					flags, coverage(), SkySettings.shootingStarPeriod, mode);
+					flags, coverage(), slotC, mode);
 			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
 			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers;
 			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, layers, org);
@@ -365,6 +419,8 @@ public final class CirrusSky {
 				pass.setUniform("DynamicTransforms", transforms);
 				pass.bindTexture("Sampler0", tex.getTextureView(), tex.getSampler());
 				pass.bindTexture("Sampler1", towerTex.getTextureView(), towerTex.getSampler());
+				AbstractTexture foot = footprint(tex);
+				pass.bindTexture("Sampler2", foot.getTextureView(), foot.getSampler());
 				pass.setVertexBuffer(0, cube.slice());
 				pass.setIndexBuffer(indexBuffer, indexType);
 				pass.drawIndexed(36, 1, 0, 0, 0);

@@ -27,6 +27,11 @@ public abstract class CloudRendererMixin {
 		com.svreg.sky.wind.WindLines.render(cameraPosition);
 		com.svreg.sky.fx.Effects.render(cameraPosition);
 		com.svreg.sky.look.PostLook.render();
+		if (SkySettings.cloudGhibli()) {
+			com.svreg.sky.sky.GhibliClouds.render(bottomY, cameraPosition); // puffy 3D Ghibli clouds
+			ci.cancel();
+			return;
+		}
 		if (SkySettings.cloud3d()) {
 			CloudVoxels.render(bottomY, cameraPosition); // real 3D Cirrus clouds
 			ci.cancel();

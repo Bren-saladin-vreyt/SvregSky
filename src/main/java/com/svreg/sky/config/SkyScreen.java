@@ -57,7 +57,7 @@ public class SkyScreen extends OptionsSubScreen {
 		if (this.list == null) {
 			return;
 		}
-		String mode = !SkySettings.paintedClouds && !SkySettings.cloud3d() ? "off" : SkySettings.cloud3dFull() ? "3d_full" : SkySettings.cloud3d() ? "3d" : "painted";
+		String mode = !SkySettings.paintedClouds ? "off" : SkySettings.cloudGhibli() ? "3d_ghibli" : SkySettings.cloud3dFull() ? "3d_full" : SkySettings.cloud3d() ? "3d" : "painted";
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.presets"));
 		this.list.addSmall(
@@ -90,11 +90,17 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("ghibli_snow"),
 				flag("seasons"),
 				flag("cloud_towers"),
+				flag("cloud_mega"),
+				flag("tower_lightning"),
+				flag("sun_beams"),
+				flag("cloud_rows"),
+				flag("cirrus_layer"),
+				flag("light_rays"),
 				flag("valley_fog"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
 		this.list.addSmall(
-				choice("cloud_mode", List.of("painted", "3d", "3d_full", "off"), mode, v -> {
+				choice("cloud_mode", List.of("painted", "3d_ghibli", "3d", "3d_full", "off"), mode, v -> {
 					SkySettings.cloudMode = v.equals("off") ? "painted" : v;
 					SkySettings.paintedClouds = !v.equals("off");
 					SkySettings.version++;
@@ -175,6 +181,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("window_glow"),
 				flag("gentle_bob"),
 				flag("water_reflection"),
+				flag("water_sparkle_dots"),
 				flag("face_light"),
 				flag("torch_glow"),
 				flag("paper_texture"),

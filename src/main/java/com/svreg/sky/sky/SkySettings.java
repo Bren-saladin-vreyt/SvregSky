@@ -128,6 +128,14 @@ public final class SkySettings {
 		FLAGS.put("face_light", true);
 		FLAGS.put("torch_glow", true);
 		FLAGS.put("crickets", true);
+		// batch 5: clouds
+		FLAGS.put("cloud_mega", true);
+		FLAGS.put("tower_lightning", true);
+		FLAGS.put("sun_beams", true);
+		FLAGS.put("cloud_rows", true);
+		FLAGS.put("cirrus_layer", true);
+		FLAGS.put("light_rays", true);
+		FLAGS.put("water_sparkle_dots", true);
 		// comfort
 		FLAGS.put("per_world", false);
 	}
@@ -159,6 +167,11 @@ public final class SkySettings {
 	/** any 3D cloud mode */
 	public static boolean cloud3d() {
 		return "3d".equals(cloudMode) || "3d_full".equals(cloudMode);
+	}
+
+	/** puffy 3D Ghibli clouds (their own mesh, no painted cumulus) */
+	public static boolean cloudGhibli() {
+		return "3d_ghibli".equals(cloudMode);
 	}
 
 	/** pure 3D sunset-reference clouds, no painted layers */
