@@ -123,5 +123,17 @@
   "svregsky.options.light_rays": "§c● §rBerkas Cahaya (3D Ghibli)",
   "svregsky.options.water_sparkle_dots": "§a● §rKilau Titik di Air",
   "svregsky.options.cloud_mode.3d_ghibli_mix": "3D Ghibli + Lukisan",
-  "svregsky.options.water_sunset": "§a● §rAir Ikut Warna Sunset"
+  "svregsky.options.water_sunset": "§a● §rAir Ikut Warna Sunset",
+  "svregsky.options.ghibli_style": "§a● §rGaya Awan 3D Ghibli",
+  "svregsky.options.ghibli_style.auto": "Otomatis (ganti tiap hari)",
+  "svregsky.options.ghibli_style.fair": "Cerah (gumpalan kecil)",
+  "svregsky.options.ghibli_style.cumulus": "Cumulus Besar",
+  "svregsky.options.ghibli_style.towers": "Menara Tinggi",
+  "svregsky.options.ghibli_style.streets": "Barisan Awan",
+  "svregsky.options.ghibli_style.sheep": "Kawanan Domba",
+  "svregsky.options.ghibli_style.storm": "Badai (landasan)",
+  "svregsky.options.ghibli_style.castle": "Istana Awan",
+  "svregsky.options.ghibli_style.mixed": "Campur Semua",
+  "svregsky.options.ghibli_amount": "§e● §rJumlah Awan 3D Ghibli",
+  "svregsky.options.ghibli_size": "§e● §rUkuran Awan 3D Ghibli"
 }

@@ -157,6 +157,9 @@ public final class SkySettings {
 	public static String photoTimelapse = "off"; // off / slow / fast
 	/** horizon cumulonimbus look: mixed (random each day) / tower / wide / anvil */
 	public static String towerStyle = "mixed";
+	/** 3D Ghibli clouds: look ("auto" = a different weather each day), amount and size multipliers */
+	public static String ghibliStyle = "auto";
+	public static float ghibliAmount = 1.0F, ghibliSize = 1.0F;
 
 	/** photo-mode time-lapse: the sky turns on its own (a day in about two minutes, or thirty seconds) */
 	public static void tickPhoto() {
@@ -216,6 +219,15 @@ public final class SkySettings {
 
 	/** applies the keys present in o; missing keys keep their current value */
 	public static void apply(JsonObject o) {
+		if (o.has("ghibli_style")) {
+			ghibliStyle = o.get("ghibli_style").getAsString();
+		}
+		if (o.has("ghibli_amount")) {
+			ghibliAmount = Math.max(0.25F, Math.min(2.5F, o.get("ghibli_amount").getAsFloat()));
+		}
+		if (o.has("ghibli_size")) {
+			ghibliSize = Math.max(0.5F, Math.min(2.0F, o.get("ghibli_size").getAsFloat()));
+		}
 		if (o.has("tower_style")) {
 			towerStyle = o.get("tower_style").getAsString();
 		}

@@ -123,5 +123,17 @@
   "svregsky.options.light_rays": "§c● §rLight Rays (3D Ghibli)",
   "svregsky.options.water_sparkle_dots": "§a● §rWater Sparkle Dots",
   "svregsky.options.cloud_mode.3d_ghibli_mix": "3D Ghibli + Painted",
-  "svregsky.options.water_sunset": "§a● §rWater Takes Sunset Colours"
+  "svregsky.options.water_sunset": "§a● §rWater Takes Sunset Colours",
+  "svregsky.options.ghibli_style": "§a● §r3D Ghibli Cloud Look",
+  "svregsky.options.ghibli_style.auto": "Auto (new each day)",
+  "svregsky.options.ghibli_style.fair": "Fair (small puffs)",
+  "svregsky.options.ghibli_style.cumulus": "Big Cumulus",
+  "svregsky.options.ghibli_style.towers": "Tall Towers",
+  "svregsky.options.ghibli_style.streets": "Cloud Streets",
+  "svregsky.options.ghibli_style.sheep": "Sheep Flock",
+  "svregsky.options.ghibli_style.storm": "Storm (anvils)",
+  "svregsky.options.ghibli_style.castle": "Cloud Castle",
+  "svregsky.options.ghibli_style.mixed": "Mix of All",
+  "svregsky.options.ghibli_amount": "§e● §r3D Ghibli Cloud Amount",
+  "svregsky.options.ghibli_size": "§e● §r3D Ghibli Cloud Size"
 }

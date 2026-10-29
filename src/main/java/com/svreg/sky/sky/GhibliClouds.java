@@ -77,7 +77,11 @@ public final class GhibliClouds {
 
 	// ------------------------------------------------------------------ grid
 	private static void generate(long seed) {
-		GhibliGen g = new GhibliGen(NX, NY, NZ, seed).generate();
+		GhibliGen g = new GhibliGen(NX, NY, NZ, seed);
+		g.style = SkySettings.ghibliStyle;
+		g.countMul = SkySettings.ghibliAmount;
+		g.sizeMul = SkySettings.ghibliSize;
+		g.generate();
 		nrm = g.nrm;
 		occ = g.occ;
 		gridVersion++;
@@ -252,7 +256,7 @@ public final class GhibliClouds {
 
 			// a new set of clouds every in-game day
 			long day = mc.level == null ? 0 : Math.floorDiv(mc.level.getOverworldClockTime(), 24000L);
-			long seed = day * 7919L + 17;
+			long seed = day * 7919L + 17 + SkySettings.ghibliStyle.hashCode() * 31L + Math.round(SkySettings.ghibliAmount * 100) * 977L + Math.round(SkySettings.ghibliSize * 100) * 6007L;
 			if (seed != gridSeed && (gridJob == null || gridJob.isDone())) {
 				gridSeed = seed;
 				gridJob = CompletableFuture.runAsync(() -> generate(seed));

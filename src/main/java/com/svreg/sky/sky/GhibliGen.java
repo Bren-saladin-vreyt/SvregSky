@@ -16,6 +16,9 @@ public final class GhibliGen {
 	public final byte[] nrm;
 	private final float[] best;
 	private final Random rng;
+	/** "auto" (each day picks a weather) or a fixed look: fair, cumulus, towers, streets, storm, castle, sheep, mixed */
+	public String style = "auto";
+	public float countMul = 1.0F, sizeMul = 1.0F;
 
 	public GhibliGen(int nx, int ny, int nz, long seed) {
 		this.nx = nx;
@@ -200,26 +203,106 @@ public final class GhibliGen {
 		}
 	}
 
+	/** a huge tiered cloud castle (Laputa-like): stacked wide terraces narrowing upward, towers on the rim */
+	private void castle(float cx, float cz, float R) {
+		R = Math.max(R, 14);
+		float y = rnd(1, 2);
+		float r = R;
+		for (int tier = 0; tier < 5 && y < ny - 3; tier++) {
+			int n = 8 + tier * 2;
+			for (int i = 0; i < n; i++) {
+				double a = rng.nextDouble() * Math.PI * 2;
+				float d = rnd(0, 0.7F) * r;
+				float pr = r * rnd(0.3F, 0.45F);
+				puff(cx + (float) Math.cos(a) * d, y + pr * 0.4F, cz + (float) Math.sin(a) * d, pr, pr * 0.5F, pr, tier * 0.1F);
+			}
+			for (int k = 0; k < 3; k++) { // little turrets on the rim
+				double a = rng.nextDouble() * Math.PI * 2;
+				sphere(cx + (float) Math.cos(a) * r * 0.8F, y + r * 0.3F, cz + (float) Math.sin(a) * r * 0.8F, r * 0.2F, 0.4F);
+			}
+			y += r * rnd(0.35F, 0.5F);
+			r *= 0.72F;
+		}
+		bumps(cx, cz, R, (int) (30 + R * 2), 1.2F);
+	}
+
+	/** a flock of small round "sheep" puffs drifting together */
+	private void sheep(float cx, float cz, float R) {
+		int n = 10 + rng.nextInt(14);
+		for (int i = 0; i < n; i++) {
+			float px = cx + gauss(R * 1.4F), pz = cz + gauss(R * 1.4F);
+			float r = R * rnd(0.18F, 0.32F) + 1;
+			float base = rnd(3, 7);
+			sphere(px, base + r * 0.6F, pz, r, 0);
+			sphere(px + r * 0.5F, base + r * 0.9F, pz + gauss(r * 0.3F), r * 0.7F, 0.3F);
+		}
+	}
+
+	/** a long low wall of cloud (shelf / front), lumpy on top */
+	private void wall(float cx, float cz, float R) {
+		double ang = rng.nextDouble() * Math.PI;
+		float ax = (float) Math.cos(ang), az = (float) Math.sin(ang);
+		float len = R * rnd(4, 7);
+		for (float t = -len / 2; t < len / 2; t += R * 0.4F) {
+			float px = cx + ax * t + gauss(R * 0.15F), pz = cz + az * t + gauss(R * 0.15F);
+			float r = R * rnd(0.45F, 0.7F);
+			puff(px, 2 + r * 0.45F, pz, r, r * 0.6F, r * 0.8F, 0);
+			if (rng.nextFloat() < 0.4F) {
+				sphere(px, 2 + r, pz, r * 0.55F, 0.3F);
+			}
+		}
+		bumps(cx, cz, len * 0.5F, (int) (len * 1.2F), 0.8F);
+	}
+
+	/** thin flat sheets high up (altostratus-like wisps), only a cell or two thick */
+	private void sheet(float cx, float cz, float R) {
+		float y = ny - rnd(3, 5);
+		int n = 6 + rng.nextInt(6);
+		for (int i = 0; i < n; i++) {
+			float px = cx + gauss(R), pz = cz + gauss(R * 0.6F);
+			float r = R * rnd(0.4F, 0.8F);
+			puff(px, y, pz, r * 1.6F, 1.2F, r, 0);
+		}
+	}
+
 	private float sizeR(float mean) {
-		return (float) Math.max(3.5, Math.min(22, Math.exp(Math.log(mean) + rng.nextGaussian() * 0.45)));
+		return (float) Math.max(3.5, Math.min(26, sizeMul * Math.exp(Math.log(mean) + rng.nextGaussian() * 0.45)));
 	}
 
 	/** fills the grid; the day's weather decides how many clouds of each kind */
 	public GhibliGen generate() {
 		// weather of the day: 0 fair weather, 1 big cumulus, 2 towering afternoon, 3 cloud streets, 4 mixed / broken
-		int weather = rng.nextInt(5);
-		float[] w = switch (weather) {
-			case 0 -> new float[]{0.45F, 0.15F, 0.0F, 0.15F, 0.0F, 0.10F, 0.0F, 0.15F};
-			case 1 -> new float[]{0.15F, 0.45F, 0.08F, 0.07F, 0.03F, 0.12F, 0.0F, 0.10F};
-			case 2 -> new float[]{0.10F, 0.25F, 0.25F, 0.05F, 0.12F, 0.13F, 0.0F, 0.10F};
-			case 3 -> new float[]{0.10F, 0.15F, 0.0F, 0.10F, 0.0F, 0.05F, 0.50F, 0.10F};
-			default -> new float[]{0.18F, 0.22F, 0.10F, 0.12F, 0.05F, 0.10F, 0.08F, 0.15F};
+		String st = style;
+		if ("auto".equals(st)) {
+			String[] days = {"fair", "cumulus", "towers", "streets", "mixed", "sheep", "storm", "castle"};
+			float[] chance = {0.18F, 0.2F, 0.14F, 0.1F, 0.18F, 0.08F, 0.07F, 0.05F};
+			float p = rng.nextFloat(), acc = 0;
+			st = "mixed";
+			for (int i = 0; i < days.length; i++) {
+				acc += chance[i];
+				if (p < acc) {
+					st = days[i];
+					break;
+				}
+			}
+		}
+		float[] w = switch (st) {
+			case "fair" -> new float[]{0.45F, 0.12F, 0, 0.12F, 0, 0.08F, 0, 0.13F, 0, 0.1F, 0, 0};
+			case "cumulus" -> new float[]{0.12F, 0.42F, 0.08F, 0.07F, 0.03F, 0.12F, 0, 0.08F, 0, 0, 0.03F, 0.05F};
+			case "towers" -> new float[]{0.08F, 0.2F, 0.3F, 0.04F, 0.14F, 0.14F, 0, 0.06F, 0.02F, 0, 0, 0.02F};
+			case "streets" -> new float[]{0.08F, 0.12F, 0, 0.1F, 0, 0.05F, 0.5F, 0.1F, 0, 0, 0, 0.05F};
+			case "sheep" -> new float[]{0.2F, 0.05F, 0, 0.05F, 0, 0, 0, 0.1F, 0, 0.6F, 0, 0};
+			case "storm" -> new float[]{0.05F, 0.15F, 0.25F, 0, 0.25F, 0.1F, 0, 0.05F, 0, 0, 0.15F, 0};
+			case "castle" -> new float[]{0.2F, 0.25F, 0.05F, 0.1F, 0, 0.05F, 0, 0.15F, 0.12F, 0.08F, 0, 0};
+			default -> new float[]{0.16F, 0.2F, 0.09F, 0.1F, 0.05F, 0.09F, 0.07F, 0.1F, 0.02F, 0.06F, 0.03F, 0.03F};
 		};
-		int count = switch (weather) {
-			case 0 -> 70 + rng.nextInt(20);
-			case 3 -> 30 + rng.nextInt(10);
+		int count = switch (st) {
+			case "fair", "sheep" -> 70 + rng.nextInt(20);
+			case "streets" -> 30 + rng.nextInt(10);
+			case "castle" -> 32 + rng.nextInt(10);
 			default -> 40 + rng.nextInt(16);
 		};
+		count = Math.max(4, Math.round(count * countMul));
 		for (int c = 0; c < count; c++) {
 			float cx = rng.nextFloat() * nx, cz = rng.nextFloat() * nz;
 			float pick = rng.nextFloat();
@@ -234,7 +317,11 @@ public final class GhibliGen {
 				case 4 -> anvil(cx, cz, sizeR(10F));                              // spreading top
 				case 5 -> twins(cx, cz, sizeR(9F));                               // two merged towers
 				case 6 -> street(cx, cz, sizeR(7F));                              // a line along the wind
-				default -> fragments(cx, cz, sizeR(8F));                          // torn bits
+				case 7 -> fragments(cx, cz, sizeR(8F));                           // torn bits
+				case 8 -> castle(cx, cz, sizeR(16F));                             // giant tiered cloud castle
+				case 9 -> sheep(cx, cz, sizeR(6F));                               // a flock of little puffs
+				case 10 -> wall(cx, cz, sizeR(8F));                               // long low shelf
+				default -> sheet(cx, cz, sizeR(10F));                             // thin high sheets
 			}
 		}
 		int n = nx * ny * nz;
@@ -270,7 +357,14 @@ public final class GhibliGen {
 	/** preview helper: java GhibliGen out.png seed -> RGBA atlas (x + y * nx, z) like the WebGL preview expects */
 	public static void main(String[] args) throws Exception {
 		int nx = 256, ny = 22, nz = 256;
-		GhibliGen g = args[1].equals("show") ? new GhibliGen(nx, ny, nz, 3).showcase() : new GhibliGen(nx, ny, nz, Long.parseLong(args[1])).generate();
+		GhibliGen g;
+		if (args[1].equals("show")) {
+			g = new GhibliGen(nx, ny, nz, 3).showcase();
+		} else {
+			g = new GhibliGen(nx, ny, nz, Long.parseLong(args[1]));
+			if (args.length > 2) g.style = args[2];
+			g.generate();
+		}
 		java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(nx * ny, nz, java.awt.image.BufferedImage.TYPE_INT_ARGB);
 		for (int y = 0; y < ny; y++) {
 			for (int x = 0; x < nx; x++) {

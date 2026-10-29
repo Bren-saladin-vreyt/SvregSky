@@ -131,6 +131,9 @@ public final class SkyConfig {
 		}
 		o.addProperty("preset", Presets.current);
 		o.addProperty("tower_style", SkySettings.towerStyle);
+		o.addProperty("ghibli_style", SkySettings.ghibliStyle);
+		o.addProperty("ghibli_amount", SkySettings.ghibliAmount);
+		o.addProperty("ghibli_size", SkySettings.ghibliSize);
 		o.addProperty("water_color", SkySettings.waterColor < 0 ? "" : String.format("#%06X", SkySettings.waterColor));
 		String key = worldKey();
 		if (SkySettings.on("per_world") && key != null) {
