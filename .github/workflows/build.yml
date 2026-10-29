@@ -112,11 +112,11 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          SJ=$(find ~/.gradle -name 'sodium-mc26.2-0.9.2-fabric.jar' | head -1); mkdir -p sod; unzip -o -q "$SJ" 'assets/sodium/shaders/*' -d sod
-          ls -R sod/assets/sodium/shaders > probe/a.txt
-          { for f in $(find sod/assets/sodium/shaders -name '*.glsl' -o -name '*.vsh' | grep -i -E 'vertex|block_layer_opaque.vsh|chunk'); do echo "== $f"; grep -n -E 'position|_vert_|translation|in |out |uniform' $f | head -40; done; } > probe/b.txt
-          { cat sod/assets/sodium/shaders/blocks/block_layer_opaque.vsh | head -80; } > probe/c.txt
-          { cat sod/assets/sodium/shaders/blocks/block_layer_opaque.fsh | head -60; } > probe/d.txt
+          SJ=$(find ~/.gradle -name 'sodium-mc26.2-0.9.2-fabric.jar' | head -1); mkdir -p sod; cd sod; unzip -o -q "$SJ"; cd ..
+          { grep -rl --include=*.class -a 'block_layer' sod | head -20; } > probe/a.txt
+          { for c in $(grep -rl --include=*.class -a 'block_layer' sod | head -8); do echo "== $c"; strings -n 6 $c | grep -i -E 'shader|block_layer|translucent|fluid|define|ALPHA|USE_' | head -25; done; } > probe/b.txt
+          { for c in $(grep -rl --include=*.class -a -E 'ChunkShaderOptions|ShaderManager|getShader' sod | head -6); do echo "== $c"; strings -n 6 $c | grep -i -E 'shader|sodium:|define' | head -15; done; } > probe/c.txt
+          { grep -rn -i "translucent\|fluid" sod/assets/sodium/shaders 2>/dev/null | head; ls sod/assets/sodium/shaders/*; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
