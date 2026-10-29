@@ -165,6 +165,7 @@ public final class Wind {
 			uniform vec4 svregsky_Season; // spring, autumn, winter weights, ground wetness
 			out vec4 v_svWater;           // camera-relative position, water surface flag
 			float svWaterMark;            // 1 for water vertices (marked by the fluid mesher)
+			out float v_svDbgA;
 			out vec4 v_svInfo;            // sky light, day, golden hour, unused
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -184,6 +185,7 @@ public final class Wind {
 			#ifndef VULKAN
 			    {
 			        int svK = 255 - int(_vert_color.a * 255.0 + 0.5);
+			        v_svDbgA = _vert_color.a;
 			        svWaterMark = svK == 28 ? 1.0 : 0.0;
 			        if (svK == 28) {
 			            _vert_color.a = 1.0;
@@ -316,6 +318,7 @@ public final class Wind {
 			in vec4 v_svMist;
 			in vec4 v_svWater;
 			in vec4 v_svInfo;
+			in float v_svDbgA;
 			uniform vec4 svregsky_Wind;
 			uniform vec4 svregsky_Cam;
 			uniform vec4 svregsky_Sun;
@@ -342,7 +345,8 @@ public final class Wind {
 			        vec3 svSunD = svregsky_Sun.xyz;
 			        if (svregsky_Look2.w > 0.5) {
 			            // debug view: red = water detected, green = flat top faces, blue = mirror on
-			            color.rgb = vec3(v_svWater.w, svN.y > 0.7 ? 1.0 : 0.0, svregsky_SkyA.w);
+			            color.rgb = vec3(v_svWater.w, fract(v_svDbgA * 255.0 / 32.0), 1.0 - v_svDbgA);
+			            color.a = 1.0;
 			        } else if (v_svWater.w > 0.5 && svN.y > 0.7 && svregsky_SkyA.w > 0.5) {
 			            // water as a mirror of the sky, with little moving waves and a sun / moon glitter path
 			            vec3 svWp = v_svWater.xyz + svregsky_Cam.xyz;
@@ -404,7 +408,7 @@ public final class Wind {
 		}
 		int afterCol = col + colorLine.length();
 		return src.substring(0, main) + DECL + "\n" + src.substring(main, main + src.substring(main).indexOf('{') + 1)
-				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n    v_svWater = vec4(0.0);\n    v_svInfo = vec4(0.0);\n    svWaterMark = 0.0;\n#endif\n"
+				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n    v_svWater = vec4(0.0);\n    v_svInfo = vec4(0.0);\n    svWaterMark = 0.0;\n    v_svDbgA = 1.0;\n#endif\n"
 				+ src.substring(main + src.substring(main).indexOf('{') + 1, pos) + CODE + "\n    "
 				+ src.substring(pos, afterCol) + "\n" + GRADE + src.substring(afterCol);
 	}
