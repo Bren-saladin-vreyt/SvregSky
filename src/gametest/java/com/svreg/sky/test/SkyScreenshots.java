@@ -163,6 +163,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(60);
 			shot(context, sp, 6000, -20, 30, "zi_water_noon");
 			shot(context, sp, 12400, 60, 12, "zj_water_golden");
+			context.runOnClient(client -> com.svreg.sky.wind.Wind.debugWater = true);
+			shot(context, sp, 12400, 60, 12, "zj0_water_debug");
+			context.runOnClient(client -> com.svreg.sky.wind.Wind.debugWater = false);
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~0.6 ~");
 			context.waitTicks(2);
 			context.takeScreenshot("zj2_water_mid_jump");

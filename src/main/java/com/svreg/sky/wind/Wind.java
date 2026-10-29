@@ -20,6 +20,8 @@ public final class Wind {
 	private static volatile double camX, camY, camZ;
 	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1;
 	private static long skyNanos;
+	/** test hook: paint the water-detection debug view */
+	public static boolean debugWater;
 	private static float[] skyA = new float[4], skyB = new float[4], skyC = new float[4];
 	private static volatile double pX, pY, pZ;
 
@@ -133,7 +135,7 @@ public final class Wind {
 			if (locSkyA >= 0) GL20C.glUniform4f(locSkyA, skyA[0], skyA[1], skyA[2], skyA[3]);
 			if (locSkyB >= 0) GL20C.glUniform4f(locSkyB, skyB[0], skyB[1], skyB[2], skyB[3]);
 			if (locSkyC >= 0) GL20C.glUniform4f(locSkyC, skyC[0], skyC[1], skyC[2], skyC[3]);
-			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, 0, 0);
+			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, 0, debugWater ? 1 : 0);
 		}
 		if (locSeason >= 0) {
 			GL20C.glUniform4f(locSeason, com.svreg.sky.sky.Seasons.spring(), com.svreg.sky.sky.Seasons.autumn(), com.svreg.sky.sky.Seasons.winter(),
@@ -333,7 +335,10 @@ public final class Wind {
 			            svN = -svN;
 			        }
 			        vec3 svSunD = svregsky_Sun.xyz;
-			        if (v_svWater.w > 0.5 && svN.y > 0.7 && svregsky_SkyA.w > 0.5) {
+			        if (svregsky_Look2.w > 0.5) {
+			            // debug view: red = water detected, green = flat top faces, blue = mirror on
+			            color.rgb = vec3(v_svWater.w, svN.y > 0.7 ? 1.0 : 0.0, svregsky_SkyA.w);
+			        } else if (v_svWater.w > 0.5 && svN.y > 0.7 && svregsky_SkyA.w > 0.5) {
 			            // water as a mirror of the sky, with little moving waves and a sun / moon glitter path
 			            vec3 svWp = v_svWater.xyz + svregsky_Cam.xyz;
 			            float svT = svregsky_Wind.x;
