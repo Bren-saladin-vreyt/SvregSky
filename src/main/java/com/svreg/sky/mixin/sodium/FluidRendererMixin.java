@@ -25,9 +25,12 @@ public abstract class FluidRendererMixin {
 		this.svregsky$water = fluidState.is(FluidTags.WATER);
 	}
 
-	@Inject(method = "writeQuad", at = @At(value = "INVOKE",
-			target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/vertex/builder/ChunkMeshBufferBuilder;push([Lnet/caffeinemc/mods/sodium/client/render/chunk/vertex/format/ChunkVertexEncoder$Vertex;I)V"), require = 0)
-	private void svregsky$mark(CallbackInfo ci, @Local ChunkVertexEncoder.Vertex[] vertices) {
+	@org.spongepowered.asm.mixin.Shadow
+	@org.spongepowered.asm.mixin.Final
+	private ChunkVertexEncoder.Vertex[] vertices;
+
+	@Inject(method = "writeQuad", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/vertex/builder/ChunkMeshBufferBuilder;push"), require = 0)
+	private void svregsky$mark(CallbackInfo ci) {
 		if (!this.svregsky$water) {
 			return;
 		}
