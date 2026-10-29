@@ -382,22 +382,23 @@ public final class CirrusSky {
 			float time = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
 
 			float slotC = SkySettings.shootingStarPeriod;
+			float rayX = SkySettings.aurora, rayZ = SkySettings.milkyWay; // the cloud pass carries the light-ray offset in these sky-only slots
 			if (mode > 0.5F && SkySettings.cloudGhibli() && mc.player != null) {
 				// light rays: camera position in footprint texels, cloud base height above the camera
 				net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
-				offX = (float) (((eye.x - GhibliClouds.windX()) / GhibliClouds.CELL) % GhibliClouds.NX);
-				offZ = (float) (((eye.z - GhibliClouds.windZ()) / GhibliClouds.CELL) % GhibliClouds.NZ);
+				rayX = (float) (((eye.x - GhibliClouds.windX()) / GhibliClouds.CELL) % GhibliClouds.NX);
+				rayZ = (float) (((eye.z - GhibliClouds.windZ()) / GhibliClouds.CELL) % GhibliClouds.NZ);
 				slotC = (float) (GhibliClouds.baseY() - eye.y);
 			}
 			Matrix4f params = new Matrix4f(
 					sunDir.x, sunDir.y, sunDir.z, time,
 					day, gold, night, rain,
-					offX, offZ, rainbowLevel, SkySettings.aurora,
+					offX, offZ, rainbowLevel, mode > 0.5F ? rayX : SkySettings.aurora,
 					flags, coverage(), slotC, mode);
 			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
 			// 3D + painted: the near painted layer is skipped (the 3D clouds take its place); 3D Ghibli + painted keeps every layer behind the 3D puffs
 			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : (SkySettings.ghibliMix() ? Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers);
-			Vector4f extra = new Vector4f(rise, SkySettings.milkyWay, layers, org);
+			Vector4f extra = new Vector4f(rise, mode > 0.5F ? rayZ : SkySettings.milkyWay, layers, org);
 			// a big cube (far inside the far plane) so the walking bob's small camera shift can't make the sky wobble
 			int chunks = Math.max(2, mc.options.getEffectiveRenderDistance());
 			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));

@@ -649,7 +649,7 @@ highp vec4 cirrus(highp vec3 d, highp float day, highp float gold, highp float n
 highp float rays3d(highp vec3 dir, highp vec3 sunDir) {
     if (sunDir.y < 0.03 || dir.y < 0.0) return 0.0;
     highp float base = TextureMat[3].z;             // cloud base height above the camera (blocks)
-    highp vec2 off = TextureMat[2].xy;              // camera position in footprint texels
+    highp vec2 off = vec2(TextureMat[2].w, ColorModulator.y); // camera position in footprint texels
     highp float tEnd = min(base / max(dir.y, 0.02), 1400.0);
     highp float lit = 0.0;
     for (int i = 0; i < 14; i++) {
