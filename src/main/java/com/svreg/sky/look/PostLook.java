@@ -136,7 +136,9 @@ public final class PostLook {
 	public static void render() {
 		boolean tone = SkySettings.on("film_tone"), outline = SkySettings.on("cartoon_outline"), paper = SkySettings.on("paper_texture");
 		boolean bloom = SkySettings.on("bloom"), dof = SkySettings.photoMode && SkySettings.on("photo_dof");
-		if (broken || (!tone && !outline && !paper && !bloom && !dof)) {
+		Vector3f sunW = CirrusSky.sunDirection();
+		float shadowK = SkySettings.on("screen_shadows") && sunW.y > 0.04F ? 0.42F * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
+		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0)) {
 			return;
 		}
 		try {
@@ -162,13 +164,15 @@ public final class PostLook {
 					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, paper ? 1 : 0,
 					0, 0, 0, 0,
 					0, 0, 0, 0);
-			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(1, 1, 1, 1), new Vector3f(), params);
+			// the sun in view space (the model-view here is the camera rotation)
+			Vector3f sunView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).transformDirection(new Vector3f(sunW)).normalize();
+			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(sunView.x, sunView.y, sunView.z, shadowK), new Vector3f(), params);
 			RenderTarget main = mc.gameRenderer.mainRenderTarget();
 			AbstractTexture any = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
 			}
-			if (!tone && !outline && !paper) {
+			if (!tone && !outline && !paper && shadowK <= 0) {
 				return;
 			}
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);

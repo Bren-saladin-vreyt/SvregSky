@@ -135,5 +135,6 @@
   "svregsky.options.ghibli_style.castle": "Cloud Castle",
   "svregsky.options.ghibli_style.mixed": "Mix of All",
   "svregsky.options.ghibli_amount": "§e● §r3D Ghibli Cloud Amount",
-  "svregsky.options.ghibli_size": "§e● §r3D Ghibli Cloud Size"
+  "svregsky.options.ghibli_size": "§e● §r3D Ghibli Cloud Size",
+  "svregsky.options.screen_shadows": "§e● §rSun Shadows (Screen-Space)"
 }

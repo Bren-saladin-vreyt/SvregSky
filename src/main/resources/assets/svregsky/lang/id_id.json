@@ -135,5 +135,6 @@
   "svregsky.options.ghibli_style.castle": "Istana Awan",
   "svregsky.options.ghibli_style.mixed": "Campur Semua",
   "svregsky.options.ghibli_amount": "§e● §rJumlah Awan 3D Ghibli",
-  "svregsky.options.ghibli_size": "§e● §rUkuran Awan 3D Ghibli"
+  "svregsky.options.ghibli_size": "§e● §rUkuran Awan 3D Ghibli",
+  "svregsky.options.screen_shadows": "§e● §rBayangan Matahari (Layar)"
 }

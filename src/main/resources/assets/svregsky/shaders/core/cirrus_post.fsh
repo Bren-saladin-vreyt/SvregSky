@@ -12,7 +12,12 @@ layout(std140) uniform DynamicTransforms {
     highp mat4 TextureMat;
 };
 
+layout(std140) uniform Projection {
+    highp mat4 ProjMat;
+};
+
 uniform highp sampler2D Sampler0; // main depth
+// ColorModulator = sun direction in view space, screen-space shadow strength
 
 in highp vec2 uv;
 
@@ -20,6 +25,52 @@ out highp vec4 fragColor;
 
 highp float depthAt(ivec2 p, ivec2 size) {
     return texelFetch(Sampler0, clamp(p, ivec2(0), size - 1), 0).r;
+}
+
+highp vec3 viewPos(highp vec2 uvp, highp float d, highp mat4 inv) {
+    highp vec4 v = inv * vec4(uvp * 2.0 - 1.0, d, 1.0);
+    return v.xyz / v.w;
+}
+
+// screen-space sun shadows: march from each pixel toward the sun and see if the depth buffer has something in front
+highp float sunShadow(highp vec2 uvp, ivec2 size) {
+    highp float d = texture(Sampler0, uvp).r;
+    if (d <= 0.00001 || d >= 0.99999) {
+        return 0.0;  // sky
+    }
+    highp mat4 inv = inverse(ProjMat);
+    highp vec3 p = viewPos(uvp, d, inv);
+    highp vec3 L = normalize(ColorModulator.xyz);
+    highp float dist = length(p);
+    if (dist > 96.0) {
+        return 0.0;
+    }
+    highp float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    highp float occ = 0.0;
+    highp float stepLen = 0.12 + dist * 0.004;
+    highp float t = stepLen * (0.5 + jitter);
+    for (int i = 0; i < 16; i++) {
+        highp vec3 q = p + L * t;
+        highp vec4 c = ProjMat * vec4(q, 1.0);
+        highp vec3 n = c.xyz / c.w;
+        highp vec2 suv = n.xy * 0.5 + 0.5;
+        if (suv.x < 0.0 || suv.x > 1.0 || suv.y < 0.0 || suv.y > 1.0) {
+            break;
+        }
+        highp float sd = texture(Sampler0, suv).r;
+        highp vec3 sp = viewPos(suv, sd, inv);
+        // something in front of the ray point (closer to the camera), but not far in front (that would be a separate object)
+        highp float gap = q.z - sp.z;            // view space looks down -z: closer = larger z
+        if (gap < -0.03 && gap > -2.5 && sd > 0.00001) {
+            occ = 1.0;
+            break;
+        }
+        t += stepLen;
+        stepLen *= 1.22;
+    }
+    // fade out with distance and at the screen edges
+    highp vec2 e = min(uvp, 1.0 - uvp);
+    return occ * (1.0 - smoothstep(48.0, 96.0, dist)) * smoothstep(0.0, 0.03, min(e.x, e.y));
 }
 
 void main() {
@@ -30,6 +81,13 @@ void main() {
 
     highp vec3 col = tint;
     highp float a = tintA;
+    if (ColorModulator.w > 0.0) {
+        ivec2 sz = textureSize(Sampler0, 0);
+        highp float sh = sunShadow(uv, sz) * ColorModulator.w;
+        // anime shadow: cool blue-violet, laid under the tint
+        col = mix(col, vec3(0.20, 0.22, 0.42), sh / max(a + sh, 1e-4));
+        a = 1.0 - (1.0 - a) * (1.0 - sh);
+    }
 
     // vignette: darker, slightly blue corners
     highp vec2 d = uv - 0.5;
