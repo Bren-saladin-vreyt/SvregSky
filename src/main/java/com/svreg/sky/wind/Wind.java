@@ -298,7 +298,7 @@ public final class Wind {
 			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.95, 0.0, 0.85));
 			        // water surface: the top of a still water block sits at 8/9 of the block, and water is tinted blue
 			        float svFy = fract(_vert_position.y + 0.0001); // chunk-local, so it can't wobble with the camera
-			        float svIsWater = (abs(svFy - 0.8889) < 0.03 && _vert_color.b > _vert_color.r + 0.02) ? 1.0 : 0.0;
+			        float svIsWater = abs(svFy - 0.8889) < 0.008 ? 1.0 : 0.0; // still water surfaces sit at 8/9 of a block (snow layers are at 7/8)
 			        v_svWater = vec4(position, svIsWater);
 			        v_svInfo = vec4(svSkyL, svDay, svGold, 0.0);
 			    }
