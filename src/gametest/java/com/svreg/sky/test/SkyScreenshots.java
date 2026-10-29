@@ -122,11 +122,13 @@ public class SkyScreenshots implements FabricClientGameTest {
 			sp.getServer().runCommand("weather clear");
 
 			// screen-space sun shadows, off / on
-			shot(context, sp, 3500, 150, 10, "zu_shadows_off");
+			sp.getServer().runCommand("weather clear");
+			context.waitTicks(220);
+			shot(context, sp, 9800, 45, 18, "zu_shadows_off");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", true));
-			shot(context, sp, 3500, 150, 10, "zu2_shadows_on");
-			shot(context, sp, 9500, 30, 15, "zu3_shadows_afternoon");
-			shot(context, sp, 11800, 0, 20, "zu4_shadows_late");
+			shot(context, sp, 9800, 45, 18, "zu2_shadows_on");
+			shot(context, sp, 11200, 20, 22, "zu3_shadows_late");
+			shot(context, sp, 3000, 100, 20, "zu4_shadows_morning_tree");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 
 			// batch 3: towers, seasons, puddles, glow, paper, birds, reflection path, depth of field
