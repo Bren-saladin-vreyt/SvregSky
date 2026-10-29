@@ -92,15 +92,26 @@ void main() {
     highp float outline = TextureMat[1].y;
 
     if (TextureMat[3].x > 0.5) {
-        // shadow check: red = distance (dark near, bright far), green = phone depth mode, blue = shadowed, grey = sky / no depth
-        highp float d = texture(Sampler0, uv).r;
-        if (d <= 0.00001 || d >= 0.99999) {
-            fragColor = vec4(0.5, 0.5, 0.5, 0.85);
-            return;
+        // shadow check (left half: filtered read, right half: texelFetch)
+        // black = depth 0, white = depth 1, red = desktop-style depth, green = phone-style depth (brighter = farther), blue = shadow
+        highp float d = uv.x < 0.5 ? texture(Sampler0, uv).r : texelFetch(Sampler0, ivec2(gl_FragCoord.xy), 0).r;
+        highp vec3 o;
+        if (d <= 0.0) {
+            o = vec3(0.0);
+        } else if (d >= 0.99999) {
+            o = vec3(1.0);
+        } else {
+            highp vec3 p = viewPos(uv, d, inverse(ProjMat));
+            highp float k = 0.3 + 0.7 * clamp(length(p) / 64.0, 0.0, 1.0);
+            o = d > 0.5 ? vec3(0.0, k, 0.0) : vec3(k, 0.0, 0.0);
+            if (sunShadow(uv, textureSize(Sampler0, 0)) > 0.0) {
+                o.b = 1.0;
+            }
         }
-        highp vec3 p = viewPos(uv, d, inverse(ProjMat));
-        highp float occ = sunShadow(uv, textureSize(Sampler0, 0));
-        fragColor = vec4(clamp(length(p) / 64.0, 0.0, 1.0), d > 0.5 ? 1.0 : 0.0, occ > 0.0 ? 1.0 : 0.0, 0.85);
+        if (abs(uv.x - 0.5) < 0.002) {
+            o = vec3(1.0, 1.0, 0.0);
+        }
+        fragColor = vec4(o, 0.9);
         return;
     }
     highp vec3 col = tint;

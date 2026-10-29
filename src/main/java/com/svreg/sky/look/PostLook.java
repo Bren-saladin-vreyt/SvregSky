@@ -32,7 +32,7 @@ public final class PostLook {
 	private static final Identifier SHADER = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/cirrus_post");
 	private static RenderPipeline pipeline, copyPipeline, glowPipeline;
 	private static GpuBuffer quad;
-	private static boolean broken, glowBroken;
+	private static boolean broken, glowBroken, logged;
 	private static com.mojang.blaze3d.textures.GpuTexture sceneTex;
 	private static com.mojang.blaze3d.textures.GpuTextureView sceneView;
 
@@ -149,6 +149,10 @@ public final class PostLook {
 		}
 		try {
 			init();
+			if (!logged) {
+				logged = true;
+				SvregSky.LOG.info("SvregSky: screen look on {} (depth zero-to-one: {})", RenderSystem.getDevice().getDeviceInfo(), RenderSystem.getDevice().getDeviceInfo().isZZeroToOne());
+			}
 			Minecraft mc = Minecraft.getInstance();
 			float day = CirrusSky.dayLevel(), gold = CirrusSky.goldLevel(), night = CirrusSky.nightLevel();
 			boolean morning = CirrusSky.sunDirection().x > 0;
