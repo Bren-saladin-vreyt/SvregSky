@@ -72,6 +72,31 @@ public final class PostLook {
 		return RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.NEAREST);
 	}
 
+	private static int fixedDepthId = -1;
+
+	/**
+	 * Phones (GLES through MobileGlues) ignore sampler objects, so the depth texture uses its own filter, which defaults to
+	 * LINEAR / mipmapped: a float depth texture with linear filtering is incomplete on GLES and every read returns 0.
+	 * Set NEAREST on the texture itself once (desktop is unaffected, the sampler object wins there).
+	 */
+	private static void fixDepthFilter(RenderTarget main) {
+		try {
+			if (main.getDepthTexture() instanceof com.mojang.blaze3d.opengl.GlTexture gt && gt.glId() != fixedDepthId) {
+				int prev = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_TEXTURE_BINDING_2D);
+				com.mojang.blaze3d.opengl.GlStateManager._bindTexture(gt.glId());
+				com.mojang.blaze3d.opengl.GlStateManager._texParameter(3553, 10241, 9728); // min filter: nearest
+				com.mojang.blaze3d.opengl.GlStateManager._texParameter(3553, 10240, 9728); // mag filter: nearest
+				com.mojang.blaze3d.opengl.GlStateManager._texParameter(3553, 34892, 0);    // no depth compare
+				com.mojang.blaze3d.opengl.GlStateManager._bindTexture(prev);
+				fixedDepthId = gt.glId();
+				SvregSky.LOG.info("SvregSky: depth texture {} set to nearest filtering", fixedDepthId);
+			}
+		} catch (Throwable t) {
+			fixedDepthId = -2;
+			SvregSky.LOG.warn("SvregSky: could not set depth filtering", t);
+		}
+	}
+
 	private static RenderPipeline simple(String name, ColorTargetState color, com.mojang.blaze3d.pipeline.BindGroupLayout samplers) {
 		Identifier sh = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/" + name);
 		return RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
@@ -187,6 +212,9 @@ public final class PostLook {
 			Vector3f sunView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).transformDirection(new Vector3f(sunW)).normalize();
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(sunView.x, sunView.y, sunView.z, shadowK), new Vector3f(), params);
 			RenderTarget main = mc.gameRenderer.mainRenderTarget();
+			if (fixedDepthId != -2) {
+				fixDepthFilter(main);
+			}
 			AbstractTexture any = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
