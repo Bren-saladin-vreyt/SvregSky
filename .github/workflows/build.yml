@@ -112,10 +112,10 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { sed -n 80,110p src2/com/mojang/blaze3d/opengl/GlDevice.java; } > probe/a.txt
-          { grep -rn -iE 'zeroToOne|clipControl|reverseZ|reversedDepth|depthRange|DEPTH32|DEPTH24' src2 --include=*.java | grep -v '^src2/com/mojang/blaze3d/opengl/GlConst' | head -25; } > probe/b.txt
-          { grep -rn -E 'createTexture\(.*[Dd]epth|DEPTH32|TextureFormat\.DEPTH' src2/com/mojang/blaze3d/pipeline/RenderTarget.java src2/com/mojang/blaze3d/textures/*.java | head -12; } > probe/c.txt
-          { grep -rn -E 'clearDepth|clearColorAndDepth' src2/net/minecraft/client/renderer/LevelRenderer.java src2/net/minecraft/client/renderer/GameRenderer.java | head -12; } > probe/d.txt
+          { ls src2/com/mojang/blaze3d/opengl/; grep -n -E 'public .*\(' src2/com/mojang/blaze3d/opengl/GlTexture.java | head -20; } > probe/a.txt
+          { grep -rn -E 'glBindSampler|glSamplerParameter|_texParameter|glTexParameter' src2/com/mojang/blaze3d/opengl/*.java | head -30; } > probe/b.txt
+          { grep -n -B3 -A25 'createTexture' src2/com/mojang/blaze3d/opengl/GlBackend.java src2/com/mojang/blaze3d/opengl/GlDevice.java 2>/dev/null | grep -E 'texParameter|TexParameter|9729|9728|33085|10241|10240|34892' | head -20; } > probe/c.txt
+          { grep -n -E 'public static void _bindTexture|public static void _activeTexture|public static int _getActiveTexture|_texParameter' src2/com/mojang/blaze3d/opengl/GlStateManager.java | head; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
