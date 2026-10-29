@@ -129,7 +129,17 @@ public final class Wind {
 				skyA = new float[]{a[0], a[1], a[2], SkySettings.on("water_reflection") ? 1 : 0};
 				skyB = new float[]{b[0], b[1], b[2], SkySettings.on("face_light") ? 1 : 0};
 				float zr = 0.06F + (0.30F - 0.06F) * day, zg = 0.08F + (0.58F - 0.08F) * day, zb = 0.22F + (0.95F - 0.22F) * day;
-				zr += 0.25F * gold; zg += 0.05F * gold;
+				// golden hour: the sky's own saturated sunset colours (the horizon colour itself is washed out by the sun glow)
+				float o = com.svreg.sky.sky.CirrusSky.skyExtra().w; // 1 = orange sunset, 0 = magenta
+				float[] tA = {1.00F, 0.62F - 0.06F * o, 0.22F + 0.20F * (1 - o)};
+				float[] tB = {0.96F - 0.12F * (1 - o), 0.52F - 0.10F * (1 - o), 0.30F + 0.30F * (1 - o)};
+				float[] tC = {0.93F - 0.30F * (1 - o), 0.44F - 0.14F * (1 - o), 0.10F + 0.52F * (1 - o)};
+				float k = Math.min(1, gold * 1.3F);
+				for (int i = 0; i < 3; i++) {
+					skyA[i] += (tA[i] - skyA[i]) * k;
+					skyB[i] += (tB[i] - skyB[i]) * k;
+				}
+				zr += (tC[0] - zr) * k; zg += (tC[1] - zg) * k; zb += (tC[2] - zb) * k;
 				skyC = new float[]{zr, zg, zb, night > 0.5F ? 1 : 0};
 			}
 			if (locSkyA >= 0) GL20C.glUniform4f(locSkyA, skyA[0], skyA[1], skyA[2], skyA[3]);
