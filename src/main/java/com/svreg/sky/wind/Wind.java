@@ -164,6 +164,7 @@ public final class Wind {
 			uniform vec4 svregsky_Look;   // warm lamps, dappled light, valley fog, unused
 			uniform vec4 svregsky_Season; // spring, autumn, winter weights, ground wetness
 			out vec4 v_svWater;           // camera-relative position, water surface flag
+			float svWaterMark;            // 1 for water vertices (marked by the fluid mesher)
 			out vec4 v_svInfo;            // sky light, day, golden hour, unused
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -183,6 +184,10 @@ public final class Wind {
 			#ifndef VULKAN
 			    {
 			        int svK = 255 - int(_vert_color.a * 255.0 + 0.5);
+			        svWaterMark = svK == 28 ? 1.0 : 0.0;
+			        if (svK == 28) {
+			            _vert_color.a = 1.0;
+			        }
 			        vec3 svWp = position + svregsky_Cam.xyz;
 			        float svStr = svregsky_Wind.y;
 			        if (svK > 0 && (svK <= 24 || svK == 26)) {
@@ -298,11 +303,7 @@ public final class Wind {
 			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.95, 0.0, 0.85));
 			        // water surface: the top of a still water block sits at 8/9 of the block, and water is tinted blue
 			        float svFy = fract(_vert_position.y + 0.0001); // chunk-local, so it can't wobble with the camera
-			        float svIsWater = 0.0;
-			        #ifdef TRANSLUCENT
-			        // the translucent pass: water surfaces are the only top faces there that sit between whole blocks (glass, ice... are full cubes)
-			        svIsWater = (svFy > 0.03 && svFy < 0.97) ? 1.0 : 0.0;
-			        #endif
+			        float svIsWater = svWaterMark;
 			        v_svWater = vec4(position, svIsWater);
 			        v_svInfo = vec4(svSkyL, svDay, svGold, 0.0);
 			    }
@@ -403,7 +404,7 @@ public final class Wind {
 		}
 		int afterCol = col + colorLine.length();
 		return src.substring(0, main) + DECL + "\n" + src.substring(main, main + src.substring(main).indexOf('{') + 1)
-				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n    v_svWater = vec4(0.0);\n    v_svInfo = vec4(0.0);\n#endif\n"
+				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n    v_svWater = vec4(0.0);\n    v_svInfo = vec4(0.0);\n    svWaterMark = 0.0;\n#endif\n"
 				+ src.substring(main + src.substring(main).indexOf('{') + 1, pos) + CODE + "\n    "
 				+ src.substring(pos, afterCol) + "\n" + GRADE + src.substring(afterCol);
 	}

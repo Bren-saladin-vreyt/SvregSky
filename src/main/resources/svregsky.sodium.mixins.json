@@ -4,7 +4,8 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"BlockRendererMixin",
-		"GLDrawContextMixin"
+		"GLDrawContextMixin",
+		"FluidRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
