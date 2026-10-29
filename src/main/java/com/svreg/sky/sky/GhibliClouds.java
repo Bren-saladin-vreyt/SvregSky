@@ -318,7 +318,7 @@ public final class GhibliClouds {
 	}
 
 	public static int radiusCells() {
-		return Math.max(48, Math.min(240, SkySettings.cloud3dDistance * 4));
+		return Math.max(48, Math.min(240, SkySettings.cloud3dDistance * 3));
 	}
 
 	// ------------------------------------------------------------------ render
