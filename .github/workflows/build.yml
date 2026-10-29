@@ -112,10 +112,10 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { grep -n -A12 'public GpuSampler createSampler' src2/com/mojang/blaze3d/systems/GpuDevice.java | head -30; } > probe/a.txt
-          { grep -rn -E 'Sampler|sampler' src2/com/mojang/blaze3d/systems/RenderSystem.java | head -12; ls src2/com/mojang/blaze3d/textures/; } > probe/b.txt
-          { grep -rn -E 'class SamplerCache|public .*get[A-Za-z]*\(' src2/com/mojang/blaze3d/systems/SamplerCache.java 2>/dev/null | head -12; grep -rln 'SamplerCache' src2 | head -5; } > probe/c.txt
-          { grep -rn -E 'clipControl|glClipControl|ZERO_TO_ONE|reverse' src2/com/mojang/blaze3d/opengl/*.java 2>/dev/null | head -10; } > probe/d.txt
+          { sed -n 80,110p src2/com/mojang/blaze3d/opengl/GlDevice.java; } > probe/a.txt
+          { grep -rn -iE 'zeroToOne|clipControl|reverseZ|reversedDepth|depthRange|DEPTH32|DEPTH24' src2 --include=*.java | grep -v '^src2/com/mojang/blaze3d/opengl/GlConst' | head -25; } > probe/b.txt
+          { grep -rn -E 'createTexture\(.*[Dd]epth|DEPTH32|TextureFormat\.DEPTH' src2/com/mojang/blaze3d/pipeline/RenderTarget.java src2/com/mojang/blaze3d/textures/*.java | head -12; } > probe/c.txt
+          { grep -rn -E 'clearDepth|clearColorAndDepth' src2/net/minecraft/client/renderer/LevelRenderer.java src2/net/minecraft/client/renderer/GameRenderer.java | head -12; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
