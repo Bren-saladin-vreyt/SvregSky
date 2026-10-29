@@ -181,6 +181,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("window_glow"),
 				flag("gentle_bob"),
 				flag("water_reflection"),
+				flag("water_sunset"),
 				flag("water_sparkle_dots"),
 				flag("face_light"),
 				flag("torch_glow"),

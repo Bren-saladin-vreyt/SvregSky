@@ -136,6 +136,7 @@ public final class SkySettings {
 		FLAGS.put("cirrus_layer", true);
 		FLAGS.put("light_rays", true);
 		FLAGS.put("water_sparkle_dots", true);
+		FLAGS.put("water_sunset", true);
 		// comfort
 		FLAGS.put("per_world", false);
 	}

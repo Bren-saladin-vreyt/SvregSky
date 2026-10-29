@@ -133,7 +133,7 @@ public final class Wind {
 			if (locSkyA >= 0) GL20C.glUniform4f(locSkyA, skyA[0], skyA[1], skyA[2], skyA[3]);
 			if (locSkyB >= 0) GL20C.glUniform4f(locSkyB, skyB[0], skyB[1], skyB[2], skyB[3]);
 			if (locSkyC >= 0) GL20C.glUniform4f(locSkyC, skyC[0], skyC[1], skyC[2], skyC[3]);
-			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, 0, 0, 0);
+			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, 0, 0);
 		}
 		if (locSeason >= 0) {
 			GL20C.glUniform4f(locSeason, com.svreg.sky.sky.Seasons.spring(), com.svreg.sky.sky.Seasons.autumn(), com.svreg.sky.sky.Seasons.winter(),
@@ -296,7 +296,7 @@ public final class Wind {
 			        v_svMist = vec4(mix(vec3(0.92, 0.88, 0.86), vec3(0.88, 0.93, 0.98), svDay), clamp(svM * 0.95, 0.0, 0.85));
 			        // water surface: the top of a still water block sits at 8/9 of the block, and water is tinted blue
 			        float svFy = fract(_vert_position.y + 0.0001); // chunk-local, so it can't wobble with the camera
-			        float svIsWater = (abs(svFy - 0.8889) < 0.015 && _vert_color.b > _vert_color.r + 0.04) ? 1.0 : 0.0;
+			        float svIsWater = (abs(svFy - 0.8889) < 0.03 && _vert_color.b > _vert_color.r + 0.02) ? 1.0 : 0.0;
 			        v_svWater = vec4(position, svIsWater);
 			        v_svInfo = vec4(svSkyL, svDay, svGold, 0.0);
 			    }
@@ -351,7 +351,7 @@ public final class Wind {
 			            // by day lighten toward the sky (keeps the turquoise); at golden hour the water turns into the sky's colours
 			            vec3 svDayMix = mix(svBase, max(svBase, svSky * 0.95) * vec3(0.96, 1.02, 1.02), svFres * 0.6);
 			            vec3 svGoldMix = mix(svBase, svSky, clamp(0.55 + svFres * 0.45, 0.0, 0.92));
-			            color.rgb = mix(svDayMix, svGoldMix, v_svInfo.z);
+			            color.rgb = mix(svDayMix, svGoldMix, v_svInfo.z * svregsky_Look2.y);
 			            vec3 svL = svregsky_SkyC.w > 0.5 ? -svSunD : svSunD;
 			            float svSp = dot(svR, normalize(svL));
 			            float svLineK = step(0.90, fract(dot(svWp.xz, vec2(0.6, 0.8)) * 1.4 + svWv.x * 0.35 + svT * 0.35));
