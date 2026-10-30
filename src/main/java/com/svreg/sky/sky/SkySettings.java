@@ -148,6 +148,9 @@ public final class SkySettings {
 		FLAGS.put("sky_lanterns", true);
 		FLAGS.put("rain_drops", true);
 		FLAGS.put("cel_shading", true);
+		FLAGS.put("blue_hour", true);
+		FLAGS.put("morning_dew", true);
+		FLAGS.put("silver_clouds", true);
 		FLAGS.put("shore_waves", true);
 		// comfort
 		FLAGS.put("per_world", false);

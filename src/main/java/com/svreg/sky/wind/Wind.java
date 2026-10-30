@@ -19,7 +19,10 @@ public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
 	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1;
-	private static long skyNanos;
+	private static long skyNanos, lastCall;
+	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra"};
+	private static final java.util.Map<Integer, int[]> LOCS = new java.util.HashMap<>();
+	private static final java.util.Map<Integer, Long> LAST_UPLOAD = new java.util.HashMap<>();
 	/** test hook: paint the water-detection debug view */
 	public static boolean debugWater;
 	private static float[] skyA = new float[4], skyB = new float[4], skyC = new float[4];
@@ -119,29 +122,49 @@ public final class Wind {
 
 	/** sets the wind uniforms on Sodium's current terrain program (called for every region draw) */
 	public static void upload() {
+		// called for every terrain region draw: keep it cheap. Uniform values stay in a program once set,
+		// so each program gets them at most every few milliseconds (once a frame), and draws right after
+		// one another skip even the GL query.
+		long now = System.nanoTime();
+		if (now - lastCall < 1_500_000L) {
+			lastCall = now;
+			return;
+		}
+		lastCall = now;
 		int prog = GL20C.glGetInteger(GL20C.GL_CURRENT_PROGRAM);
 		if (prog == 0) {
 			return;
 		}
-		if (prog != lastProgram) {
-			lastProgram = prog;
-			locWind = GL20C.glGetUniformLocation(prog, "svregsky_Wind");
-			locCam = GL20C.glGetUniformLocation(prog, "svregsky_Cam");
-			locSun = GL20C.glGetUniformLocation(prog, "svregsky_Sun");
-			locGrade = GL20C.glGetUniformLocation(prog, "svregsky_Grade");
-			locPlayer = GL20C.glGetUniformLocation(prog, "svregsky_Player");
-			locLook = GL20C.glGetUniformLocation(prog, "svregsky_Look");
-			locSeason = GL20C.glGetUniformLocation(prog, "svregsky_Season");
-			locSkyA = GL20C.glGetUniformLocation(prog, "svregsky_SkyA");
-			locSkyB = GL20C.glGetUniformLocation(prog, "svregsky_SkyB");
-			locSkyC = GL20C.glGetUniformLocation(prog, "svregsky_SkyC");
-			locLook2 = GL20C.glGetUniformLocation(prog, "svregsky_Look2");
-			locShadow = GL20C.glGetUniformLocation(prog, "svregsky_Shadow");
-			locShadow2 = GL20C.glGetUniformLocation(prog, "svregsky_Shadow2");
-			locHeightTex = GL20C.glGetUniformLocation(prog, "svregsky_HeightTex");
-			locWater = GL20C.glGetUniformLocation(prog, "svregsky_Water");
-			locExtra = GL20C.glGetUniformLocation(prog, "svregsky_Extra");
+		int[] loc = LOCS.get(prog);
+		if (loc == null) {
+			loc = new int[NAMES.length + 1];
+			for (int i = 0; i < NAMES.length; i++) {
+				loc[i] = GL20C.glGetUniformLocation(prog, "svregsky_" + NAMES[i]);
+			}
+			LOCS.put(prog, loc);
 		}
+		Long last = LAST_UPLOAD.get(prog);
+		if (last != null && now - last < 4_000_000L) {
+			return;
+		}
+		LAST_UPLOAD.put(prog, now);
+		lastProgram = prog;
+		locWind = loc[0];
+		locCam = loc[1];
+		locSun = loc[2];
+		locGrade = loc[3];
+		locPlayer = loc[4];
+		locLook = loc[5];
+		locSeason = loc[6];
+		locSkyA = loc[7];
+		locSkyB = loc[8];
+		locSkyC = loc[9];
+		locLook2 = loc[10];
+		locShadow = loc[11];
+		locShadow2 = loc[12];
+		locHeightTex = loc[13];
+		locWater = loc[14];
+		locExtra = loc[15];
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
 			GL20C.glUniform4f(locWind, t, SkySettings.windStrength, SkySettings.windSpeed, SkySettings.farGrassTint);
@@ -190,7 +213,7 @@ public final class Wind {
 			if (locSkyA >= 0) GL20C.glUniform4f(locSkyA, skyA[0], skyA[1], skyA[2], skyA[3]);
 			if (locSkyB >= 0) GL20C.glUniform4f(locSkyB, skyB[0], skyB[1], skyB[2], skyB[3]);
 			if (locSkyC >= 0) GL20C.glUniform4f(locSkyC, skyC[0], skyC[1], skyC[2], skyC[3]);
-			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, 0, debugWater ? 1 : 0);
+			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, com.svreg.sky.sky.Twilight.dew(), debugWater ? 1 : 0);
 		}
 		if (locShadow >= 0) {
 			// world sun shadows from the column height map (see HeightShadows)
@@ -217,7 +240,7 @@ public final class Wind {
 		}
 		if (locExtra >= 0) {
 			float snow = SkySettings.on("snow_cover") && SkySettings.on("seasons") ? com.svreg.sky.sky.Seasons.winter() : 0;
-			GL20C.glUniform4f(locExtra, snow, SkySettings.on("waterfall_foam") ? 1 : 0, com.svreg.sky.sky.CloudSea.packed(), 0);
+			GL20C.glUniform4f(locExtra, snow, SkySettings.on("waterfall_foam") ? 1 : 0, com.svreg.sky.sky.CloudSea.packed(), com.svreg.sky.sky.Twilight.blueHour());
 		}
 		if (locSeason >= 0) {
 			GL20C.glUniform4f(locSeason, com.svreg.sky.sky.Seasons.spring(), com.svreg.sky.sky.Seasons.autumn(), com.svreg.sky.sky.Seasons.winter(),
@@ -245,6 +268,7 @@ public final class Wind {
 			uniform vec4 svregsky_Player; // player feet relative to the camera, grass bend on/off
 			uniform vec4 svregsky_Look;   // warm lamps, dappled light, valley fog, unused
 			uniform vec4 svregsky_Season; // spring, autumn, winter weights, ground wetness
+			uniform vec4 svregsky_Extra;  // (fragment side) ..., w = blue hour
 			out vec4 v_svWater;           // camera-relative position, water surface flag
 			float svWaterMark;            // 1 for still water, 2 for flowing / falling water (marked by the fluid mesher)
 			float svKind;                 // 1 leaves, 2 small plants
@@ -394,7 +418,11 @@ public final class Wind {
 			        }
 			        // a storm coming: the daylight dims and cools a little
 			        svExtra *= mix(vec3(1.0), vec3(0.80, 0.84, 0.92), svregsky_Look.w * smoothstep(0.6, 0.9, svSkyL) * 0.8);
-			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, svG) * svExtra;
+			        // blue hour: the land turns a soft blue, lamplight glows its warmest
+			        float svBh = svregsky_Extra.w;
+			        svT = mix(svT, vec3(0.80, 0.86, 1.12), svBh * smoothstep(0.5, 0.9, svSkyL));
+			        svExtra *= mix(vec3(1.0), vec3(1.18, 1.0, 0.82), svBh * smoothstep(0.3, 0.85, svBlockL));
+			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, max(svG, svBh)) * svExtra;
 			        // wet ground after rain: darker, a little cooler, outdoors only
 			        float svWet = svregsky_Season.w * smoothstep(0.80, 0.92, svSkyL);
 			        svCol *= mix(vec3(1.0), vec3(0.68, 0.71, 0.79), svWet);
@@ -574,7 +602,9 @@ public final class Wind {
 			                   && color.r > color.b + 0.08 && color.g > color.b + 0.04 && color.r > color.g * 0.85) {
 			            // the wash on the beach: a thin sheet of water and foam slides up the sand and back, leaving it wet
 			            vec3 svWp3 = v_svWater.xyz + svregsky_Cam.xyz;
-			            vec2 svSh2 = svShore(v_svWater.xz + svregsky_Shadow.xy);
+			            vec2 svG0 = v_svWater.xz + svregsky_Shadow.xy;
+			            float svA0 = floor(texelFetch(svregsky_HeightTex, clamp(ivec2(svG0), ivec2(0), ivec2(255)), 0).a * 255.0 + 0.5);
+			            vec2 svSh2 = (svA0 < 16.0 && svA0 - floor(svA0 / 16.0) * 16.0 <= 2.0) ? svShore(svG0) : vec2(-9.0, 0.0);
 			            float svUp = -svSh2.x;
 			            if (svUp < 1.6) {
 			                float svT3 = svregsky_Wind.x;
@@ -645,7 +675,7 @@ public final class Wind {
 			            }
 			        }
 			        vec3 svWg = v_svWater.xyz + svregsky_Cam.xyz;
-			        if (svregsky_Water.w > 0.5 && svregsky_Water.z > 0.5 && v_svWater.w < 0.5) {
+			        if (svregsky_Water.w > 0.5 && svregsky_Water.z > 0.5 && v_svWater.w < 0.5 && v_svInfo.x < 0.97) {
 			            // under water: dancing light patterns on the bottom, a clean turquoise tint
 			            vec2 svGc = v_svWater.xz + svregsky_Shadow.xy - svN.xz * 0.05;
 			            if (svGc.x >= 0.0 && svGc.y >= 0.0 && svGc.x < 256.0 && svGc.y < 256.0) {
@@ -664,6 +694,20 @@ public final class Wind {
 			                    color.rgb += vec3(0.80, 1.0, 1.0) * svCa * 0.30 * svFade * svDayC;
 			                }
 			            }
+			        }
+			        if (svregsky_Look2.z > 0.01 && svN.y > 0.5 && v_svWater.w < 0.5 && v_svInfo.x > 0.8
+			                && color.g > color.r * 1.05 && color.g > color.b * 1.1) {
+			            // morning dew: tiny twinkling points on the grass and leaves, more of them toward the sun
+			            vec2 svDc = floor(svWg.xz * 10.0);
+			            float svDh = svHash(svDc + floor(svWg.y) * 7.1);
+			            vec2 svDp = (svDc + vec2(svHash(svDc + 3.1), svHash(svDc + 5.7))) / 10.0;
+			            float svDd = length(svWg.xz - svDp) * 10.0;
+			            vec3 svRv = reflect(svV, vec3(0.0, 1.0, 0.0));
+			            float svToSun = pow(max(dot(svRv, normalize(svSunD)), 0.0), 3.0);
+			            float svTw = 0.5 + 0.5 * sin(svregsky_Wind.x * (2.0 + svDh * 5.0) + svDh * 40.0);
+			            float svOn = step(0.86 - 0.22 * svToSun, svDh) * svTw;
+			            float svSpark = svOn * exp(-svDd * svDd * 30.0) * (1.0 - smoothstep(6.0, 28.0, length(v_svWater.xyz)));
+			            color.rgb += mix(vec3(1.0, 0.97, 0.88), vec3(1.0), svToSun) * svSpark * svregsky_Look2.z * (0.8 + svToSun);
 			        }
 			        if (svregsky_Extra.x > 0.01 && v_svWater.w < 0.5 && v_svInfo.x > 0.75) {
 			            // winter: snow settles on the tops of blocks, leaves and roofs (a thin lip on the sides), in patches that grow
@@ -713,6 +757,8 @@ public final class Wind {
 
 	/** adds the wind code to Sodium's terrain vertex shader source; returns it unchanged if the anchors are missing */
 	public static String patchVertexShader(String src) {
+		LOCS.clear(); // shaders are being (re)built: program ids and uniform locations change
+		LAST_UPLOAD.clear();
 		if (src.contains("svregsky_Wind")) {
 			return src;
 		}

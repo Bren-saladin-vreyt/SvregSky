@@ -10,7 +10,7 @@ import java.util.Set;
  */
 public final class AutoFps {
 	public static final int TARGET = 40;
-	private static final Set<String> STEP1 = Set.of("cartoon_outline", "bloom", "photo_dof", "light_motes", "shore_foam", "dragonflies", "dandelion_seeds", "waterfall_foam", "underwater_light");
+	private static final Set<String> STEP1 = Set.of("cartoon_outline", "bloom", "photo_dof", "light_motes", "shore_foam", "dragonflies", "dandelion_seeds", "waterfall_foam", "underwater_light", "morning_dew");
 	private static final Set<String> STEP2 = Set.of("butterflies", "water_steam", "smoke_wisps", "fish_jumps", "bird_flocks", "puddles", "sky_reflection", "rain_ripples", "paper_texture", "film_tone", "shore_waves", "cloud_sea", "rain_drops");
 	private static int level;
 	private static int lowTicks, highTicks;

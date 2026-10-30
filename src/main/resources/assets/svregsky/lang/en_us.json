@@ -161,5 +161,8 @@
   "svregsky.options.snow_cover": "§a● §rSnow Cover (winter)",
   "svregsky.options.waterfall_foam": "§a● §rWaterfall & Current Foam",
   "svregsky.options.underwater_light": "§a● §rUnderwater Light Patterns",
-  "svregsky.options.cel_shading": "§a● §rAnime Cel-Shading (mobs, players, items)"
+  "svregsky.options.cel_shading": "§a● §rAnime Cel-Shading (mobs, players, items)",
+  "svregsky.options.blue_hour": "§a● §rBlue Hour Sky",
+  "svregsky.options.silver_clouds": "§a● §rSilver Night Clouds",
+  "svregsky.options.morning_dew": "§a● §rMorning Dew Sparkles"
 }

@@ -778,6 +778,17 @@ void main() {
         seaA = a31 / 31.0;
         layers = int(lr - a31 * 8.0 + 0.5) - 4;
     }
+    highp float silverA = 0.0, blueA = 0.0;
+    if (mode <= 0.5) {
+        // sky pass: the layer slot also carries the silver night clouds and the blue hour
+        highp float lv = floor(ColorModulator.z + 0.5);
+        highp float b31 = floor(lv / 256.0 + 0.0001);
+        highp float lr = lv - b31 * 256.0;
+        highp float s31 = floor(lr / 8.0 + 0.0001);
+        silverA = s31 / 31.0;
+        blueA = b31 / 31.0;
+        layers = int(lr - s31 * 8.0 + 0.5) - 4;
+    }
 
     if (mode > 0.5) {
         decodeCloudPass();
@@ -892,6 +903,29 @@ void main() {
 
     if (ModelOffset.z > 0.5) {
         col = sunAndMoon(col, dir, sunDir, day, gold, night, rain, ModelOffset.y);
+    }
+    if (blueA > 0.01) {
+        // the blue hour: deep soft blue overhead, a last pink glow where the sun went down,
+        // and on the other side the pink "belt of Venus" over the blue-grey shadow of the earth
+        highp float h = max(dir.y, 0.0);
+        highp vec2 hd = normalize(dir.xz + vec2(1e-5)), sh = normalize(sunDir.xz + vec2(1e-5));
+        highp float toward = max(dot(hd, sh), 0.0), away = max(-dot(hd, sh), 0.0);
+        highp vec3 bc = mix(vec3(0.42, 0.40, 0.66), vec3(0.10, 0.16, 0.42), pow(h, 0.45));
+        bc = mix(bc, vec3(0.95, 0.58, 0.52), pow(toward, 3.0) * (1.0 - smoothstep(0.0, 0.22, h)) * 0.75);
+        bc = mix(bc, vec3(0.80, 0.56, 0.70), smoothstep(0.05, 0.10, h) * (1.0 - smoothstep(0.12, 0.25, h)) * away * 0.5);
+        bc = mix(bc, vec3(0.30, 0.34, 0.56), (1.0 - smoothstep(0.0, 0.07, h)) * away * 0.6);
+        col = mix(col, bc, blueA * 0.85 * (dir.y > -0.05 ? 1.0 : 0.6));
+    }
+    if (silverA > 0.01 && dir.y > 0.01 && dir.y < 0.4) {
+        // silver night clouds: thin rippled streaks glowing blue-silver low on the sun's side
+        highp vec2 q = dir.xz / (dir.y + 0.05) * 0.6;
+        highp vec2 rq = vec2(q.x * 0.8 + q.y * 0.6, -q.x * 0.6 + q.y * 0.8);
+        highp float waves = noise(rq * vec2(1.0, 7.0) + vec2(tm * 0.004, 0.0)) * 0.55 + noise(rq * vec2(2.6, 16.0)) * 0.30 + noise(rq * vec2(6.0, 30.0)) * 0.15;
+        highp float field = noise(q * 0.25 + 4.0);
+        highp float sideS = pow(max(dot(normalize(dir.xz + vec2(1e-5)), normalize(sunDir.xz + vec2(1e-5))), 0.0), 1.5);
+        highp float sa = smoothstep(0.50, 0.72, waves) * smoothstep(0.35, 0.6, field) * sideS * smoothstep(0.01, 0.06, dir.y) * (1.0 - smoothstep(0.24, 0.40, dir.y));
+        highp vec3 sc = mix(vec3(0.55, 0.80, 1.0), vec3(0.88, 0.96, 1.0), smoothstep(0.62, 0.85, waves));
+        col = mix(col, sc, sa * silverA * 0.85);
     }
     // lightning glowing inside the storm clouds
     col += vec3(0.50, 0.55, 0.72) * ModelOffset.x * (0.4 + 0.6 * rain) * smoothstep(-0.05, 0.3, dir.y);

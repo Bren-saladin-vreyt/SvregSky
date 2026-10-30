@@ -413,7 +413,9 @@ public final class CirrusSky {
 			// 3D + painted: the near painted layer is skipped (the 3D clouds take its place); 3D Ghibli + painted keeps every layer behind the 3D puffs
 			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : (SkySettings.ghibliMix() ? Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers);
 			// cloud pass: the layer count shares its slot with the cloud sea (amount, height of the camera above it)
-			float layerSlot = mode > 0.5F ? (layers + 4) + 8 * Math.round(CloudSea.amount() * 31) + 256 * Math.round(Math.min(2000, CloudSea.heightAbove())) : layers;
+			// the layer slot also carries: cloud pass = cloud sea (amount, camera height above it); sky pass = silver night clouds, blue hour
+			float layerSlot = mode > 0.5F ? (layers + 4) + 8 * Math.round(CloudSea.amount() * 31) + 256 * Math.round(Math.min(2000, CloudSea.heightAbove()))
+					: (layers + 4) + 8 * Math.round(Twilight.silverClouds() * 31) + 256 * Math.round(Twilight.blueHour() * 31);
 			Vector4f extra = new Vector4f(rise, mode > 0.5F ? rayZ : SkySettings.milkyWay, layerSlot, org);
 			// a big cube (far inside the far plane) so the walking bob's small camera shift can't make the sky wobble
 			int chunks = Math.max(2, mc.options.getEffectiveRenderDistance());
