@@ -65,6 +65,8 @@ public final class Effects {
 	private static long lanternDay = Long.MIN_VALUE;
 	/** test hook: show the lantern festival now */
 	public static boolean forceLanterns;
+	private static int mistTries;
+	private static long mistFound;
 
 	private static P[] make(int n) {
 		P[] a = new P[n];
@@ -235,7 +237,7 @@ public final class Effects {
 	/** foam and mist at the foot of a waterfall: water with falling water right on top of it */
 	private static void spawnMist(P p, ClientLevel level, Vec3 cam) {
 		p.alive = false;
-		for (int tries = 0; tries < 6; tries++) {
+		for (int tries = 0; tries < 4; tries++) {
 			BlockPos pos = BlockPos.containing(cam.x + (RNG.nextDouble() - 0.5) * 40, cam.y + (RNG.nextDouble() - 0.5) * 24, cam.z + (RNG.nextDouble() - 0.5) * 40);
 			net.minecraft.world.level.material.FluidState here = level.getFluidState(pos);
 			net.minecraft.world.level.material.FluidState above = level.getFluidState(pos.above());
@@ -417,6 +419,7 @@ public final class Effects {
 				}
 
 				// waterfall feet: white foam puffs and a little rising mist
+				mistTries = now - mistFound < 3_000_000_000L ? 3 : (RNG.nextFloat() < 0.1F ? 1 : 0);
 				float mistLight = 0.35F + 0.65F * Math.max(day, gold);
 				for (P p : mist) {
 					if (!mistOn) {
@@ -424,7 +427,15 @@ public final class Effects {
 						continue;
 					}
 					if (!p.alive || p.age > p.life) {
-						spawnMist(p, level, cam);
+						p.alive = false;
+						// look for waterfall feet only a couple of times per frame, and rarely when there are none around
+						if (mistTries > 0) {
+							mistTries--;
+							spawnMist(p, level, cam);
+							if (p.alive) {
+								mistFound = now;
+							}
+						}
 						if (!p.alive) {
 							continue;
 						}

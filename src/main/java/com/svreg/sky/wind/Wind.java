@@ -102,7 +102,7 @@ public final class Wind {
 		float dx = (float) Math.cos(ang), dz = (float) Math.sin(ang);
 		float wx = (float) ((x + 0) % 4096.0), wz = (float) ((z + 0) % 4096.0);
 		float qx = wx * 0.032F - dx * st * 0.42F, qz = wz * 0.032F - dz * st * 0.42F;
-		float rx = noise(qx * 0.6F + 3.1F, qz * 0.6F + 3.1F) - 0.5F, rz = noise(qx * 0.6F + 7.7F, qz * 0.6F + 7.7F) - 0.5F;
+		float rx = (float) Math.sin(qz * 1.9F + 1.3F + Math.sin(qx * 0.7F)) * 0.3F, rz = (float) Math.sin(qx * 1.7F + 4.1F + Math.sin(qz * 0.9F)) * 0.3F;
 		float g1 = noise(qx + rx * 1.8F, qz + rz * 1.8F);
 		float g2 = noise(qx * 2.6F + rx - dx * st * 0.35F + 11, qz * 2.6F + rz - dz * st * 0.35F + 11);
 		return smoothstep(0.32F, 0.82F, g1 * 0.72F + g2 * 0.28F);
@@ -285,13 +285,14 @@ public final class Wind {
 			            vec2 svSide = vec2(-svDir.y, svDir.x);
 			            // gusts: soft, irregular patches (warped noise) drifting downwind, so the meadow ripples in waves
 			            vec2 svQ = svWp.xz * 0.032 - svDir * svT * 0.42;
-			            vec2 svWarp = vec2(svNoise(svQ * 0.6 + 3.1), svNoise(svQ * 0.6 + 7.7)) - 0.5;
+			            // (kept cheap for phones: two noise lookups per vertex, the warp and the per-plant rhythm are sines)
+			            vec2 svWarp = vec2(sin(svQ.y * 1.9 + 1.3 + sin(svQ.x * 0.7)), sin(svQ.x * 1.7 + 4.1 + sin(svQ.y * 0.9))) * 0.3;
 			            float svG1 = svNoise(svQ + svWarp * 1.8);
 			            float svG2 = svNoise(svQ * 2.6 + svWarp - svDir * svT * 0.35 + 11.0);
 			            float svGust = smoothstep(0.32, 0.82, svG1 * 0.72 + svG2 * 0.28);
-			            // every plant has its own rhythm (a continuous random field: no tearing at block edges)
-			            float svPh = svNoise(svWp.xz * 1.37 + svWp.y * 0.31) * 6.2832;
-			            float svPh2 = svNoise(svWp.xz * 0.53 - svWp.y * 0.47 + 5.0) * 6.2832;
+			            // every plant has its own rhythm (a continuous field: no tearing at block edges)
+			            float svPh = sin(dot(svWp.xz, vec2(1.37, 0.91)) + 2.0 * sin(dot(svWp.xz, vec2(-0.71, 1.13)) + svWp.y * 0.31)) * 3.1416;
+			            float svPh2 = sin(dot(svWp.xz, vec2(0.53, -1.21)) + 2.0 * sin(dot(svWp.xz, vec2(1.07, 0.37)) - svWp.y * 0.47)) * 3.1416;
 			            if (svLeaf) {
 			                // leaves: the whole crown leans with the gust, branches sway on slow loops, leaves rustle on top
 			                float svLean = svStr * (0.035 + 0.11 * svGust);

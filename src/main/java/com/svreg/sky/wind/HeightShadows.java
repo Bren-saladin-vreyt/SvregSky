@@ -31,7 +31,7 @@ public final class HeightShadows {
 	private static final int[] dist = new int[SIZE * SIZE];
 	private static final byte[] alpha = new byte[SIZE * SIZE];
 	private static ClientLevel lastLevel;
-	private static long lastNanos, lastField;
+	private static long lastNanos, lastField, lastBind;
 
 	private HeightShadows() {
 	}
@@ -86,6 +86,12 @@ public final class HeightShadows {
 			if (level == null) {
 				return;
 			}
+			// once per frame is enough (this is called for every terrain region draw)
+			long now = System.nanoTime();
+			if (now - lastBind < 6_000_000L) {
+				return;
+			}
+			lastBind = now;
 			int prevUnit = GL11C.glGetInteger(GL13C.GL_ACTIVE_TEXTURE);
 			GlStateManager._activeTexture(GL13C.GL_TEXTURE0 + UNIT);
 			if (tex < 0) {
@@ -102,8 +108,7 @@ public final class HeightShadows {
 			}
 			GlStateManager._bindTexture(tex);
 			GL33C.glBindSampler(UNIT, 0);
-			long now = System.nanoTime();
-			if (now - lastNanos > 8_000_000L) {
+			if (rebuilding || now - lastNanos > 50_000_000L) {
 				lastNanos = now;
 				refresh(level, camX, camZ);
 			}
@@ -114,47 +119,56 @@ public final class HeightShadows {
 		}
 	}
 
+	private static boolean rebuilding;
+	private static int buildX, buildZ, buildRow;
+
 	private static void refresh(ClientLevel level, double camX, double camZ) {
 		int cx = ((int) Math.floor(camX) >> 4 << 4) - SIZE / 2, cz = ((int) Math.floor(camZ) >> 4 << 4) - SIZE / 2;
-		int from, to;
-		if (level != lastLevel || Math.abs(cx - originX) >= 16 || Math.abs(cz - originZ) >= 16) {
-			// moved a chunk or more: rebuild everything
+		if (!rebuilding && (level != lastLevel || Math.abs(cx - buildX) >= 16 || Math.abs(cz - buildZ) >= 16 || originX == Integer.MIN_VALUE)) {
+			// moved a chunk or more: rebuild the whole map over a few frames, then swap it in at once
 			lastLevel = level;
-			originX = cx;
-			originZ = cz;
+			buildX = cx;
+			buildZ = cz;
+			buildRow = 0;
+			rebuilding = true;
 			minY = level.getMinY();
-			from = 0;
-			to = SIZE;
-			nextRow = 0;
-		} else if (fullUpload) {
-			from = 0;
-			to = SIZE;
-			nextRow = 0;
-			fullUpload = false;
+		}
+		int from, to;
+		if (rebuilding) {
+			from = buildRow;
+			to = Math.min(SIZE, from + 32);
+			buildRow = to;
 		} else {
-			// keep the map fresh for placed / broken blocks: 16 rows per update, the whole map about every half second
+			// keep the map fresh for placed / broken blocks: 16 rows every 50 ms, the whole map in under a second
 			from = nextRow;
 			to = Math.min(SIZE, from + 16);
 			nextRow = to >= SIZE ? 0 : to;
 		}
+		boolean plants = shadowsOn();
+		boolean water = SkySettings.on("anime_water") || SkySettings.on("shore_waves") || SkySettings.on("underwater_light");
 		net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
 		for (int z = from; z < to; z++) {
 			for (int x = 0; x < SIZE; x++) {
-				int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, originX + x, originZ + z);
+				int wx = buildX + x, wz = buildZ + z;
+				int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, wx, wz);
 				int h = Math.max(0, Math.min(65535, top - minY));
 				// grass, ferns and flowers on top of the column: they cast small soft shadows too (height in 1/128 block)
 				int plant = 0;
-				pos.set(originX + x, top, originZ + z);
-				if (plant(level, pos)) {
-					pos.setY(top + 1);
-					plant = plant(level, pos) ? 230 : 100;
+				if (plants) {
+					pos.set(wx, top, wz);
+					if (plant(level, pos)) {
+						pos.setY(top + 1);
+						plant = plant(level, pos) ? 230 : 100;
+					}
 				}
 				// water: how deep (blocks of water under the surface, up to 15)
 				int d = 0;
-				pos.set(originX + x, top - 1, originZ + z);
-				while (d < 15 && level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)) {
-					d++;
-					pos.setY(top - 1 - d);
+				if (water) {
+					pos.set(wx, top - 1, wz);
+					while (d < 15 && level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)) {
+						d++;
+						pos.setY(top - 1 - d);
+					}
 				}
 				depth[z * SIZE + x] = (byte) d;
 				int i = (z * SIZE + x) * 4;
@@ -164,11 +178,27 @@ public final class HeightShadows {
 				buf.put(i + 3, alpha[z * SIZE + x]);
 			}
 		}
-		if (to == SIZE && (from == 0 || System.nanoTime() - lastField > 1_000_000_000L)) {
+		boolean full = false;
+		if (rebuilding) {
+			if (to < SIZE) {
+				return; // keep building; the old map stays in use until the new one is complete
+			}
+			rebuilding = false;
+			nextRow = 0;
+			originX = buildX;
+			originZ = buildZ;
+			full = true;
+		} else if (to == SIZE && System.nanoTime() - lastField > 2_000_000_000L) {
+			full = true;
+		}
+		if (full || fullUpload) {
 			lastField = System.nanoTime();
-			// a full pass is done: rebuild the shore distance field and upload the whole map
-			shoreField();
+			if (water) {
+				shoreField();
+			}
 			from = 0;
+			to = SIZE;
+			fullUpload = false;
 		}
 		if (GL11C.glGetInteger(GL21C.GL_PIXEL_UNPACK_BUFFER_BINDING) != 0) {
 			fullUpload = true; // a pixel buffer is bound right now: upload everything next time
