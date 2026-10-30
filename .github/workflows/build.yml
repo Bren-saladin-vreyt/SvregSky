@@ -112,10 +112,10 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { unzip -l "$JAR" | grep -E 'shaders/core/(entity|rendertype_entity)' | head -20; unzip -p "$JAR" assets/minecraft/shaders/core/entity.vsh; } > probe/a.txt
-          { unzip -p "$JAR" assets/minecraft/shaders/core/entity.fsh; } > probe/b.txt
-          { unzip -p "$JAR" assets/minecraft/shaders/include/light.glsl; } > probe/c.txt
-          { unzip -l "$JAR" | grep -E 'shaders/include/' | head -30; } > probe/d.txt
+          { grep -n -E 'public [A-Za-z<>]+ [a-zA-Z]+\(' src2/net/minecraft/client/gui/Gui.java | head -60; } > probe/a.txt
+          { grep -rn -E 'void (addMessage|setOverlayMessage|showActionBar|displayClientMessage|sendOverlay)' src2/net/minecraft/client --include=*.java | head -15; } > probe/b.txt
+          { grep -n -E 'public .* (gui|getGui|hud)\b' src2/net/minecraft/client/Minecraft.java | head; } > probe/c.txt
+          { grep -rn -E 'class ChatComponent|public void addMessage' src2/net/minecraft/client/gui/components/ChatComponent.java | head; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
