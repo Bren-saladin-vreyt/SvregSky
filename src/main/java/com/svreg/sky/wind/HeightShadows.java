@@ -120,7 +120,7 @@ public final class HeightShadows {
 	}
 
 	private static boolean rebuilding;
-	private static int buildX, buildZ, buildRow;
+	private static int buildX, buildZ, buildRow, rebuilds;
 
 	private static void refresh(ClientLevel level, double camX, double camZ) {
 		int cx = ((int) Math.floor(camX) >> 4 << 4) - SIZE / 2, cz = ((int) Math.floor(camZ) >> 4 << 4) - SIZE / 2;
@@ -188,6 +188,9 @@ public final class HeightShadows {
 			originX = buildX;
 			originZ = buildZ;
 			full = true;
+			if (++rebuilds <= 12) {
+				SvregSky.LOG.info("SvregSky: column map rebuilt around {}, {} (water {}, plants {})", buildX + SIZE / 2, buildZ + SIZE / 2, water, plants);
+			}
 		} else if (to == SIZE && System.nanoTime() - lastField > 2_000_000_000L) {
 			full = true;
 		}

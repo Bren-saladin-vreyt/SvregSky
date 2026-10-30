@@ -20,6 +20,7 @@ public final class Wind {
 	private static volatile double camX, camY, camZ;
 	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1;
 	private static long skyNanos;
+	private static int waterLog;
 	/** test hook: paint the water-detection debug view */
 	public static boolean debugWater;
 	private static float[] skyA = new float[4], skyB = new float[4], skyC = new float[4];
@@ -200,6 +201,9 @@ public final class Wind {
 				HeightShadows.update(camX, camZ);
 				k = HeightShadows.strength();
 				map = HeightShadows.ready();
+			}
+			if (++waterLog % 3000 == 1) {
+				com.svreg.sky.SvregSky.LOG.info("SvregSky: water uniforms: map {} active {} anime {} loc {}", map, HeightShadows.active(), SkySettings.on("anime_water"), locWater);
 			}
 			if (locWater >= 0) {
 				GL20C.glUniform4f(locWater, map && SkySettings.on("anime_water") ? 1 : 0, map && SkySettings.on("shore_waves") ? 1 : 0, map ? 1 : 0,
