@@ -154,5 +154,12 @@
   "svregsky.options.shadow_method.both": "Dua-duanya (PC)",
   "svregsky.options.anime_water": "§a● §rAir Anime (dangkal toska, dalam biru)",
   "svregsky.options.shore_waves": "§a● §rOmbak Pantai Anime",
-  "svregsky.options.distant_storm": "§a● §rBadai dari Jauh"
+  "svregsky.options.distant_storm": "§a● §rBadai dari Jauh",
+  "svregsky.options.cloud_sea": "§a● §rLautan Awan (dari tempat tinggi)",
+  "svregsky.options.sky_lanterns": "§e● §rLampion Terbang (malam purnama)",
+  "svregsky.options.rain_drops": "§a● §rTetesan Hujan di Layar",
+  "svregsky.options.snow_cover": "§a● §rSalju Menumpuk (musim dingin)",
+  "svregsky.options.waterfall_foam": "§a● §rBusa Air Terjun & Arus",
+  "svregsky.options.underwater_light": "§a● §rCahaya Bawah Air",
+  "svregsky.options.cel_shading": "§a● §rCel-Shading Anime (mob, player, item)"
 }

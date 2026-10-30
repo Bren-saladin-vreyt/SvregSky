@@ -18,6 +18,12 @@ public class SvregSky implements ClientModInitializer {
 						net.minecraft.resources.Identifier.fromNamespaceAndPath(MOD_ID, "soft_rain"), mod,
 						net.minecraft.network.chat.Component.literal("SvregSky: Hujan Lembut"),
 						net.fabricmc.fabric.api.resource.v1.pack.PackActivationType.DEFAULT_ENABLED));
+		// anime cel-shading for mobs, players and items (a shader include override), switched from the SvregSky menu
+		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer(MOD_ID).ifPresent(mod ->
+				net.fabricmc.fabric.api.resource.v1.ResourceLoader.registerBuiltinPack(
+						net.minecraft.resources.Identifier.fromNamespaceAndPath(MOD_ID, "cel_shading"), mod,
+						net.minecraft.network.chat.Component.literal("SvregSky: Cel-Shading Anime"),
+						net.fabricmc.fabric.api.resource.v1.pack.PackActivationType.DEFAULT_ENABLED));
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(com.svreg.sky.sound.Ambience::tick);
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			com.svreg.sky.sky.AutoFps.tick();

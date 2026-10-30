@@ -43,7 +43,7 @@ public final class HeightShadows {
 
 	/** the column map is needed by the world shadows, the anime water or the shore waves */
 	public static boolean active() {
-		return !broken && (shadowsOn() || SkySettings.on("anime_water") || SkySettings.on("shore_waves"));
+		return !broken && (shadowsOn() || SkySettings.on("anime_water") || SkySettings.on("shore_waves") || SkySettings.on("underwater_light"));
 	}
 
 	/** the map has data (texture made and filled at least once) */

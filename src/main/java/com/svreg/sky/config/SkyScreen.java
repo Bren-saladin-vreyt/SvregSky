@@ -52,6 +52,32 @@ public class SkyScreen extends OptionsSubScreen {
 				new OptionInstance.Enum<>(values, Codec.STRING), values.contains(value) ? value : values.get(0), set);
 	}
 
+	/** turns the built-in cel-shading pack on or off to match the menu, reloading resources when it changed */
+	public static void syncCelShading() {
+		try {
+			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+			var repo = mc.getResourcePackRepository();
+			String id = null;
+			for (String s : repo.getAvailableIds()) {
+				if (s.contains("cel_shading")) {
+					id = s;
+				}
+			}
+			if (id == null) {
+				return;
+			}
+			boolean want = SkySettings.on("cel_shading"), has = repo.getSelectedIds().contains(id);
+			if (want != has) {
+				java.util.List<String> sel = new java.util.ArrayList<>(repo.getSelectedIds());
+				if (want) sel.add(id); else sel.remove(id);
+				repo.setSelected(sel);
+				mc.options.updateResourcePacks(repo);
+			}
+		} catch (Throwable t) {
+			com.svreg.sky.SvregSky.LOG.warn("SvregSky: could not switch the cel-shading pack", t);
+		}
+	}
+
 	@Override
 	protected void addOptions() {
 		if (this.list == null) {
@@ -97,7 +123,9 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("cloud_rows"),
 				flag("cirrus_layer"),
 				flag("light_rays"),
-				flag("valley_fog"));
+				flag("valley_fog"),
+				flag("cloud_sea"),
+				flag("sky_lanterns"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
 		this.list.addSmall(
@@ -156,6 +184,11 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("butterflies"),
 				flag("light_motes"),
 				flag("rain_ripples"),
+				flag("rain_drops"),
+				flag("cel_shading"),
+				flag("snow_cover"),
+				flag("waterfall_foam"),
+				flag("underwater_light"),
 				flag("shore_foam"),
 				flag("grass_bend"),
 				flag("dappled_light"),
@@ -217,5 +250,6 @@ public class SkyScreen extends OptionsSubScreen {
 	public void removed() {
 		super.removed();
 		SkyConfig.save();
+		syncCelShading();
 	}
 }

@@ -154,5 +154,12 @@
   "svregsky.options.shadow_method.both": "Both (PC)",
   "svregsky.options.anime_water": "§a● §rAnime Water (turquoise shallows)",
   "svregsky.options.shore_waves": "§a● §rAnime Shore Waves",
-  "svregsky.options.distant_storm": "§a● §rDistant Storm"
+  "svregsky.options.distant_storm": "§a● §rDistant Storm",
+  "svregsky.options.cloud_sea": "§a● §rCloud Sea (from up high)",
+  "svregsky.options.sky_lanterns": "§e● §rSky Lanterns (full moon nights)",
+  "svregsky.options.rain_drops": "§a● §rRaindrops on Screen",
+  "svregsky.options.snow_cover": "§a● §rSnow Cover (winter)",
+  "svregsky.options.waterfall_foam": "§a● §rWaterfall & Current Foam",
+  "svregsky.options.underwater_light": "§a● §rUnderwater Light Patterns",
+  "svregsky.options.cel_shading": "§a● §rAnime Cel-Shading (mobs, players, items)"
 }

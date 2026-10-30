@@ -141,6 +141,13 @@ public final class SkySettings {
 		FLAGS.put("shadow_debug", false);
 		FLAGS.put("anime_water", true);
 		FLAGS.put("distant_storm", true);
+		FLAGS.put("cloud_sea", true);
+		FLAGS.put("snow_cover", true);
+		FLAGS.put("waterfall_foam", true);
+		FLAGS.put("underwater_light", true);
+		FLAGS.put("sky_lanterns", true);
+		FLAGS.put("rain_drops", true);
+		FLAGS.put("cel_shading", true);
 		FLAGS.put("shore_waves", true);
 		// comfort
 		FLAGS.put("per_world", false);

@@ -18,7 +18,7 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1;
 	private static long skyNanos;
 	/** test hook: paint the water-detection debug view */
 	public static boolean debugWater;
@@ -32,6 +32,10 @@ public final class Wind {
 		pX = feet.x;
 		pY = feet.y;
 		pZ = feet.z;
+	}
+
+	public static double cameraY() {
+		return camY;
 	}
 
 	public static void setCamera(Vec3 cam) {
@@ -136,6 +140,7 @@ public final class Wind {
 			locShadow2 = GL20C.glGetUniformLocation(prog, "svregsky_Shadow2");
 			locHeightTex = GL20C.glGetUniformLocation(prog, "svregsky_HeightTex");
 			locWater = GL20C.glGetUniformLocation(prog, "svregsky_Water");
+			locExtra = GL20C.glGetUniformLocation(prog, "svregsky_Extra");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
@@ -197,7 +202,8 @@ public final class Wind {
 				map = HeightShadows.ready();
 			}
 			if (locWater >= 0) {
-				GL20C.glUniform4f(locWater, map && SkySettings.on("anime_water") ? 1 : 0, map && SkySettings.on("shore_waves") ? 1 : 0, map ? 1 : 0, 0);
+				GL20C.glUniform4f(locWater, map && SkySettings.on("anime_water") ? 1 : 0, map && SkySettings.on("shore_waves") ? 1 : 0, map ? 1 : 0,
+						map && SkySettings.on("underwater_light") ? 1 : 0);
 			}
 			if (map) {
 				GL20C.glUniform4f(locShadow, (float) (camX - HeightShadows.originX()), (float) (camZ - HeightShadows.originZ()), (float) (camY - HeightShadows.minY()), k);
@@ -208,6 +214,10 @@ public final class Wind {
 			} else {
 				GL20C.glUniform4f(locShadow, 0, 0, 0, 0);
 			}
+		}
+		if (locExtra >= 0) {
+			float snow = SkySettings.on("snow_cover") && SkySettings.on("seasons") ? com.svreg.sky.sky.Seasons.winter() : 0;
+			GL20C.glUniform4f(locExtra, snow, SkySettings.on("waterfall_foam") ? 1 : 0, com.svreg.sky.sky.CloudSea.packed(), 0);
 		}
 		if (locSeason >= 0) {
 			GL20C.glUniform4f(locSeason, com.svreg.sky.sky.Seasons.spring(), com.svreg.sky.sky.Seasons.autumn(), com.svreg.sky.sky.Seasons.winter(),
@@ -236,7 +246,8 @@ public final class Wind {
 			uniform vec4 svregsky_Look;   // warm lamps, dappled light, valley fog, unused
 			uniform vec4 svregsky_Season; // spring, autumn, winter weights, ground wetness
 			out vec4 v_svWater;           // camera-relative position, water surface flag
-			float svWaterMark;            // 1 for water vertices (marked by the fluid mesher)
+			float svWaterMark;            // 1 for still water, 2 for flowing / falling water (marked by the fluid mesher)
+			float svKind;                 // 1 leaves, 2 small plants
 			out vec4 v_svInfo;            // sky light, day, golden hour, unused
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -256,8 +267,9 @@ public final class Wind {
 			#ifndef VULKAN
 			    {
 			        int svK = 255 - int(_vert_color.a * 255.0 + 0.5);
-			        svWaterMark = svK == 28 ? 1.0 : 0.0;
-			        if (svK == 28) {
+			        svWaterMark = svK == 28 ? 1.0 : (svK == 29 ? 2.0 : 0.0);
+			        svKind = svK == 26 ? 1.0 : (svK > 0 && svK <= 24 ? 2.0 : 0.0);
+			        if (svK == 28 || svK == 29) {
 			            _vert_color.a = 1.0;
 			        }
 			        vec3 svWp = position + svregsky_Cam.xyz;
@@ -397,7 +409,7 @@ public final class Wind {
 			        float svFy = fract(_vert_position.y + 0.0001); // chunk-local, so it can't wobble with the camera
 			        float svIsWater = svWaterMark;
 			        v_svWater = vec4(position, svIsWater);
-			        v_svInfo = vec4(svSkyL, svDay, svGold, 0.0);
+			        v_svInfo = vec4(svSkyL, svDay, svGold, svKind);
 			    }
 			#endif
 			""";
@@ -418,7 +430,8 @@ public final class Wind {
 			uniform vec4 svregsky_Shadow;  // height map offset x, z, camera height above the map floor, shadow strength
 			uniform vec4 svregsky_Shadow2; // march steps, reach, colour (0 anime, 1 neutral, 2 warm), debug view
 			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g; b plants; a = water depth << 4 | shore distance
-			uniform vec4 svregsky_Water;   // anime water, shore waves, column map ready
+			uniform vec4 svregsky_Water;   // anime water, shore waves, column map ready, underwater light patterns
+			uniform vec4 svregsky_Extra;   // winter snow amount, flowing-water foam on/off, cloud sea level (+ amount as fraction), time
 			// signed distance to the shoreline (blocks, + in the water) and water depth at a grid position, smoothly interpolated
 			vec2 svShore(vec2 g) {
 			    vec2 gp = g - 0.5;
@@ -461,6 +474,18 @@ public final class Wind {
 			            // debug view: red = water detected, green = flat top faces, blue = mirror on
 			            color.rgb = vec3(v_svWater.w, svN.y > 0.7 ? 1.0 : 0.0, svregsky_SkyA.w);
 			            color.a = 1.0;
+			        } else if (v_svWater.w > 1.5 && svN.y < 0.7 && svregsky_Extra.y > 0.5) {
+			            // a waterfall: pale turquoise with white streaks pouring down, foamier toward the bottom of each block
+			            vec3 svWf = v_svWater.xyz + svregsky_Cam.xyz;
+			            float svU = dot(svWf.xz, normalize(vec2(-svN.z, svN.x) + vec2(1e-4)));
+			            float svTf = svregsky_Wind.x;
+			            float svS1 = svNoise2(vec2(svU * 3.5, svWf.y * 0.45 + svTf * 2.4));
+			            float svS2 = svNoise2(vec2(svU * 7.0 + 3.0, svWf.y * 0.9 + svTf * 3.6));
+			            float svStreak = smoothstep(0.55, 0.78, svS1 * 0.65 + svS2 * 0.35);
+			            float svLitW = (0.22 + 0.78 * max(v_svInfo.y, v_svInfo.z)) * mix(0.5, 1.0, v_svInfo.x);
+			            vec3 svWc = mix(vec3(0.46, 0.84, 0.90), vec3(0.97, 1.0, 1.0), svStreak * 0.9);
+			            color.rgb = mix(color.rgb, svWc * svLitW, 0.85);
+			            color.a = max(color.a, 0.78 + 0.2 * svStreak);
 			        } else if (v_svWater.w > 0.5 && svN.y > 0.7 && svregsky_SkyA.w > 0.5) {
 			            // water as a mirror of the sky, with little moving waves and a sun / moon glitter path
 			            vec3 svWp = v_svWater.xyz + svregsky_Cam.xyz;
@@ -490,6 +515,20 @@ public final class Wind {
 			                svBase = mix(svAn, svAn * clamp(svTexL / 0.45, 0.7, 1.3), 0.15);
 			                color.rgb = svBase;
 			                color.a = max(color.a, mix(0.62, 0.93, svDeep));
+			            }
+			            if (v_svWater.w > 1.5 && svregsky_Extra.y > 0.5) {
+			                // flowing water: foam streaks drawn along the current (the flow texture runs along v)
+			                vec2 svA = dFdx(svWp.xz), svB = dFdy(svWp.xz);
+			                vec2 svDv = vec2(dFdx(v_TexCoord.y), dFdy(v_TexCoord.y));
+			                float svDet = svA.x * svB.y - svA.y * svB.x;
+			                vec2 svGv = abs(svDet) > 1e-8 ? vec2(svB.y * svDv.x - svA.y * svDv.y, -svB.x * svDv.x + svA.x * svDv.y) / svDet : vec2(0.0, 1.0);
+			                vec2 svFl = normalize(svGv + vec2(1e-6));
+			                float svAlong = dot(svWp.xz, svFl), svAcross = dot(svWp.xz, vec2(-svFl.y, svFl.x));
+			                float svFs = svNoise2(vec2(svAcross * 2.6, svAlong * 0.55 - svregsky_Wind.x * 1.6)) * 0.7 + svNoise2(vec2(svAcross * 6.0 + 2.0, svAlong * 1.2 - svregsky_Wind.x * 2.4)) * 0.3;
+			                float svFoamF = smoothstep(0.58, 0.80, svFs);
+			                float svLitF = (0.22 + 0.78 * max(v_svInfo.y, v_svInfo.z)) * mix(0.5, 1.0, v_svInfo.x);
+			                color.rgb = mix(color.rgb, vec3(0.95, 1.0, 1.0) * svLitF, svFoamF * 0.75);
+			                color.a = max(color.a, svFoamF * 0.9);
 			            }
 			            // by day lighten toward the sky (keeps the turquoise); at golden hour the water turns into the sky's colours
 			            vec3 svDayMix = mix(svBase, max(svBase, svSky * 0.95) * vec3(0.96, 1.02, 1.02), svFres * 0.6);
@@ -604,6 +643,69 @@ public final class Wind {
 			                color.rgb *= mix(vec3(1.0), svSc, svK2);
 			            }
 			        }
+			        vec3 svWg = v_svWater.xyz + svregsky_Cam.xyz;
+			        if (svregsky_Water.w > 0.5 && svregsky_Water.z > 0.5 && v_svWater.w < 0.5) {
+			            // under water: dancing light patterns on the bottom, a clean turquoise tint
+			            vec2 svGc = v_svWater.xz + svregsky_Shadow.xy - svN.xz * 0.05;
+			            if (svGc.x >= 0.0 && svGc.y >= 0.0 && svGc.x < 256.0 && svGc.y < 256.0) {
+			                vec4 svHc = texelFetch(svregsky_HeightTex, ivec2(svGc), 0);
+			                float svAc = floor(svHc.a * 255.0 + 0.5);
+			                float svTopC = floor(svHc.r * 255.0 + 0.5) + floor(svHc.g * 255.0 + 0.5) * 256.0;
+			                float svUnder = svTopC - (v_svWater.y + svregsky_Shadow.z);
+			                if (svAc >= 16.0 && svUnder > 0.15) {
+			                    float svTc = svregsky_Wind.x;
+			                    float svC1 = svNoise2(svWg.xz * 0.85 + vec2(svTc * 0.33, svTc * 0.21));
+			                    float svC2 = svNoise2(svWg.xz * 1.16 + vec2(-svTc * 0.26, svTc * 0.30) + 5.2);
+			                    float svCa = smoothstep(0.72, 1.0, 1.0 - abs(svC1 - svC2) * 3.2);
+			                    float svFade = 1.0 - smoothstep(2.0, 12.0, svUnder);
+			                    float svDayC = max(v_svInfo.y, v_svInfo.z * 0.8);
+			                    color.rgb *= mix(vec3(1.0), vec3(0.74, 0.93, 1.0), 0.45);
+			                    color.rgb += vec3(0.80, 1.0, 1.0) * svCa * 0.30 * svFade * svDayC;
+			                }
+			            }
+			        }
+			        if (svregsky_Extra.x > 0.01 && v_svWater.w < 0.5 && v_svInfo.x > 0.75) {
+			            // winter: snow settles on the tops of blocks, leaves and roofs (a thin lip on the sides), in patches that grow
+			            float svNz = svNoise2(svWg.xz * 0.45) * 0.65 + svNoise2(svWg.xz * 1.7) * 0.35;
+			            float svCover = smoothstep(svNz - 0.08, svNz + 0.08, svregsky_Extra.x * 1.25 - 0.15);
+			            float svLitS = (0.22 + 0.78 * max(v_svInfo.y, v_svInfo.z)) * mix(0.55, 1.0, smoothstep(0.75, 1.0, v_svInfo.x));
+			            float svSl = dot(svN, normalize(svSunD + vec3(0.0, 0.4, 0.0)));
+			            vec3 svSnow = (svSl > 0.35 ? vec3(1.0) : (svSl > -0.1 ? vec3(0.90, 0.94, 1.0) : vec3(0.78, 0.85, 1.0))) * svLitS;
+			            svSnow = mix(svSnow, svSnow * vec3(1.05, 0.95, 0.88), v_svInfo.z * 0.6);
+			            if (svN.y > 0.55) {
+			                color.rgb = mix(color.rgb, svSnow, svCover * (v_svInfo.w > 1.5 ? 0.5 : 0.95));
+			            } else if (svN.y > -0.3 && v_svInfo.w < 1.5) {
+			                float svLip = step(0.86 - 0.06 * svNz, fract(svWg.y - 0.0001));
+			                color.rgb = mix(color.rgb, svSnow * 0.96, svLip * svCover * 0.9);
+			            }
+			        }
+			        float svCsA = fract(svregsky_Extra.z), svCsY = floor(svregsky_Extra.z);
+			        if (svCsA > 0.01 && v_svWater.y < -0.5) {
+			            // the cloud sea: seen from up high, the valleys below are filled with a soft sea of cloud
+			            float svCamY = svregsky_Cam.y;
+			            float svFy = v_svWater.y + svCamY;
+			            if (svCamY > svCsY + 2.0 && svFy < svCsY + 6.0) {
+			                vec3 svHp = v_svWater.xyz * clamp((svCsY - svCamY) / v_svWater.y, 0.0, 1.0);
+			                vec2 svQ = (svHp.xz + svregsky_Cam.xz) * 0.018 + vec2(svregsky_Cam.w * 0.012, svregsky_Cam.w * 0.004);
+			                float svH0 = svNoise2(svQ) * 0.6 + svNoise2(svQ * 2.3 + 3.1) * 0.3 + svNoise2(svQ * 5.1 + 7.7) * 0.1;
+			                float svHx = svNoise2(svQ + vec2(0.12, 0.0)) * 0.6 + svNoise2((svQ + vec2(0.12, 0.0)) * 2.3 + 3.1) * 0.3 + svNoise2((svQ + vec2(0.12, 0.0)) * 5.1 + 7.7) * 0.1;
+			                float svHz = svNoise2(svQ + vec2(0.0, 0.12)) * 0.6 + svNoise2((svQ + vec2(0.0, 0.12)) * 2.3 + 3.1) * 0.3 + svNoise2((svQ + vec2(0.0, 0.12)) * 5.1 + 7.7) * 0.1;
+			                float svBelow = svCsY + (svH0 - 0.35) * 14.0 - svFy;
+			                float svCa2 = smoothstep(-1.0, 4.0, svBelow) * svCsA;
+			                vec3 svCn = normalize(vec3(-(svHx - svH0) * 7.0, 1.0, -(svHz - svH0) * 7.0));
+			                float svL3 = dot(svCn, normalize(svSunD + vec3(0.0, 0.15, 0.0))) * 0.5 + 0.5 + 0.12 * svH0;
+			                float svGd = v_svInfo.z, svDd = v_svInfo.y;
+			                vec3 svC0 = mix(vec3(0.58, 0.72, 0.96), vec3(0.42, 0.30, 0.52), svGd), svC1b = mix(vec3(0.74, 0.85, 1.0), vec3(0.58, 0.42, 0.62), svGd);
+			                vec3 svC2b = mix(vec3(0.89, 0.95, 1.0), vec3(0.90, 0.66, 0.60), svGd), svC3 = mix(vec3(1.0), vec3(1.0, 0.86, 0.64), svGd);
+			                vec3 svCs = svL3 > 0.78 ? svC3 : (svL3 > 0.62 ? svC2b : (svL3 > 0.45 ? svC1b : svC0));
+			                svCs *= 0.25 + 0.75 * max(svDd, svGd);
+			                // far away it melts into the horizon colour
+			                vec3 svHzC = mix(svregsky_SkyB.rgb, svregsky_SkyA.rgb, 0.5);
+			                svCs = mix(svCs, svHzC, smoothstep(60.0, 260.0, length(svHp.xz)) * 0.6);
+			                color.rgb = mix(color.rgb, svCs, svCa2);
+			                color.a = max(color.a, svCa2);
+			            }
+			        }
 			    }
 			#endif
 			""";
@@ -622,7 +724,7 @@ public final class Wind {
 		}
 		int afterCol = col + colorLine.length();
 		return src.substring(0, main) + DECL + "\n" + src.substring(main, main + src.substring(main).indexOf('{') + 1)
-				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n    v_svWater = vec4(0.0);\n    v_svInfo = vec4(0.0);\n    svWaterMark = 0.0;\n#endif\n"
+				+ "\n#ifndef VULKAN\n    v_svMist = vec4(0.0);\n    v_svWater = vec4(0.0);\n    v_svInfo = vec4(0.0);\n    svWaterMark = 0.0;\n    svKind = 0.0;\n#endif\n"
 				+ src.substring(main + src.substring(main).indexOf('{') + 1, pos) + CODE + "\n    "
 				+ src.substring(pos, afterCol) + "\n" + GRADE + src.substring(afterCol);
 	}

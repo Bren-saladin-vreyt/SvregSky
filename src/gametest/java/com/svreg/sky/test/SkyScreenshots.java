@@ -167,6 +167,33 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(40);
 			shot(context, sp, 6000, 160, -8, "zx4_storm_near_painted");
 			context.runOnClient(client -> com.svreg.sky.sky.DistantStorm.force = -1F);
+
+			// a waterfall from a stone pillar, cel-shaded animals, rain on the lens
+			sp.getServer().runCommand("execute as @p at @p run fill ~5 ~0 ~6 ~5 ~6 ~6 stone");
+			sp.getServer().runCommand("execute as @p at @p run setblock ~5 ~7 ~6 water");
+			sp.getServer().runCommand("execute as @p at @p run summon cow ~-2 ~ ~5 {NoAI:1b,Rotation:[160f,0f]}");
+			sp.getServer().runCommand("execute as @p at @p run summon villager ~0 ~ ~6 {NoAI:1b,Rotation:[180f,0f]}");
+			context.waitTicks(120);
+			shot(context, sp, 6000, -35, -8, "zy_waterfall_noon");
+			shot(context, sp, 6000, 10, 10, "zy2_cel_shading");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("cel_shading", false));
+			context.runOnClient(client -> com.svreg.sky.config.SkyScreen.syncCelShading());
+			context.waitTicks(100);
+			shot(context, sp, 6000, 10, 10, "zy3_cel_shading_off");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("cel_shading", true));
+			context.runOnClient(client -> com.svreg.sky.config.SkyScreen.syncCelShading());
+			context.waitTicks(100);
+			sp.getServer().runCommand("weather rain");
+			context.waitTicks(160);
+			shot(context, sp, 6000, 0, -5, "zy4_rain_on_lens");
+			sp.getServer().runCommand("weather clear");
+			context.waitTicks(120);
+			// sky lanterns on a (forced) festival night
+			context.runOnClient(client -> com.svreg.sky.fx.Effects.forceLanterns = true);
+			sp.getServer().runCommand("time set 18000");
+			context.waitTicks(400);
+			look(context, 0, -12, "zz_sky_lanterns");
+			context.runOnClient(client -> com.svreg.sky.fx.Effects.forceLanterns = false);
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "medium"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.45F; com.svreg.sky.sky.SkySettings.shadowColor = "anime"; });
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 
@@ -251,6 +278,13 @@ public class SkyScreenshots implements FabricClientGameTest {
 			sp.getServer().runCommand("time add 48000");
 			shot(context, sp, 6000, 160, -25, "zt_ghibli_other_day");
 
+			// under the lagoon: light patterns on the bottom, seen from above
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~6 ~26");
+			context.waitTicks(60);
+			shot(context, sp, 6000, 0, 75, "zz2_lagoon_bottom");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~-6 ~-26");
+			context.waitTicks(20);
+
 			// cloud shadows seen from above the meadow
 			sp.getServer().runCommand("gamemode spectator @a");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~40 ~-10");
@@ -260,6 +294,14 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(60);
 			shot(context, sp, 6000, 160, 15, "zr_ghibli_above");
 			shot(context, sp, 12600, 90, 8, "zr2_ghibli_above_sunset");
+			// the cloud sea, from high up in the morning
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 160 ~");
+			context.runOnClient(client -> com.svreg.sky.sky.CloudSea.force = 1.0F);
+			context.waitTicks(80);
+			shot(context, sp, 1200, 90, 18, "zz3_cloud_sea_morning");
+			shot(context, sp, 1200, -60, 35, "zz4_cloud_sea_down");
+			shot(context, sp, 6000, 160, 20, "zz5_cloud_sea_noon");
+			context.runOnClient(client -> com.svreg.sky.sky.CloudSea.force = -1F);
 		}
 	}
 

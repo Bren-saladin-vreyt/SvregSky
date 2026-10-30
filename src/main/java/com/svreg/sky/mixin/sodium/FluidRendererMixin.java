@@ -16,13 +16,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(targets = "net.caffeinemc.mods.sodium.client.render.chunk.compile.pipeline.DefaultFluidRenderer", remap = false)
 public abstract class FluidRendererMixin {
 	@Unique
-	private boolean svregsky$water;
+	private boolean svregsky$water, svregsky$flowing;
 	@Unique
 	private static boolean svregsky$logged;
 
 	@Inject(method = "render", at = @At("HEAD"), require = 0)
 	private void svregsky$begin(CallbackInfo ci, @Local(argsOnly = true) FluidState fluidState) {
 		this.svregsky$water = fluidState.is(FluidTags.WATER);
+		this.svregsky$flowing = this.svregsky$water && !fluidState.isSource();
 	}
 
 	@org.spongepowered.asm.mixin.Shadow
@@ -39,7 +40,7 @@ public abstract class FluidRendererMixin {
 			com.svreg.sky.SvregSky.LOG.info("SvregSky: marking water for the sky mirror");
 		}
 		for (ChunkVertexEncoder.Vertex v : vertices) {
-			v.color = (v.color & 0x00FFFFFF) | ((255 - 28) << 24);
+			v.color = (v.color & 0x00FFFFFF) | ((255 - (this.svregsky$flowing ? 29 : 28)) << 24);
 		}
 	}
 }

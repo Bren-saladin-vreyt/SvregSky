@@ -59,6 +59,12 @@ public final class Effects {
 	}
 
 	private static final P[] fireflies = make(FIREFLIES), leaves = make(LEAVES), sparkles = make(SPARKLES);
+	private static final int LANTERNS = 48, MIST = 32;
+	private static final P[] lanterns = make(LANTERNS), mist = make(MIST);
+	private static double lanternX, lanternY, lanternZ;
+	private static long lanternDay = Long.MIN_VALUE;
+	/** test hook: show the lantern festival now */
+	public static boolean forceLanterns;
 
 	private static P[] make(int n) {
 		P[] a = new P[n];
@@ -191,6 +197,72 @@ public final class Effects {
 		}
 	}
 
+	/** full-moon nights (and clear skies): the lantern festival */
+	private static boolean lanternNight(ClientLevel level, float night, float rain) {
+		if (forceLanterns) {
+			return true;
+		}
+		return SkySettings.on("sky_lanterns") && night > 0.6F && rain < 0.3F && CirrusSky.moonPhase() == 0;
+	}
+
+	private static void spawnLantern(P p, ClientLevel level, Vec3 cam) {
+		long dayNo = level.getOverworldClockTime() / 24000L;
+		if (dayNo != lanternDay || forceLanterns && lanternDay == Long.MIN_VALUE) {
+			// a new festival: the lanterns rise from a spot somewhere off in the distance
+			lanternDay = dayNo;
+			double a = forceLanterns ? Math.PI / 2 : RNG.nextDouble() * Math.PI * 2, r = forceLanterns ? 40 : 70 + RNG.nextDouble() * 50;
+			lanternX = cam.x + Math.cos(a) * r;
+			lanternZ = cam.z + Math.sin(a) * r;
+			lanternY = top(level, (int) Math.floor(lanternX), (int) Math.floor(lanternZ));
+			if (lanternY < level.getMinY() + 2) {
+				lanternY = cam.y;
+			}
+		}
+		p.x = lanternX + (RNG.nextDouble() - 0.5) * 24;
+		p.z = lanternZ + (RNG.nextDouble() - 0.5) * 24;
+		p.y = lanternY + 1 + RNG.nextDouble() * 3;
+		p.vx = (RNG.nextFloat() - 0.5F) * 0.3F;
+		p.vz = (RNG.nextFloat() - 0.5F) * 0.3F;
+		p.vy = 0.8F + RNG.nextFloat() * 0.7F;
+		p.life = 80 + RNG.nextFloat() * 50;
+		p.age = 0;
+		p.phase = RNG.nextFloat() * 6.28F;
+		p.size = 0.32F + RNG.nextFloat() * 0.12F;
+		p.color = RNG.nextFloat() < 0.75F ? 0xFFB347 : 0xFF8F4A;
+		p.alive = true;
+	}
+
+	/** foam and mist at the foot of a waterfall: water with falling water right on top of it */
+	private static void spawnMist(P p, ClientLevel level, Vec3 cam) {
+		p.alive = false;
+		for (int tries = 0; tries < 6; tries++) {
+			BlockPos pos = BlockPos.containing(cam.x + (RNG.nextDouble() - 0.5) * 40, cam.y + (RNG.nextDouble() - 0.5) * 24, cam.z + (RNG.nextDouble() - 0.5) * 40);
+			net.minecraft.world.level.material.FluidState here = level.getFluidState(pos);
+			net.minecraft.world.level.material.FluidState above = level.getFluidState(pos.above());
+			if (!here.is(FluidTags.WATER) || !above.is(FluidTags.WATER) || above.isSource()
+					|| !above.hasProperty(net.minecraft.world.level.material.FlowingFluid.FALLING) || !above.getValue(net.minecraft.world.level.material.FlowingFluid.FALLING)) {
+				continue;
+			}
+			if (!level.getFluidState(pos.below()).is(FluidTags.WATER) && !level.getBlockState(pos.below()).isSolid()) {
+				continue;
+			}
+			boolean glow = RNG.nextFloat() < 0.35F;
+			p.x = pos.getX() + 0.5 + (RNG.nextDouble() - 0.5) * 1.6;
+			p.z = pos.getZ() + 0.5 + (RNG.nextDouble() - 0.5) * 1.6;
+			p.y = pos.getY() + 0.9 + RNG.nextDouble() * 0.2;
+			p.vx = (RNG.nextFloat() - 0.5F) * 0.6F;
+			p.vz = (RNG.nextFloat() - 0.5F) * 0.6F;
+			p.vy = glow ? 0.5F + RNG.nextFloat() * 0.4F : 0.15F + RNG.nextFloat() * 0.3F;
+			p.life = glow ? 2.2F + RNG.nextFloat() : 0.8F + RNG.nextFloat() * 0.6F;
+			p.age = 0;
+			p.size = glow ? 1.2F + RNG.nextFloat() * 0.8F : 0.35F + RNG.nextFloat() * 0.35F;
+			p.spin = glow ? 1 : 0;
+			p.phase = RNG.nextFloat();
+			p.alive = true;
+			return;
+		}
+	}
+
 	// ------------------------------------------------------------------ drawing
 	static void billboard(BufferBuilder b, float x, float y, float z, float size, float rx, float ry, float rz, float ux, float uy, float uz,
 								  float u0, int argb) {
@@ -204,7 +276,8 @@ public final class Effects {
 	public static void render(Vec3 cam) {
 		boolean ff = SkySettings.fireflies, lv = SkySettings.fallingLeaves, sp = SkySettings.waterSparkles;
 		Minecraft mc = Minecraft.getInstance();
-		if (broken || (!ff && !lv && !sp && !Nature.anyOn()) || mc.level == null) {
+		boolean lanternsOn = SkySettings.on("sky_lanterns") || forceLanterns, mistOn = SkySettings.on("waterfall_foam");
+		if (broken || (!ff && !lv && !sp && !lanternsOn && !mistOn && !Nature.anyOn()) || mc.level == null) {
 			return;
 		}
 		try {
@@ -220,7 +293,7 @@ public final class Effects {
 			Matrix4f mv = RenderSystem.getModelViewMatrixCopy();
 			float rx = mv.m00(), ry = mv.m10(), rz = mv.m20(), ux = mv.m01(), uy = mv.m11(), uz = mv.m21();
 
-			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize() * 4 * (FIREFLIES + LEAVES + SPARKLES + Nature.MAX_QUADS))) {
+			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize() * 4 * (FIREFLIES + LEAVES + SPARKLES + LANTERNS * 2 + MIST + Nature.MAX_QUADS))) {
 				BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 				int quads = 0;
 
@@ -309,6 +382,67 @@ public final class Effects {
 					float k = (float) Math.sin(Math.PI * Math.min(1, p.age / p.life));
 					int a = Math.round(255 * spVis * k);
 					billboard(b, (float) (p.x - cam.x), (float) (p.y - cam.y), (float) (p.z - cam.z), p.size * (0.6F + 0.4F * k), rx, ry, rz, ux, uy, uz, 4, a << 24 | spColor);
+					quads++;
+				}
+
+				// sky lanterns: warm paper lanterns rising slowly into the night, each with a soft halo
+				boolean festival = lanternsOn && lanternNight(level, night, rain);
+				for (P p : lanterns) {
+					if (!festival) {
+						p.alive = false;
+						continue;
+					}
+					if (!p.alive || p.age > p.life) {
+						if (RNG.nextFloat() < dt * 0.9F) {
+							spawnLantern(p, level, cam);
+						}
+						if (!p.alive) {
+							continue;
+						}
+					}
+					p.age += dt;
+					p.vx += (WIND_X * 0.6F * Math.min(wind, 2) - p.vx) * dt * 0.1F;
+					p.vz += (WIND_Z * 0.6F * Math.min(wind, 2) - p.vz) * dt * 0.1F;
+					p.x += p.vx * dt + Math.sin(t * 0.7 + p.phase) * 0.004;
+					p.y += p.vy * dt;
+					p.z += p.vz * dt;
+					float flick = 0.85F + 0.15F * (float) Math.sin(t * 9.0 + p.phase * 5) * (float) Math.sin(t * 5.3 + p.phase);
+					float env = Math.min(1, p.age / 3F) * Math.min(1, (p.life - p.age) / 8F) * (night * 0.9F + 0.1F);
+					float lx = (float) (p.x - cam.x), ly = (float) (p.y - cam.y), lz = (float) (p.z - cam.z);
+					int ha = Math.round(255 * 0.32F * env * flick);
+					billboard(b, lx, ly, lz, p.size * 5.5F, rx, ry, rz, ux, uy, uz, 26, ha << 24 | 0xFFA040);
+					int a = Math.round(255 * env);
+					billboard(b, lx, ly, lz, p.size, rx, ry, rz, ux, uy, uz, 28, a << 24 | p.color);
+					quads += 2;
+				}
+
+				// waterfall feet: white foam puffs and a little rising mist
+				float mistLight = 0.35F + 0.65F * Math.max(day, gold);
+				for (P p : mist) {
+					if (!mistOn) {
+						p.alive = false;
+						continue;
+					}
+					if (!p.alive || p.age > p.life) {
+						spawnMist(p, level, cam);
+						if (!p.alive) {
+							continue;
+						}
+					}
+					p.age += dt;
+					p.x += p.vx * dt;
+					p.y += p.vy * dt;
+					p.z += p.vz * dt;
+					float k = (float) Math.sin(Math.PI * Math.min(1, p.age / p.life));
+					int shade = Math.round(255 * mistLight);
+					int col = shade << 16 | shade << 8 | Math.min(255, shade + 10);
+					if (p.spin > 0.5F) {
+						billboard(b, (float) (p.x - cam.x), (float) (p.y - cam.y), (float) (p.z - cam.z), p.size * (0.7F + 0.5F * p.age / p.life), rx, ry, rz, ux, uy, uz, 26, Math.round(255 * 0.30F * k) << 24 | col);
+					} else {
+						// foam: the red channel seeds the blob shape in the shader
+						billboard(b, (float) (p.x - cam.x), (float) (p.y - cam.y), (float) (p.z - cam.z), p.size * (0.6F + 0.4F * k), rx, ry, rz, ux, uy, uz, 10,
+								Math.round(255 * 0.9F * k) << 24 | Math.round(p.phase * 255) << 16 | 0xFFFF);
+					}
 					quads++;
 				}
 

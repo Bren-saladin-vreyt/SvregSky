@@ -146,6 +146,33 @@ void main() {
         col = mix(col, vec3(0.10, 0.08, 0.14), oa / max(a + oa, 1e-4));
         a = 1.0 - (1.0 - a) * (1.0 - oa);
     }
+    highp float rainK = TextureMat[3].y;
+    if (rainK > 0.0) {
+        // raindrops on the lens: round drops appear, slide a little and fade; a pale rim and a bright highlight
+        highp float sz = 72.0;
+        highp vec2 fc = gl_FragCoord.xy;
+        highp vec2 cell = floor(fc / sz);
+        highp vec2 fl = fc - cell * sz;
+        highp float h0 = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+        if (h0 > 1.0 - rainK * 0.6) {
+            highp float period = 2.5 + 4.0 * fract(h0 * 13.7);
+            highp float ph = fract(TextureMat[3].z / period + h0 * 7.0);
+            highp vec2 ctr = (vec2(fract(h0 * 31.1), fract(h0 * 57.3)) * 0.6 + 0.2) * sz;
+            ctr.y -= ph * ph * 14.0;
+            highp float r = 5.0 + 8.0 * fract(h0 * 91.7);
+            highp vec2 dv = (fl - ctr) / r;
+            highp float d = length(dv * vec2(1.0, 0.85));
+            highp float fade = smoothstep(0.0, 0.06, ph) * (1.0 - smoothstep(0.45, 0.62, ph));
+            if (d < 1.0 && fade > 0.0) {
+                highp float ring = smoothstep(0.55, 0.95, d) * (1.0 - smoothstep(0.95, 1.0, d));
+                highp float spec = 1.0 - smoothstep(0.0, 0.32, length(dv - vec2(-0.35, 0.38)));
+                highp float da = (0.10 + 0.35 * ring + 0.65 * spec) * fade;
+                highp vec3 dc = mix(vec3(0.62, 0.70, 0.82), vec3(1.0), spec);
+                col = mix(col, dc, da / max(a + da, 1e-4));
+                a = 1.0 - (1.0 - a) * (1.0 - da);
+            }
+        }
+    }
     highp float paper = TextureMat[1].w;
     if (paper > 0.0) {
         // watercolour paper: soft fibrous grain and faint blotches that stay put on screen

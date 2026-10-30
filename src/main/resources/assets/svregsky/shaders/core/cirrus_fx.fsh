@@ -4,7 +4,7 @@ precision highp float;
 
 // SvregSky ambient particles. UV.x selects the shape: [0,1] soft glow, [2,3] leaf / petal, [4,5] sparkle,
 // [6,7] butterfly, [8,9] ripple ring, [10,11] foam blob, [12,13] snowflake, [14] bird, [16] dragonfly,
-// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo
+// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo, [28] sky lantern
 
 layout(std140) uniform DynamicTransforms {
     highp mat4 ModelViewMat;
@@ -114,6 +114,16 @@ void main() {
         c.rgb = mix(vec3(0.20, 0.22, 0.26), sky, 0.55 + 0.35 * smoothstep(0.2, -0.6, p.y));
         c.rgb += vec3(0.35) * smoothstep(0.08, 0.0, abs(rr - edge + 0.2)) * step(0.2, p.x - p.y); // a glint along the rim
         c.a *= inside;
+    } else if (kind > 13.5) {
+        // sky lantern: a paper lantern, wider at the top, glowing brighter toward its open bottom
+        highp float w = 0.42 + 0.14 * (-p.y);
+        if (abs(p.x) > w || abs(p.y) > 0.82) {
+            discard;
+        }
+        highp float glow = smoothstep(-0.9, 0.9, p.y);
+        c.rgb = mix(c.rgb * vec3(1.0, 0.82, 0.70), vec3(1.0, 0.95, 0.70), glow * 0.8);
+        c.rgb *= 1.0 - 0.18 * smoothstep(0.75, 0.82, abs(p.y)); // dark rims top and bottom
+        c.rgb *= 1.0 - 0.10 * smoothstep(w - 0.08, w, abs(p.x));
     } else if (kind > 12.5) {
         // lamp halo: a wide, very soft warm glow with no hard core
         c.a *= exp(-r2 * 2.6) * (1.0 - smoothstep(0.7, 1.0, sqrt(r2)));

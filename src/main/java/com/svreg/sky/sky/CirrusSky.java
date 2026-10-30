@@ -196,6 +196,7 @@ public final class CirrusSky {
 			flash = 0.7F + (float) Math.random() * 0.3F;
 		}
 		DistantStorm.update(mcw, rain, day);
+		CloudSea.update(mcw, day, gold, rain, sunDir.x);
 		// daily variety: each day gets its own amount of cloud
 		dailyCoverage = 0;
 		if (SkySettings.on("daily_variety") && mcw.level != null) {
@@ -294,6 +295,10 @@ public final class CirrusSky {
 			return flash;
 		}
 		return -(Math.min(0.99F, DistantStorm.flash()) + (DistantStorm.bolt() ? 2 : 0));
+	}
+
+	public static int moonPhase() {
+		return moonPhase;
 	}
 
 	public static float flashLevel() {
@@ -407,7 +412,9 @@ public final class CirrusSky {
 			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
 			// 3D + painted: the near painted layer is skipped (the 3D clouds take its place); 3D Ghibli + painted keeps every layer behind the 3D puffs
 			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : (SkySettings.ghibliMix() ? Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers);
-			Vector4f extra = new Vector4f(rise, mode > 0.5F ? rayZ : SkySettings.milkyWay, layers, org);
+			// cloud pass: the layer count shares its slot with the cloud sea (amount, height of the camera above it)
+			float layerSlot = mode > 0.5F ? (layers + 4) + 8 * Math.round(CloudSea.amount() * 31) + 256 * Math.round(Math.min(2000, CloudSea.heightAbove())) : layers;
+			Vector4f extra = new Vector4f(rise, mode > 0.5F ? rayZ : SkySettings.milkyWay, layerSlot, org);
 			// a big cube (far inside the far plane) so the walking bob's small camera shift can't make the sky wobble
 			int chunks = Math.max(2, mc.options.getEffectiveRenderDistance());
 			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));

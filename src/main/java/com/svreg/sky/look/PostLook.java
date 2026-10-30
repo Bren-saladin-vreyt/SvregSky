@@ -163,13 +163,32 @@ public final class PostLook {
 		}
 	}
 
+	/** raindrops on the "lens": out in the rain under open sky, not when looking down at your feet */
+	private static float rainOnLens() {
+		if (!SkySettings.on("rain_drops")) {
+			return 0;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.level == null || mc.options.getCameraType() != net.minecraft.client.CameraType.FIRST_PERSON) {
+			return 0;
+		}
+		float rain = CirrusSky.rainLevel();
+		if (rain < 0.2F || !mc.level.canSeeSky(net.minecraft.core.BlockPos.containing(mc.player.getEyePosition()))) {
+			return 0;
+		}
+		float pitch = mc.player.getXRot(); // negative = looking up
+		float t = Math.max(0, Math.min(1, (60 - pitch) / 70F));
+		return rain * t;
+	}
+
 	public static void render() {
 		boolean tone = SkySettings.on("film_tone"), outline = SkySettings.on("cartoon_outline"), paper = SkySettings.on("paper_texture");
 		boolean bloom = SkySettings.on("bloom"), dof = SkySettings.photoMode && SkySettings.on("photo_dof");
 		Vector3f sunW = CirrusSky.sunDirection();
 		float shadowK = SkySettings.on("screen_shadows") && !"world".equals(SkySettings.shadowMethod) && sunW.y > 0.04F ? SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
 		boolean shDebug = SkySettings.on("screen_shadows") && SkySettings.on("shadow_debug") && "screen".equals(SkySettings.shadowMethod);
-		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug)) {
+		float rainK = rainOnLens();
+		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0)) {
 			return;
 		}
 		try {
@@ -207,7 +226,7 @@ public final class PostLook {
 					r, g, bl, a,
 					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, paper ? 1 : 0,
 					shSteps, shRange, shGrow, shColor,
-					shDebug ? 1 : 0, 0, 0, 0);
+					shDebug ? 1 : 0, rainK, (float) ((System.nanoTime() / 1e9) % 3600.0), 0);
 			// the sun in view space (the model-view here is the camera rotation)
 			Vector3f sunView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).transformDirection(new Vector3f(sunW)).normalize();
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(sunView.x, sunView.y, sunView.z, shadowK), new Vector3f(), params);
@@ -219,7 +238,7 @@ public final class PostLook {
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
 			}
-			if (!tone && !outline && !paper && shadowK <= 0 && !shDebug) {
+			if (!tone && !outline && !paper && shadowK <= 0 && !shDebug && rainK <= 0) {
 				return;
 			}
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
