@@ -54,7 +54,7 @@ public final class AutoFps {
 			Minecraft mc = Minecraft.getInstance();
 			String msg = lv == 0 ? "SvregSky Auto FPS: semua efek nyala lagi"
 					: "SvregSky Auto FPS: FPS rendah, " + (lv == 1 ? "beberapa efek kecil" : lv == 2 ? "lebih banyak efek" : "efek berat & awan") + " dijeda sementara (bisa dimatiin di menu)";
-			mc.gui.setOverlayMessage(net.minecraft.network.chat.Component.literal(msg), false);
+			mc.gui.getChat().addMessage(net.minecraft.network.chat.Component.literal(msg));
 		} catch (Throwable ignored) {
 		}
 	}
