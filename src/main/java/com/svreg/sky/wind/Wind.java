@@ -19,7 +19,7 @@ public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
 	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1;
-	private static long skyNanos, lastCall;
+	private static long skyNanos;
 	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra"};
 	private static final java.util.Map<Integer, int[]> LOCS = new java.util.HashMap<>();
 	private static final java.util.Map<Integer, Long> LAST_UPLOAD = new java.util.HashMap<>();
@@ -123,14 +123,8 @@ public final class Wind {
 	/** sets the wind uniforms on Sodium's current terrain program (called for every region draw) */
 	public static void upload() {
 		// called for every terrain region draw: keep it cheap. Uniform values stay in a program once set,
-		// so each program gets them at most every few milliseconds (once a frame), and draws right after
-		// one another skip even the GL query.
+		// so each program (opaque, cutout, translucent...) gets them at most once every few milliseconds.
 		long now = System.nanoTime();
-		if (now - lastCall < 1_500_000L) {
-			lastCall = now;
-			return;
-		}
-		lastCall = now;
 		int prog = GL20C.glGetInteger(GL20C.GL_CURRENT_PROGRAM);
 		if (prog == 0) {
 			return;
@@ -189,7 +183,6 @@ public final class Wind {
 			GL20C.glUniform4f(locLook, SkySettings.on("warm_lamps") ? 1 : 0, SkySettings.on("dappled_light") ? 1 : 0, vf, com.svreg.sky.sky.DistantStorm.amount());
 		}
 		if (locSkyA >= 0 || locSkyB >= 0 || locSkyC >= 0) {
-			long now = System.nanoTime();
 			if (now - skyNanos > 30_000_000L) { // sky colours for the water mirror, refreshed ~30 times a second
 				skyNanos = now;
 				float[] a = com.svreg.sky.sky.CirrusSky.horizonToward(true), b = com.svreg.sky.sky.CirrusSky.horizonToward(false);
