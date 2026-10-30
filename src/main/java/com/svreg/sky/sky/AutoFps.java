@@ -11,7 +11,7 @@ import java.util.Set;
 public final class AutoFps {
 	public static final int TARGET = 40;
 	private static final Set<String> STEP1 = Set.of("cartoon_outline", "bloom", "photo_dof", "light_motes", "shore_foam", "dragonflies", "dandelion_seeds", "waterfall_foam", "underwater_light");
-	private static final Set<String> STEP2 = Set.of("butterflies", "water_steam", "smoke_wisps", "fish_jumps", "bird_flocks", "puddles", "sky_reflection", "rain_ripples", "paper_texture", "film_tone", "shore_waves", "cloud_sea", "rain_drops");
+	private static final Set<String> STEP2 = Set.of("butterflies", "water_steam", "smoke_wisps", "fish_jumps", "bird_flocks", "puddles", "sky_reflection", "rain_ripples", "paper_texture", "film_tone", "cloud_sea", "rain_drops");
 	private static int level;
 	private static int lowTicks, highTicks;
 
@@ -38,11 +38,24 @@ public final class AutoFps {
 		if (lowTicks > 100 && level < 3) {          // 5 s too slow: one step lighter
 			level++;
 			lowTicks = 0;
+			tell(level);
 			SkySettings.version++;
 		} else if (highTicks > 300 && level > 0) {  // 15 s comfortable: one step back up
 			level--;
 			highTicks = 0;
+			tell(level);
 			SkySettings.version++;
+		}
+	}
+
+	/** a short note above the hotbar, so it is clear why some effects went away for a while */
+	private static void tell(int lv) {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			String msg = lv == 0 ? "SvregSky Auto FPS: semua efek nyala lagi"
+					: "SvregSky Auto FPS: FPS rendah, " + (lv == 1 ? "beberapa efek kecil" : lv == 2 ? "lebih banyak efek" : "efek berat & awan") + " dijeda sementara (bisa dimatiin di menu)";
+			mc.gui.setOverlayMessage(net.minecraft.network.chat.Component.literal(msg), false);
+		} catch (Throwable ignored) {
 		}
 	}
 
