@@ -166,7 +166,7 @@ void main() {
             if (d < 1.0 && fade > 0.0) {
                 highp float ring = smoothstep(0.55, 0.95, d) * (1.0 - smoothstep(0.95, 1.0, d));
                 highp float spec = 1.0 - smoothstep(0.0, 0.32, length(dv - vec2(-0.35, 0.38)));
-                highp float da = (0.10 + 0.35 * ring + 0.65 * spec) * fade;
+                highp float da = (0.16 + 0.45 * ring + 0.75 * spec) * fade;
                 highp vec3 dc = mix(vec3(0.62, 0.70, 0.82), vec3(1.0), spec);
                 col = mix(col, dc, da / max(a + da, 1e-4));
                 a = 1.0 - (1.0 - a) * (1.0 - da);

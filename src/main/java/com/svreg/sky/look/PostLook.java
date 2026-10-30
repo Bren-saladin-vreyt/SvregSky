@@ -172,7 +172,7 @@ public final class PostLook {
 		if (mc.player == null || mc.level == null || mc.options.getCameraType() != net.minecraft.client.CameraType.FIRST_PERSON) {
 			return 0;
 		}
-		float rain = CirrusSky.rainLevel();
+		float rain = mc.level.getRainLevel(1.0F);
 		if (rain < 0.2F || !mc.level.canSeeSky(net.minecraft.core.BlockPos.containing(mc.player.getEyePosition()))) {
 			return 0;
 		}

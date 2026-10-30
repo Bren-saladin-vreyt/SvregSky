@@ -481,7 +481,7 @@ public final class Wind {
 			            float svTf = svregsky_Wind.x;
 			            float svS1 = svNoise2(vec2(svU * 3.5, svWf.y * 0.45 + svTf * 2.4));
 			            float svS2 = svNoise2(vec2(svU * 7.0 + 3.0, svWf.y * 0.9 + svTf * 3.6));
-			            float svStreak = smoothstep(0.55, 0.78, svS1 * 0.65 + svS2 * 0.35);
+			            float svStreak = smoothstep(0.48, 0.68, svS1 * 0.65 + svS2 * 0.35);
 			            float svLitW = (0.22 + 0.78 * max(v_svInfo.y, v_svInfo.z)) * mix(0.5, 1.0, v_svInfo.x);
 			            vec3 svWc = mix(vec3(0.46, 0.84, 0.90), vec3(0.97, 1.0, 1.0), svStreak * 0.9);
 			            color.rgb = mix(color.rgb, svWc * svLitW, 0.85);
@@ -654,9 +654,9 @@ public final class Wind {
 			                float svUnder = svTopC - (v_svWater.y + svregsky_Shadow.z);
 			                if (svAc >= 16.0 && svUnder > 0.15) {
 			                    float svTc = svregsky_Wind.x;
-			                    float svC1 = svNoise2(svWg.xz * 0.85 + vec2(svTc * 0.33, svTc * 0.21));
-			                    float svC2 = svNoise2(svWg.xz * 1.16 + vec2(-svTc * 0.26, svTc * 0.30) + 5.2);
-			                    float svCa = smoothstep(0.72, 1.0, 1.0 - abs(svC1 - svC2) * 3.2);
+			                    float svC1 = svNoise2(svWg.xz * 1.7 + vec2(svTc * 0.45, svTc * 0.28));
+			                    float svC2 = svNoise2(svWg.xz * 2.3 + vec2(-svTc * 0.36, svTc * 0.40) + 5.2);
+			                    float svCa = smoothstep(0.80, 1.0, 1.0 - abs(svC1 - svC2) * 4.0);
 			                    float svFade = 1.0 - smoothstep(2.0, 12.0, svUnder);
 			                    float svDayC = max(v_svInfo.y, v_svInfo.z * 0.8);
 			                    color.rgb *= mix(vec3(1.0), vec3(0.74, 0.93, 1.0), 0.45);

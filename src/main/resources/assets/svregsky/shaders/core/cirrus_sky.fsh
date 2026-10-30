@@ -802,23 +802,6 @@ void main() {
             highp vec4 under = vec4(mix(k.rgb, tw.rgb, tw.a), max(k.a, tw.a));
             k = mix(under, over, front);
         }
-        if (seaA > 0.01 && seaH > 2.0 && dir.y < -0.002) {
-            // the cloud sea out to the horizon (the terrain shader draws it over the land nearby)
-            highp float tS = seaH / (-dir.y);
-            highp vec2 qS = dir.xz * tS * 0.018 + vec2(tm * 0.02, tm * 0.007);
-            highp float h0 = noise(qS) * 0.6 + noise(qS * 2.3 + 3.1) * 0.3 + noise(qS * 5.1 + 7.7) * 0.1;
-            highp float hx = noise(qS + vec2(0.12, 0.0)) * 0.6 + noise((qS + vec2(0.12, 0.0)) * 2.3 + 3.1) * 0.3;
-            highp float hz = noise(qS + vec2(0.0, 0.12)) * 0.6 + noise((qS + vec2(0.0, 0.12)) * 2.3 + 3.1) * 0.3;
-            highp vec3 cn = normalize(vec3(-(hx - h0 * 0.9) * 7.0, 1.0, -(hz - h0 * 0.9) * 7.0));
-            highp float lS = dot(cn, normalize(sunDir + vec3(0.0, 0.15, 0.0))) * 0.5 + 0.5 + 0.12 * h0;
-            highp vec3 c0 = mix(vec3(0.58, 0.72, 0.96), vec3(0.42, 0.30, 0.52), gold), c1 = mix(vec3(0.74, 0.85, 1.0), vec3(0.58, 0.42, 0.62), gold);
-            highp vec3 c2 = mix(vec3(0.89, 0.95, 1.0), vec3(0.90, 0.66, 0.60), gold), c3 = mix(vec3(1.0), vec3(1.0, 0.86, 0.64), gold);
-            highp vec3 cs = lS > 0.78 ? c3 : (lS > 0.62 ? c2 : (lS > 0.45 ? c1 : c0));
-            cs *= 0.25 + 0.75 * max(day, gold);
-            highp float aS = seaA;
-            highp vec4 sea = vec4(cs, aS);
-            k = vec4(mix(sea.rgb, k.rgb, k.a), max(k.a, sea.a));
-        }
         if (gStorm > 0.001) {
             // the far storm: behind the high painted clouds, in front of the low ones; the sky darkens on its side
             highp float dk = gStorm * stormSide(dir) * 0.5 * (1.0 - smoothstep(0.05, 0.9, dir.y)) * (1.0 - rain);
@@ -840,6 +823,23 @@ void main() {
             if (dir.y < max(hs.x, max(hs.y, hs.z))) {
                 k = vec4(0.0); // painted clouds sit behind the painted mountains
             }
+        }
+        if (seaA > 0.01 && seaH > 2.0 && dir.y < -0.002) {
+            // the cloud sea out to the horizon (the terrain shader draws it over the land nearby)
+            highp float tS = seaH / (-dir.y);
+            highp vec2 qS = dir.xz * tS * 0.018 + vec2(tm * 0.02, tm * 0.007);
+            highp float h0 = noise(qS) * 0.6 + noise(qS * 2.3 + 3.1) * 0.3 + noise(qS * 5.1 + 7.7) * 0.1;
+            highp float hx = noise(qS + vec2(0.12, 0.0)) * 0.6 + noise((qS + vec2(0.12, 0.0)) * 2.3 + 3.1) * 0.3;
+            highp float hz = noise(qS + vec2(0.0, 0.12)) * 0.6 + noise((qS + vec2(0.0, 0.12)) * 2.3 + 3.1) * 0.3;
+            highp vec3 cn = normalize(vec3(-(hx - h0 * 0.9) * 7.0, 1.0, -(hz - h0 * 0.9) * 7.0));
+            highp float lS = dot(cn, normalize(sunDir + vec3(0.0, 0.15, 0.0))) * 0.5 + 0.5 + 0.12 * h0;
+            highp vec3 c0 = mix(vec3(0.58, 0.72, 0.96), vec3(0.42, 0.30, 0.52), gold), c1 = mix(vec3(0.74, 0.85, 1.0), vec3(0.58, 0.42, 0.62), gold);
+            highp vec3 c2 = mix(vec3(0.89, 0.95, 1.0), vec3(0.90, 0.66, 0.60), gold), c3 = mix(vec3(1.0), vec3(1.0, 0.86, 0.64), gold);
+            highp vec3 cs = lS > 0.78 ? c3 : (lS > 0.62 ? c2 : (lS > 0.45 ? c1 : c0));
+            cs *= 0.25 + 0.75 * max(day, gold);
+            highp float aS = seaA;
+            highp vec4 sea = vec4(cs, aS);
+            k = vec4(mix(sea.rgb, k.rgb, k.a), max(k.a, sea.a));
         }
         highp float sd = dot(dir, sunDir);
         highp float rbowK = TextureMat[2].z;
