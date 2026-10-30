@@ -153,5 +153,6 @@
   "svregsky.options.shadow_method.screen": "Screen (PC, entities)",
   "svregsky.options.shadow_method.both": "Both (PC)",
   "svregsky.options.anime_water": "§a● §rAnime Water (turquoise shallows)",
-  "svregsky.options.shore_waves": "§a● §rAnime Shore Waves"
+  "svregsky.options.shore_waves": "§a● §rAnime Shore Waves",
+  "svregsky.options.distant_storm": "§a● §rDistant Storm"
 }

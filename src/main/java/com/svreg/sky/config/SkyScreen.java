@@ -92,6 +92,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("cloud_towers"),
 				flag("cloud_mega"),
 				flag("tower_lightning"),
+				flag("distant_storm"),
 				flag("sun_beams"),
 				flag("cloud_rows"),
 				flag("cirrus_layer"),

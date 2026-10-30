@@ -74,12 +74,31 @@ void main() {
         col = mix(col, mix(vec3(0.85, 0.45, 0.45), vec3(0.95, 0.62, 0.70), org), 0.30 * gold);
     }
 
+    // a storm coming from one side: those clouds turn grey-blue with dark bellies, and flash with its lightning
+    highp float sp = TextureMat[2].w;
+    highp float stormK = 0.0;
+    if (sp > 0.5) {
+        highp float ai = floor(sp / 100.0 + 0.0001);
+        highp float rem = sp - ai * 100.0;
+        highp float st = floor(rem + 0.0001) / 40.0;
+        highp float fl = rem - floor(rem + 0.0001);
+        highp float ang = ai * 5.0 * 3.14159265 / 180.0;
+        highp vec2 sdir = vec2(cos(ang), sin(ang));
+        highp float sideK = smoothstep(0.2, 0.85, dot(normalize(relPos.xz + vec2(1e-4)), sdir)) * st * (1.0 - rain);
+        highp vec3 sb = v > 0.74 ? vec3(0.82, 0.84, 0.92) : (v > 0.55 ? vec3(0.64, 0.68, 0.80) : (v > 0.36 ? vec3(0.47, 0.51, 0.65) : vec3(0.32, 0.35, 0.48)));
+        sb = mix(sb, sb * vec3(1.08, 0.90, 1.0), gold);
+        sb *= 0.30 + 0.70 * max(day, gold);
+        col = mix(col, sb, clamp(sideK * 1.1, 0.0, 0.9));
+        col += vec3(0.6, 0.7, 1.0) * fl * sideK * 0.3;
+        stormK = sideK;
+    }
     // distance haze into the sky's own horizon colour
     highp float dist = length(relPos.xz);
     highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
     highp vec2 dxz = relPos.xz / (dist + 1e-4);
     highp float sd = pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.4);
     highp vec3 haze = mix(hazeAway, hazeSun, sd);
+    haze = mix(haze, mix(vec3(0.45, 0.52, 0.64), vec3(0.50, 0.38, 0.50), gold) * (0.3 + 0.7 * max(day, gold)), stormK * 0.6);
     highp float f = clamp(dist / fadeEnd, 0.0, 1.0);
     col = mix(col, haze, smoothstep(0.15, 1.0, f) * 0.85);
     highp float a = 1.0 - smoothstep(fadeStart, fadeEnd, dist);

@@ -195,6 +195,7 @@ public final class CirrusSky {
 		if (SkySettings.on("lightning_glow") && thunder > 0.5F && Math.random() < 0.006) {
 			flash = 0.7F + (float) Math.random() * 0.3F;
 		}
+		DistantStorm.update(mcw, rain, day);
 		// daily variety: each day gets its own amount of cloud
 		dailyCoverage = 0;
 		if (SkySettings.on("daily_variety") && mcw.level != null) {
@@ -285,6 +286,14 @@ public final class CirrusSky {
 	/** cloud amount: the setting plus today's variation */
 	public static float coverage() {
 		return SkySettings.cloudCoverage + dailyCoverage;
+	}
+
+	/** cloud pass flash: the real lightning, or (negative) the far storm's own flash, + 2 while a bolt shows */
+	private static float cloudFlash() {
+		if (flash > 0.05F || DistantStorm.amount() < 0.01F) {
+			return flash;
+		}
+		return -(Math.min(0.99F, DistantStorm.flash()) + (DistantStorm.bolt() ? 2 : 0));
 	}
 
 	public static float flashLevel() {
@@ -404,7 +413,7 @@ public final class CirrusSky {
 			float scale = Math.max(3.0F, Math.min(48.0F, chunks * 16 * 0.9F / 10.0F));
 			Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).setTranslation(0, 0, 0).scale(scale);
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(modelView, extra,
-					mode > 0.5F ? new Vector3f(flash, Math.min(towerAmt, 1.0F), towerSeed) : new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
+					mode > 0.5F ? new Vector3f(cloudFlash(), Math.min(towerAmt, 1.0F) + 2.0F * (DistantStorm.angleIndex() * 41 + Math.round(DistantStorm.amount() * 40)), towerSeed) : new Vector3f(flash, moonPhase, SkySettings.on("ghibli_sun_moon") ? 1 : 0), params);
 
 			AbstractTexture tex = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
 			AbstractTexture towerTex = mc.getTextureManager().getTexture(TOWERS);

@@ -158,7 +158,7 @@ public final class Wind {
 			org.joml.Vector3f sunV = com.svreg.sky.sky.CirrusSky.sunDirection();
 			// valley fog: thickest in the cool morning and evening, light at midday
 			float vf = SkySettings.on("valley_fog") ? 0.45F + 0.55F * (1 - smoothstep(0.15F, 0.6F, Math.abs(sunV.y))) : 0;
-			GL20C.glUniform4f(locLook, SkySettings.on("warm_lamps") ? 1 : 0, SkySettings.on("dappled_light") ? 1 : 0, vf, 0);
+			GL20C.glUniform4f(locLook, SkySettings.on("warm_lamps") ? 1 : 0, SkySettings.on("dappled_light") ? 1 : 0, vf, com.svreg.sky.sky.DistantStorm.amount());
 		}
 		if (locSkyA >= 0 || locSkyB >= 0 || locSkyC >= 0) {
 			long now = System.nanoTime();
@@ -379,6 +379,8 @@ public final class Wind {
 			            float svDap = svNoise(svWp2.xz * 0.9 + vec2(sin(svregsky_Wind.x * 0.8), cos(svregsky_Wind.x * 0.6)) * 0.6);
 			            svExtra *= mix(1.0, mix(0.86, 1.12, smoothstep(0.45, 0.65, svDap)), svUnder * svregsky_Look.y);
 			        }
+			        // a storm coming: the daylight dims and cools a little
+			        svExtra *= mix(vec3(1.0), vec3(0.80, 0.84, 0.92), svregsky_Look.w * smoothstep(0.6, 0.9, svSkyL) * 0.8);
 			        vec3 svCol = v_Color.rgb * mix(vec3(1.0), svT, svG) * svExtra;
 			        // wet ground after rain: darker, a little cooler, outdoors only
 			        float svWet = svregsky_Season.w * smoothstep(0.80, 0.92, svSkyL);

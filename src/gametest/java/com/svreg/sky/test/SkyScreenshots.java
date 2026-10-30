@@ -149,12 +149,24 @@ public class SkyScreenshots implements FabricClientGameTest {
 			sp.getServer().runCommand("execute as @p at @p run fill ~-12 ~-6 ~32 ~12 ~-4 ~58 water");
 			sp.getServer().runCommand("execute as @p at @p run fill ~-30 ~0 ~14 ~30 ~6 ~60 air");
 			context.waitTicks(80);
-			shot(context, sp, 6000, 0, 30, "zw_beach_noon");
-			shot(context, sp, 6000, 20, 20, "zw2_beach_noon_side");
-			shot(context, sp, 12300, 30, 22, "zw3_beach_golden");
+			shot(context, sp, 6000, 0, 6, "zw_beach_noon");
+			shot(context, sp, 6000, 25, 10, "zw2_beach_noon_side");
+			shot(context, sp, 12300, 30, 8, "zw3_beach_golden");
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("anime_water", false); com.svreg.sky.sky.SkySettings.FLAGS.put("shore_waves", false); });
-			shot(context, sp, 6000, 0, 30, "zw4_beach_old_water");
+			shot(context, sp, 6000, 0, 6, "zw4_beach_old_water");
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("anime_water", true); com.svreg.sky.sky.SkySettings.FLAGS.put("shore_waves", true); });
+			// the distant storm (forced), in 3D Ghibli and painted modes
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli"; com.svreg.sky.sky.SkySettings.version++; com.svreg.sky.sky.DistantStorm.force = 0.4F; });
+			context.waitTicks(120);
+			shot(context, sp, 6000, 160, -8, "zx_storm_far_ghibli");
+			context.runOnClient(client -> com.svreg.sky.sky.DistantStorm.force = 1.0F);
+			context.waitTicks(40);
+			shot(context, sp, 6000, 160, -8, "zx2_storm_near_ghibli");
+			shot(context, sp, 12300, 160, -8, "zx3_storm_golden_ghibli");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "painted"; com.svreg.sky.sky.SkySettings.version++; });
+			context.waitTicks(40);
+			shot(context, sp, 6000, 160, -8, "zx4_storm_near_painted");
+			context.runOnClient(client -> com.svreg.sky.sky.DistantStorm.force = -1F);
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "medium"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.45F; com.svreg.sky.sky.SkySettings.shadowColor = "anime"; });
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 

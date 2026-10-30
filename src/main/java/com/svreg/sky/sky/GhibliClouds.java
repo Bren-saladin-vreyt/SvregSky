@@ -298,7 +298,7 @@ public final class GhibliClouds {
 			params.m20(hzAway[0]);
 			params.m21(hzAway[1]);
 			params.m22(hzAway[2]);
-			params.m23(0);
+			params.m23(DistantStorm.packed());
 			params.m30(hzSun[0]);
 			params.m32(hzSun[1]);
 			params.m33(hzSun[2]);

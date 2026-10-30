@@ -140,6 +140,7 @@ public final class SkySettings {
 		FLAGS.put("screen_shadows", false);
 		FLAGS.put("shadow_debug", false);
 		FLAGS.put("anime_water", true);
+		FLAGS.put("distant_storm", true);
 		FLAGS.put("shore_waves", true);
 		// comfort
 		FLAGS.put("per_world", false);

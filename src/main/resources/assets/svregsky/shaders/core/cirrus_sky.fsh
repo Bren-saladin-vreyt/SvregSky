@@ -476,6 +476,90 @@ const int F_ROWS = 8192;
 const int F_CIRRUS = 16384;
 const int F_NOPAINT = 32768;
 const int F_RAYS3D = 65536;
+
+// cloud pass: ModelOffset.x = lightning flash (negative = only the far storm flashes, -2 more while a bolt shows),
+// ModelOffset.y = tower amount + 2 * (storm direction index * 41 + storm amount * 40), ModelOffset.z = tower seed
+highp float gFlash, gStormFlash, gBolt, gStorm, gTower;
+highp vec2 gStormDir;
+void decodeCloudPass() {
+    highp float x = ModelOffset.x;
+    gFlash = max(x, 0.0);
+    highp float v = max(-x, 0.0);
+    gBolt = v >= 1.999 ? 1.0 : 0.0;
+    gStormFlash = v - 2.0 * gBolt;
+    highp float q = floor(ModelOffset.y * 0.5 + 0.0001);
+    gTower = ModelOffset.y - 2.0 * q;
+    highp float ai = floor(q / 41.0 + 0.0001);
+    gStorm = (q - ai * 41.0) / 40.0;
+    highp float ang = ai * 5.0 * 3.14159265 / 180.0;
+    gStormDir = vec2(cos(ang), sin(ang));
+}
+
+highp float stormSide(highp vec3 d) {
+    highp vec2 h = normalize(d.xz + vec2(1e-5));
+    return smoothstep(0.25, 0.85, dot(h, gStormDir));
+}
+
+// the far storm: a dark cumulonimbus wall with cauliflower tops, an anvil when close, rain curtains and lightning inside
+highp vec4 stormWall(highp vec3 d, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float org, highp float tm) {
+    highp vec2 h = normalize(d.xz + vec2(1e-5));
+    highp float side = dot(h, gStormDir);
+    if (side < -0.1 || d.y < -0.05) return vec4(0.0);
+    highp float az = atan(h.x * gStormDir.y - h.y * gStormDir.x, side);
+    highp float w = smoothstep(-0.05, 0.75, side);
+    highp float bump = 0.0;
+    for (int sc = 0; sc < 2; sc++) {
+        highp float fq = sc == 0 ? 5.0 : 13.0;
+        highp float k = floor(az * fq);
+        for (int j = -1; j <= 1; j++) {
+            highp float id = k + float(j);
+            highp float c = (id + 0.5 + (hash2(vec2(id, fq)) - 0.5) * 0.5) / fq;
+            highp float r = (0.55 + 0.55 * hash2(vec2(id, fq + 3.0))) / fq;
+            highp float hh = (sc == 0 ? 0.55 : 0.18) + (sc == 0 ? 0.45 : 0.14) * hash2(vec2(id, fq + 7.0));
+            highp float xx = (az - c) / r;
+            bump = max(bump, (sc == 0 ? 0.0 : 0.62) + hh * sqrt(max(0.0, 1.0 - xx * xx)));
+        }
+    }
+    highp float top = (0.04 + 0.30 * gStorm) * w * bump;
+    // the anvil: a flat sheet spreading from the top when the storm is close
+    highp float anvil = smoothstep(0.55, 1.0, gStorm) * smoothstep(0.5, 0.95, side);
+    highp float anvilTop = top + anvil * (0.025 + 0.012 * noise(vec2(az * 6.0, 2.0)));
+    bool inAnvil = anvil > 0.0 && d.y >= top && d.y < anvilTop && abs(az) < 0.35 + 0.5 * gStorm;
+    if (d.y > top && !inAnvil) return vec4(0.0);
+    highp float v = clamp(d.y / max(top, 1e-3), 0.0, 1.0);
+    highp vec3 lit = mix(vec3(0.96, 0.96, 0.98), mix(vec3(0.98, 0.68, 0.72), vec3(1.0, 0.72, 0.46), org), gold);
+    highp vec3 mid = mix(vec3(0.50, 0.54, 0.66), vec3(0.54, 0.40, 0.56), gold);
+    highp vec3 dark = mix(vec3(0.24, 0.27, 0.38), vec3(0.27, 0.19, 0.33), gold);
+    highp float nk = night * (1.0 - day) * (1.0 - gold);
+    lit = mix(lit, vec3(0.30, 0.33, 0.48), nk);
+    mid = mix(mid, vec3(0.16, 0.18, 0.28), nk);
+    dark = mix(dark, vec3(0.08, 0.09, 0.15), nk);
+    highp float l = v + 0.18 * (noise(vec2(az * 30.0, d.y * 40.0)) - 0.5) + 0.15 * dot(h, normalize(sunDir.xz + vec2(1e-5)));
+    highp vec3 c = l > 0.80 ? lit : (l > 0.62 ? mix(mid, lit, 0.45) : (l > 0.30 ? mid : dark));
+    if (inAnvil) c = mix(mid, lit, 0.55);
+    // rain curtains hanging from the dark base
+    highp float shaft = smoothstep(0.55, 0.75, noise(vec2(az * 40.0, 3.0))) * (1.0 - smoothstep(0.0, 0.35, v));
+    c = mix(c, mix(vec3(0.55, 0.58, 0.66), vec3(0.12, 0.13, 0.20), nk), shaft * 0.6);
+    // lightning glowing inside
+    highp float fx = 0.25 * (hash2(vec2(floor(tm * 0.7), 5.0)) - 0.5);
+    highp float fz = exp(-pow((az - fx) * 7.0, 2.0) - pow((v - 0.45) * 2.5, 2.0));
+    c += vec3(0.75, 0.82, 1.0) * gStormFlash * fz * 0.9;
+    highp float a = smoothstep(0.0, 0.25, w) * (0.75 + 0.25 * gStorm);
+    return vec4(c, a);
+}
+
+// a bolt from the storm's base down to the horizon
+highp float stormBolt(highp vec3 d, highp float tm) {
+    if (gBolt < 0.5 || gStorm < 0.3) return 0.0;
+    highp vec2 h = normalize(d.xz + vec2(1e-5));
+    highp float az = atan(h.x * gStormDir.y - h.y * gStormDir.x, dot(h, gStormDir));
+    highp float seed = floor(tm * 2.0);
+    highp float x = 0.3 * (hash2(vec2(seed, 1.7)) - 0.5) + 0.012 * (noise(vec2(d.y * 90.0, seed)) - 0.5) + 0.02 * (noise(vec2(d.y * 25.0, seed + 5.0)) - 0.5);
+    highp float top = (0.04 + 0.30 * gStorm) * 0.45;
+    if (d.y > top || d.y < -0.01) return 0.0;
+    highp float e = abs(az - x);
+    return e < 0.0035 ? 1.0 : (e < 0.009 ? 0.35 : 0.0);
+}
 bool tflag(int b) {
     return (int(TextureMat[3].x + 0.5) & b) != 0;
 }
@@ -590,9 +674,9 @@ highp vec4 towers(highp vec3 dir, highp vec3 sunDir, highp float day, highp floa
                 if (tflag(F_TLIGHT)) {
                 // lightning glowing inside the storm cloud
                 // a flash somewhere inside the cloud: violet-white core, toon bands fading out
-                highp vec2 fc = vec2(-90.0 + 180.0 * hash2(vec2(sd, floor(ModelOffset.x * 9.0))), 90.0 + 130.0 * hash2(vec2(floor(ModelOffset.x * 9.0), sd)));
+                highp vec2 fc = vec2(-90.0 + 180.0 * hash2(vec2(sd, floor(gFlash * 9.0))), 90.0 + 130.0 * hash2(vec2(floor(gFlash * 9.0), sd)));
                 highp float fd = length(vec2(px, py) - fc) / 120.0 + (noise(vec2(px, py) / 22.0 + sd) - 0.5) * 0.7;
-                highp float fl = ModelOffset.x * (fd < 0.25 ? 1.0 : (fd < 0.7 ? 0.5 : (fd < 1.2 ? 0.2 : 0.0)));
+                highp float fl = gFlash * (fd < 0.25 ? 1.0 : (fd < 0.7 ? 0.5 : (fd < 1.2 ? 0.2 : 0.0)));
                 col = mix(col, mix(vec3(0.62, 0.42, 0.80), vec3(0.96, 0.88, 1.0), step(0.9, fl)), fl * 0.8);
                 }
                 col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.85, rain * 0.7);
@@ -686,6 +770,7 @@ void main() {
     int layers = int(round(ColorModulator.z));
 
     if (mode > 0.5) {
+        decodeCloudPass();
         highp vec4 k = tflag(F_NOPAINT) ? vec4(0.0) : clouds(dir, sunDir, day, gold, org, rain, cloudOff, coverAdj, layers);
         if (tflag(F_CIRRUS)) {
             highp vec4 ci = cirrus(dir, day, gold, TextureMat[1].z, org, cloudOff);
@@ -700,12 +785,28 @@ void main() {
             }
         }
         if ((flags & F_TOWERS) != 0) {
-            highp vec4 tw = towers(dir, sunDir, day, gold, night, rain, org, ModelOffset.y, ModelOffset.z);
+            highp vec4 tw = towers(dir, sunDir, day, gold, night, rain, org, gTower, ModelOffset.z);
             // the far, low painted clouds sit behind the towers; high ones (overhead) pass in front
             highp float front = smoothstep(0.30, 0.45, dir.y);
             highp vec4 over = vec4(mix(tw.rgb, k.rgb, k.a), max(k.a, tw.a));
             highp vec4 under = vec4(mix(k.rgb, tw.rgb, tw.a), max(k.a, tw.a));
             k = mix(under, over, front);
+        }
+        if (gStorm > 0.001) {
+            // the far storm: behind the high painted clouds, in front of the low ones; the sky darkens on its side
+            highp float dk = gStorm * stormSide(dir) * 0.5 * (1.0 - smoothstep(0.05, 0.9, dir.y)) * (1.0 - rain);
+            highp vec3 dc = mix(mix(vec3(0.45, 0.52, 0.64), vec3(0.50, 0.38, 0.50), gold), vec3(0.06, 0.07, 0.12), night * (1.0 - day) * (1.0 - gold));
+            k = vec4(mix(dc, k.rgb, k.a), max(k.a, dk));
+            highp vec4 sw = stormWall(dir, sunDir, day, gold, night, org, tm);
+            sw.a *= 1.0 - rain;
+            highp float frontS = smoothstep(0.30, 0.45, dir.y);
+            highp vec4 overS = vec4(mix(sw.rgb, k.rgb, k.a), max(k.a, sw.a));
+            highp vec4 underS = vec4(mix(k.rgb, sw.rgb, sw.a), max(k.a, sw.a));
+            k = mix(underS, overS, frontS);
+            highp float bl = stormBolt(dir, tm) * (1.0 - rain);
+            k = vec4(mix(k.rgb, vec3(1.0, 1.0, 0.96), bl), max(k.a, bl));
+            // painted clouds on the storm side turn grey-blue
+            k.rgb = mix(k.rgb, k.rgb * vec3(0.70, 0.74, 0.86), gStorm * stormSide(dir) * 0.6);
         }
         if ((flags & F_MOUNTAINS) != 0 && dir.y < 0.26) {
             highp vec3 hs = landHeights(atan(dir.z, dir.x));
@@ -723,7 +824,7 @@ void main() {
             highp vec4 r = vec4(rc, ray * 0.45);
             k = vec4(mix(r.rgb, k.rgb, k.a), max(k.a, r.a));
         }
-        k.rgb += vec3(0.55, 0.58, 0.72) * ModelOffset.x * k.a * 0.6; // lightning lights the clouds from inside
+        k.rgb += vec3(0.55, 0.58, 0.72) * gFlash * k.a * 0.6; // lightning lights the clouds from inside
         if (k.a < 0.004) {
             discard;
         }
