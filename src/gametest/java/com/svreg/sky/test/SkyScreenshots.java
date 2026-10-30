@@ -195,6 +195,7 @@ public class SkyScreenshots implements FabricClientGameTest {
 			look(context, 0, -12, "zz_sky_lanterns");
 			context.runOnClient(client -> com.svreg.sky.fx.Effects.forceLanterns = false);
 			// blue hour, silver night clouds, morning dew
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("auto_fps", false)); // the CI machine is slow; keep every effect on
 			shot(context, sp, 13250, 90, -8, "zz6_blue_hour_west");
 			shot(context, sp, 13250, -90, -8, "zz7_blue_hour_east");
 			context.runOnClient(client -> com.svreg.sky.sky.Twilight.forceSilver = true);
