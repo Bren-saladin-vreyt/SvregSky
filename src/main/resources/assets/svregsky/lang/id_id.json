@@ -151,5 +151,7 @@
   "svregsky.options.shadow_method": "§e● §rCara Bayangan",
   "svregsky.options.shadow_method.world": "Dunia (jalan di HP)",
   "svregsky.options.shadow_method.screen": "Layar (PC, ada entity)",
-  "svregsky.options.shadow_method.both": "Dua-duanya (PC)"
+  "svregsky.options.shadow_method.both": "Dua-duanya (PC)",
+  "svregsky.options.anime_water": "§a● §rAir Anime (dangkal toska, dalam biru)",
+  "svregsky.options.shore_waves": "§a● §rOmbak Pantai Anime"
 }

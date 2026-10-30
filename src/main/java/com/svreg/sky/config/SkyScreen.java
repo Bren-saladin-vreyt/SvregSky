@@ -188,6 +188,8 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("water_reflection"),
 				flag("water_sunset"),
 				flag("water_sparkle_dots"),
+				flag("anime_water"),
+				flag("shore_waves"),
 				flag("face_light"),
 				flag("screen_shadows"),
 				choice("shadow_method", List.of("world", "screen", "both"), SkySettings.shadowMethod, v -> SkySettings.shadowMethod = v),

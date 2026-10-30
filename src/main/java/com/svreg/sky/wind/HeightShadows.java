@@ -26,20 +26,34 @@ public final class HeightShadows {
 	private static int tex = -1, originX = Integer.MIN_VALUE, originZ, minY, nextRow;
 	private static boolean broken, fullUpload;
 	private static ByteBuffer buf;
+	/** per column: water depth (0 = land), and the shore distance field (packed into the alpha channel) */
+	private static final byte[] depth = new byte[SIZE * SIZE];
+	private static final int[] dist = new int[SIZE * SIZE];
+	private static final byte[] alpha = new byte[SIZE * SIZE];
 	private static ClientLevel lastLevel;
-	private static long lastNanos;
+	private static long lastNanos, lastField;
 
 	private HeightShadows() {
 	}
 
 	/** world shadows on (the "world" or "both" method) */
-	public static boolean active() {
+	public static boolean shadowsOn() {
 		return !broken && SkySettings.on("screen_shadows") && !"screen".equals(SkySettings.shadowMethod);
+	}
+
+	/** the column map is needed by the world shadows, the anime water or the shore waves */
+	public static boolean active() {
+		return !broken && (shadowsOn() || SkySettings.on("anime_water") || SkySettings.on("shore_waves"));
+	}
+
+	/** the map has data (texture made and filled at least once) */
+	public static boolean ready() {
+		return tex >= 0 && originX != Integer.MIN_VALUE;
 	}
 
 	/** strength for the shader right now (0 = off) */
 	public static float strength() {
-		if (!active() || tex < 0) {
+		if (!shadowsOn() || tex < 0) {
 			return 0;
 		}
 		org.joml.Vector3f sun = CirrusSky.sunDirection();
@@ -135,12 +149,26 @@ public final class HeightShadows {
 					pos.setY(top + 1);
 					plant = plant(level, pos) ? 230 : 100;
 				}
+				// water: how deep (blocks of water under the surface, up to 15)
+				int d = 0;
+				pos.set(originX + x, top - 1, originZ + z);
+				while (d < 15 && level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)) {
+					d++;
+					pos.setY(top - 1 - d);
+				}
+				depth[z * SIZE + x] = (byte) d;
 				int i = (z * SIZE + x) * 4;
 				buf.put(i, (byte) (h & 255));
 				buf.put(i + 1, (byte) (h >> 8));
 				buf.put(i + 2, (byte) plant);
-				buf.put(i + 3, (byte) 255);
+				buf.put(i + 3, alpha[z * SIZE + x]);
 			}
+		}
+		if (to == SIZE && (from == 0 || System.nanoTime() - lastField > 1_000_000_000L)) {
+			lastField = System.nanoTime();
+			// a full pass is done: rebuild the shore distance field and upload the whole map
+			shoreField();
+			from = 0;
 		}
 		if (GL11C.glGetInteger(GL21C.GL_PIXEL_UNPACK_BUFFER_BINDING) != 0) {
 			fullUpload = true; // a pixel buffer is bound right now: upload everything next time
@@ -154,6 +182,58 @@ public final class HeightShadows {
 		buf.limit(to * SIZE * 4);
 		GL11C.glTexSubImage2D(GL11C.GL_TEXTURE_2D, 0, 0, from, SIZE, to - from, GL11C.GL_RGBA, GL11C.GL_UNSIGNED_BYTE, buf.slice());
 		buf.clear();
+	}
+
+	/**
+	 * Distance (in blocks, up to 15) from every column to the nearest column of the other kind (water vs land),
+	 * a two-pass chamfer transform; stored with the water depth in the alpha channel: depth << 4 | distance.
+	 */
+	private static void shoreField() {
+		final int INF = 1 << 20;
+		for (int pass = 0; pass < 2; pass++) {
+			// pass 0: distance of water columns to land; pass 1: distance of land columns to water
+			boolean wantWater = pass == 0;
+			for (int i = 0; i < SIZE * SIZE; i++) {
+				boolean water = depth[i] > 0;
+				dist[i] = water == wantWater ? INF : 0;
+			}
+			for (int z = 0; z < SIZE; z++) {
+				for (int x = 0; x < SIZE; x++) {
+					int i = z * SIZE + x, v = dist[i];
+					if (v == 0) continue;
+					if (x > 0) v = Math.min(v, dist[i - 1] + 3);
+					if (z > 0) {
+						v = Math.min(v, dist[i - SIZE] + 3);
+						if (x > 0) v = Math.min(v, dist[i - SIZE - 1] + 4);
+						if (x < SIZE - 1) v = Math.min(v, dist[i - SIZE + 1] + 4);
+					}
+					dist[i] = v;
+				}
+			}
+			for (int z = SIZE - 1; z >= 0; z--) {
+				for (int x = SIZE - 1; x >= 0; x--) {
+					int i = z * SIZE + x, v = dist[i];
+					if (v == 0) continue;
+					if (x < SIZE - 1) v = Math.min(v, dist[i + 1] + 3);
+					if (z < SIZE - 1) {
+						v = Math.min(v, dist[i + SIZE] + 3);
+						if (x < SIZE - 1) v = Math.min(v, dist[i + SIZE + 1] + 4);
+						if (x > 0) v = Math.min(v, dist[i + SIZE - 1] + 4);
+					}
+					dist[i] = v;
+				}
+			}
+			for (int i = 0; i < SIZE * SIZE; i++) {
+				boolean water = depth[i] > 0;
+				if (water == wantWater) {
+					int d = Math.min(15, Math.max(1, (dist[i] + 1) / 3));
+					alpha[i] = (byte) ((depth[i] << 4) | d);
+				}
+			}
+		}
+		for (int i = 0; i < SIZE * SIZE; i++) {
+			buf.put(i * 4 + 3, alpha[i]);
+		}
 	}
 
 	private static boolean plant(ClientLevel level, net.minecraft.core.BlockPos pos) {

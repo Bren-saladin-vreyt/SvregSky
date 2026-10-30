@@ -151,5 +151,7 @@
   "svregsky.options.shadow_method": "§e● §rShadow Method",
   "svregsky.options.shadow_method.world": "World (works on phones)",
   "svregsky.options.shadow_method.screen": "Screen (PC, entities)",
-  "svregsky.options.shadow_method.both": "Both (PC)"
+  "svregsky.options.shadow_method.both": "Both (PC)",
+  "svregsky.options.anime_water": "§a● §rAnime Water (turquoise shallows)",
+  "svregsky.options.shore_waves": "§a● §rAnime Shore Waves"
 }

@@ -141,6 +141,20 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 9800, 45, 18, "zu9_shadows_screen_method");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.shadowMethod = "world");
 			shot(context, sp, 7000, 200, 25, "zv_shadows_world_noon_back");
+			// a beach: sand shore around a lagoon that gets deeper toward the middle
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
+			sp.getServer().runCommand("execute as @p at @p run fill ~-30 ~-6 ~14 ~30 ~-1 ~60 sand");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-26 ~-1 ~18 ~26 ~-1 ~58 water");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-20 ~-3 ~24 ~20 ~-2 ~58 water");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-12 ~-6 ~32 ~12 ~-4 ~58 water");
+			sp.getServer().runCommand("execute as @p at @p run fill ~-30 ~0 ~14 ~30 ~6 ~60 air");
+			context.waitTicks(80);
+			shot(context, sp, 6000, 0, 30, "zw_beach_noon");
+			shot(context, sp, 6000, 20, 20, "zw2_beach_noon_side");
+			shot(context, sp, 12300, 30, 22, "zw3_beach_golden");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("anime_water", false); com.svreg.sky.sky.SkySettings.FLAGS.put("shore_waves", false); });
+			shot(context, sp, 6000, 0, 30, "zw4_beach_old_water");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("anime_water", true); com.svreg.sky.sky.SkySettings.FLAGS.put("shore_waves", true); });
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "medium"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.45F; com.svreg.sky.sky.SkySettings.shadowColor = "anime"; });
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 

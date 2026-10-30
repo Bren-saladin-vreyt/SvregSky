@@ -18,7 +18,7 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1;
 	private static long skyNanos;
 	/** test hook: paint the water-detection debug view */
 	public static boolean debugWater;
@@ -135,6 +135,7 @@ public final class Wind {
 			locShadow = GL20C.glGetUniformLocation(prog, "svregsky_Shadow");
 			locShadow2 = GL20C.glGetUniformLocation(prog, "svregsky_Shadow2");
 			locHeightTex = GL20C.glGetUniformLocation(prog, "svregsky_HeightTex");
+			locWater = GL20C.glGetUniformLocation(prog, "svregsky_Water");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
@@ -189,11 +190,16 @@ public final class Wind {
 		if (locShadow >= 0) {
 			// world sun shadows from the column height map (see HeightShadows)
 			float k = 0;
-			if (HeightShadows.active()) {
+			boolean map = HeightShadows.active();
+			if (map) {
 				HeightShadows.update(camX, camZ);
 				k = HeightShadows.strength();
+				map = HeightShadows.ready();
 			}
-			if (k > 0) {
+			if (locWater >= 0) {
+				GL20C.glUniform4f(locWater, map && SkySettings.on("anime_water") ? 1 : 0, map && SkySettings.on("shore_waves") ? 1 : 0, map ? 1 : 0, 0);
+			}
+			if (map) {
 				GL20C.glUniform4f(locShadow, (float) (camX - HeightShadows.originX()), (float) (camZ - HeightShadows.originZ()), (float) (camY - HeightShadows.minY()), k);
 				float[] q = HeightShadows.quality();
 				float ci = "neutral".equals(SkySettings.shadowColor) ? 1 : "warm".equals(SkySettings.shadowColor) ? 2 : 0;
@@ -409,11 +415,33 @@ public final class Wind {
 			uniform vec4 svregsky_Look2; // sparkle dots, unused...
 			uniform vec4 svregsky_Shadow;  // height map offset x, z, camera height above the map floor, shadow strength
 			uniform vec4 svregsky_Shadow2; // march steps, reach, colour (0 anime, 1 neutral, 2 warm), debug view
-			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g
+			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g; b plants; a = water depth << 4 | shore distance
+			uniform vec4 svregsky_Water;   // anime water, shore waves, column map ready
+			// signed distance to the shoreline (blocks, + in the water) and water depth at a grid position, smoothly interpolated
+			vec2 svShore(vec2 g) {
+			    vec2 gp = g - 0.5;
+			    vec2 f = fract(gp);
+			    ivec2 i0 = ivec2(floor(gp));
+			    vec2 r[4];
+			    for (int k = 0; k < 4; k++) {
+			        ivec2 c = clamp(i0 + ivec2(k & 1, k >> 1), ivec2(0), ivec2(255));
+			        float a = floor(texelFetch(svregsky_HeightTex, c, 0).a * 255.0 + 0.5);
+			        float dep = floor(a / 16.0);
+			        float dis = a - dep * 16.0;
+			        r[k] = vec2(dep > 0.0 ? dis - 0.5 : 0.5 - dis, dep);
+			    }
+			    return mix(mix(r[0], r[1], f.x), mix(r[2], r[3], f.x), f.y);
+			}
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
 			    p3 += dot(p3, p3.yzx + 33.33);
 			    return fract((p3.x + p3.y) * p3.z);
+			}
+			float svNoise2(vec2 p) {
+			    vec2 i = floor(p);
+			    vec2 f = fract(p);
+			    f = f * f * (3.0 - 2.0 * f);
+			    return mix(mix(svHash(i), svHash(i + vec2(1.0, 0.0)), f.x), mix(svHash(i + vec2(0.0, 1.0)), svHash(i + vec2(1.0, 1.0)), f.x), f.y);
 			}
 			#endif
 			""";
@@ -446,6 +474,21 @@ public final class Wind {
 			            float svFres = 0.22 + 0.6 * pow(1.0 - clamp(-svV.y, 0.0, 1.0), 3.0);
 			            // lighten toward the sky (keeps the water's own turquoise where the sky is darker)
 			            vec3 svBase = color.rgb;
+			            vec2 svSh = vec2(3.0, 4.0);
+			            if (svregsky_Water.z > 0.5) {
+			                svSh = svShore(svWp.xz - svregsky_Cam.xz + svregsky_Shadow.xy + vec2(0.0));
+			            }
+			            if (svregsky_Water.x > 0.5) {
+			                // anime water: bright turquoise in the shallows, deep blue further out, the texture's tiling hushed
+			                float svDeep = smoothstep(0.5, 6.0, svSh.y) * smoothstep(0.0, 3.0, svSh.x);
+			                vec3 svShallow = vec3(0.38, 0.86, 0.86), svDeepC = vec3(0.10, 0.40, 0.78);
+			                float svBright = (0.16 + 0.84 * max(v_svInfo.y, v_svInfo.z * 0.9)) * mix(0.45, 1.0, v_svInfo.x);
+			                vec3 svAn = mix(svShallow, svDeepC, svDeep) * svBright;
+			                float svTexL = dot(color.rgb, vec3(0.30, 0.59, 0.11));
+			                svBase = mix(svAn, svAn * clamp(svTexL / 0.45, 0.7, 1.3), 0.15);
+			                color.rgb = svBase;
+			                color.a = max(color.a, mix(0.62, 0.93, svDeep));
+			            }
 			            // by day lighten toward the sky (keeps the turquoise); at golden hour the water turns into the sky's colours
 			            vec3 svDayMix = mix(svBase, max(svBase, svSky * 0.95) * vec3(0.96, 1.02, 1.02), svFres * 0.6);
 			            vec3 svGoldMix = mix(svBase, svSky, clamp(0.55 + svFres * 0.45, 0.0, 0.92));
@@ -468,6 +511,43 @@ public final class Wind {
 			            float svLines = step(0.93, fract(dot(svWp.xz, vec2(0.31, 0.95)) * 0.55 + svWv.y * 0.12 + svT * 0.12))
 			                          * step(0.5, fract(dot(svWp.xz, vec2(0.95, -0.31)) * 0.2 + svT * 0.05));
 			            color.rgb = mix(color.rgb, vec3(0.92, 0.98, 1.0), svLines * 0.18 * v_svInfo.y);
+			            if (svregsky_Water.y > 0.5 && svSh.x < 4.0) {
+			                // anime surf: foam lines rolling in to the shore, lacy where they break, and a pale shallow band
+			                float svLace = svNoise2(svWp.xz * 0.9) * 0.6 + svNoise2(svWp.xz * 2.7) * 0.4;
+			                float svFoam = 0.0;
+			                for (int svF = 0; svF < 3; svF++) {
+			                    float svPh = fract(svT * 0.12 + float(svF) / 3.0);
+			                    float svPos = (1.0 - svPh) * 3.2 + 0.15;
+			                    float svWd = 0.10 + 0.22 * svPh;
+			                    float svLn = smoothstep(svWd, 0.0, abs(svSh.x - svPos - (svLace - 0.5) * 0.5));
+			                    svFoam = max(svFoam, svLn * smoothstep(0.0, 0.25, svPh) * smoothstep(1.0, 0.8, svPh) * (0.55 + 0.45 * svPh) * step(0.35 - 0.25 * svPh, svLace));
+			                }
+			                float svLit = (0.25 + 0.75 * max(v_svInfo.y, v_svInfo.z)) * mix(0.5, 1.0, v_svInfo.x);
+			                vec3 svFc = mix(vec3(1.0), vec3(1.0, 0.86, 0.72), v_svInfo.z * 0.6) * svLit;
+			                color.rgb = mix(color.rgb, vec3(0.72, 0.96, 0.96) * svLit, (1.0 - smoothstep(0.0, 0.8, svSh.x)) * 0.35);
+			                color.rgb = mix(color.rgb, svFc, svFoam * 0.92);
+			                color.a = max(color.a, svFoam * 0.95);
+			            }
+			        } else if (svregsky_Water.y > 0.5 && svN.y > 0.7 && v_svWater.w < 0.5 && v_svInfo.x > 0.5
+			                   && color.r > color.b + 0.08 && color.g > color.b + 0.04 && color.r > color.g * 0.85) {
+			            // the wash on the beach: a thin sheet of water and foam slides up the sand and back, leaving it wet
+			            vec3 svWp3 = v_svWater.xyz + svregsky_Cam.xyz;
+			            vec2 svSh2 = svShore(v_svWater.xz + svregsky_Shadow.xy);
+			            float svUp = -svSh2.x;
+			            if (svUp < 1.6) {
+			                float svT3 = svregsky_Wind.x;
+			                float svReach = 0.9 * (0.5 + 0.5 * sin(svT3 * 0.75 + svNoise2(svWp3.xz * 0.05) * 3.0));
+			                float svLace2 = svNoise2(svWp3.xz * 0.9) * 0.6 + svNoise2(svWp3.xz * 2.7) * 0.4;
+			                float svEdge = svReach + (svLace2 - 0.5) * 0.3;
+			                float svLit2 = (0.25 + 0.75 * max(v_svInfo.y, v_svInfo.z)) * mix(0.5, 1.0, v_svInfo.x);
+			                if (svUp < svEdge) {
+			                    vec3 svWash = mix(vec3(0.55, 0.88, 0.90), vec3(0.82, 0.95, 0.96), svUp / max(svEdge, 0.01)) * svLit2;
+			                    color.rgb = mix(color.rgb, svWash, 0.75);
+			                    color.rgb = mix(color.rgb, vec3(1.0) * svLit2, smoothstep(svEdge - 0.12, svEdge, svUp) * 0.85);
+			                } else {
+			                    color.rgb *= mix(vec3(0.80, 0.78, 0.84), vec3(1.0), smoothstep(svEdge, 1.6, svUp));
+			                }
+			            }
 			        } else if (svregsky_SkyB.w > 0.5 && v_svInfo.x > 0.6 && v_svInfo.y > 0.05) {
 			            // anime light: faces toward the sun a touch warmer, faces away cool lavender-blue
 			            float svD = dot(svN, normalize(vec3(svSunD.x, max(svSunD.y, 0.2), svSunD.z)));
