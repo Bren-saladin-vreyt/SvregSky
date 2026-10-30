@@ -832,7 +832,7 @@ void main() {
             highp float hx = noise(qS + vec2(0.12, 0.0)) * 0.6 + noise((qS + vec2(0.12, 0.0)) * 2.3 + 3.1) * 0.3;
             highp float hz = noise(qS + vec2(0.0, 0.12)) * 0.6 + noise((qS + vec2(0.0, 0.12)) * 2.3 + 3.1) * 0.3;
             highp vec3 cn = normalize(vec3(-(hx - h0 * 0.9) * 7.0, 1.0, -(hz - h0 * 0.9) * 7.0));
-            highp float lS = dot(cn, normalize(sunDir + vec3(0.0, 0.15, 0.0))) * 0.5 + 0.5 + 0.12 * h0;
+            highp float lS = dot(cn, normalize(sunDir + vec3(0.0, 0.15, 0.0))) * 0.35 + 0.45 + (h0 - 0.45) * 1.1;
             highp vec3 c0 = mix(vec3(0.58, 0.72, 0.96), vec3(0.42, 0.30, 0.52), gold), c1 = mix(vec3(0.74, 0.85, 1.0), vec3(0.58, 0.42, 0.62), gold);
             highp vec3 c2 = mix(vec3(0.89, 0.95, 1.0), vec3(0.90, 0.66, 0.60), gold), c3 = mix(vec3(1.0), vec3(1.0, 0.86, 0.64), gold);
             highp vec3 cs = lS > 0.78 ? c3 : (lS > 0.62 ? c2 : (lS > 0.45 ? c1 : c0));

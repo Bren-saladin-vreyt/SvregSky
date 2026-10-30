@@ -693,7 +693,7 @@ public final class Wind {
 			                float svBelow = svCsY + (svH0 - 0.35) * 14.0 - svFy;
 			                float svCa2 = smoothstep(-1.0, 4.0, svBelow) * svCsA;
 			                vec3 svCn = normalize(vec3(-(svHx - svH0) * 7.0, 1.0, -(svHz - svH0) * 7.0));
-			                float svL3 = dot(svCn, normalize(svSunD + vec3(0.0, 0.15, 0.0))) * 0.5 + 0.5 + 0.12 * svH0;
+			                float svL3 = dot(svCn, normalize(svSunD + vec3(0.0, 0.15, 0.0))) * 0.35 + 0.45 + (svH0 - 0.45) * 1.1;
 			                float svGd = v_svInfo.z, svDd = v_svInfo.y;
 			                vec3 svC0 = mix(vec3(0.58, 0.72, 0.96), vec3(0.42, 0.30, 0.52), svGd), svC1b = mix(vec3(0.74, 0.85, 1.0), vec3(0.58, 0.42, 0.62), svGd);
 			                vec3 svC2b = mix(vec3(0.89, 0.95, 1.0), vec3(0.90, 0.66, 0.60), svGd), svC3 = mix(vec3(1.0), vec3(1.0, 0.86, 0.64), svGd);
