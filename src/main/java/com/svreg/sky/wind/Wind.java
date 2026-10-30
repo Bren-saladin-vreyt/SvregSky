@@ -688,19 +688,21 @@ public final class Wind {
 			                }
 			            }
 			        }
-			        if (svregsky_Look2.z > 0.01 && svN.y > 0.5 && v_svWater.w < 0.5 && v_svInfo.x > 0.8
-			                && color.g > color.r * 1.05 && color.g > color.b * 1.1) {
-			            // morning dew: tiny twinkling points on the grass and leaves, more of them toward the sun
-			            vec2 svDc = floor(svWg.xz * 10.0);
+			        if (svregsky_Look2.z > 0.01 && v_svWater.w < 0.5 && v_svInfo.x > 0.8 && (v_svInfo.w > 0.5 || (svN.y > 0.5
+			                && color.g > color.r * 1.05 && color.g > color.b * 1.1))) {
+			            // morning dew: twinkling drops on grass tops, grass blades and leaves, brighter toward the sun
+			            // (tops use the ground plane, blades and leaves their own face plane)
+			            vec2 svDu = svN.y > 0.5 ? svWg.xz : vec2(dot(svWg.xz, normalize(vec2(-svN.z, svN.x) + vec2(1e-4))), svWg.y);
+			            vec2 svDc = floor(svDu * 6.0);
 			            float svDh = svHash(svDc + floor(svWg.y) * 7.1);
-			            vec2 svDp = (svDc + vec2(svHash(svDc + 3.1), svHash(svDc + 5.7))) / 10.0;
-			            float svDd = length(svWg.xz - svDp) * 10.0;
-			            vec3 svRv = reflect(svV, vec3(0.0, 1.0, 0.0));
-			            float svToSun = pow(max(dot(svRv, normalize(svSunD)), 0.0), 3.0);
-			            float svTw = 0.5 + 0.5 * sin(svregsky_Wind.x * (2.0 + svDh * 5.0) + svDh * 40.0);
-			            float svOn = step(0.86 - 0.22 * svToSun, svDh) * svTw;
-			            float svSpark = svOn * exp(-svDd * svDd * 30.0) * (1.0 - smoothstep(6.0, 28.0, length(v_svWater.xyz)));
-			            color.rgb += mix(vec3(1.0, 0.97, 0.88), vec3(1.0), svToSun) * svSpark * svregsky_Look2.z * (0.8 + svToSun);
+			            vec2 svDp = (svDc + 0.2 + 0.6 * vec2(svHash(svDc + 3.1), svHash(svDc + 5.7))) / 6.0;
+			            float svDd = length(svDu - svDp) * 6.0;
+			            vec3 svRv = reflect(svV, svN.y > 0.5 ? vec3(0.0, 1.0, 0.0) : svN);
+			            float svToSun = pow(max(dot(svRv, normalize(svSunD)), 0.0), 2.0);
+			            float svTw = 0.55 + 0.45 * sin(svregsky_Wind.x * (2.0 + svDh * 5.0) + svDh * 40.0);
+			            float svOn = step(0.80 - 0.25 * svToSun, svDh) * svTw;
+			            float svSpark = svOn * (exp(-svDd * svDd * 14.0) + 0.5 * exp(-svDd * svDd * 3.0)) * (1.0 - smoothstep(5.0, 22.0, length(v_svWater.xyz)));
+			            color.rgb += mix(vec3(1.0, 0.95, 0.82), vec3(1.0), svToSun) * svSpark * svregsky_Look2.z * (0.9 + svToSun);
 			        }
 			        if (svregsky_Extra.x > 0.01 && v_svWater.w < 0.5 && v_svInfo.x > 0.75) {
 			            // winter: snow settles on the tops of blocks, leaves and roofs (a thin lip on the sides), in patches that grow
