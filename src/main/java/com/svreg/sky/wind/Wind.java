@@ -513,14 +513,14 @@ public final class Wind {
 			            float svLines = step(0.93, fract(dot(svWp.xz, vec2(0.31, 0.95)) * 0.55 + svWv.y * 0.12 + svT * 0.12))
 			                          * step(0.5, fract(dot(svWp.xz, vec2(0.95, -0.31)) * 0.2 + svT * 0.05));
 			            color.rgb = mix(color.rgb, vec3(0.92, 0.98, 1.0), svLines * 0.18 * v_svInfo.y);
-			            if (svregsky_Water.y > 0.5 && svSh.x < 4.0) {
+			            if (svregsky_Water.y > 0.5 && svSh.x < 2.4) {
 			                // anime surf: foam lines rolling in to the shore, lacy where they break, and a pale shallow band
 			                float svLace = svNoise2(svWp.xz * 0.9) * 0.6 + svNoise2(svWp.xz * 2.7) * 0.4;
 			                float svFoam = 0.0;
 			                for (int svF = 0; svF < 3; svF++) {
 			                    float svPh = fract(svT * 0.12 + float(svF) / 3.0);
-			                    float svPos = (1.0 - svPh) * 3.2 + 0.15;
-			                    float svWd = 0.10 + 0.22 * svPh;
+			                    float svPos = (1.0 - svPh) * 1.9 + 0.1;
+			                    float svWd = 0.08 + 0.18 * svPh;
 			                    float svLn = smoothstep(svWd, 0.0, abs(svSh.x - svPos - (svLace - 0.5) * 0.5));
 			                    svFoam = max(svFoam, svLn * smoothstep(0.0, 0.25, svPh) * smoothstep(1.0, 0.8, svPh) * (0.55 + 0.45 * svPh) * step(0.35 - 0.25 * svPh, svLace));
 			                }
