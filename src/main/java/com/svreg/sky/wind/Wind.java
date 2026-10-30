@@ -430,7 +430,6 @@ public final class Wind {
 			            float svOcc = 0.0;
 			            bool svIn = svDist < svRange && v_svInfo.x > 0.2;
 			            if (svIn) {
-			                svOcc = dot(svN, svL2) < -0.02 ? 1.0 : 0.0;
 			                vec3 svQ0 = v_svWater.xyz + svN * 0.06;
 			                float svT2 = 0.35;
 			                int svSteps = int(svregsky_Shadow2.x + 0.5);
