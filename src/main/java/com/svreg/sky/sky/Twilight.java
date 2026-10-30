@@ -2,7 +2,7 @@ package com.svreg.sky.sky;
 
 import net.minecraft.client.Minecraft;
 
-/** Quiet light moments: the blue hour after sunset (and before sunrise), morning dew, silver night clouds. */
+/** Quiet light moments: the blue hour after sunset (and before sunrise), silver night clouds. */
 public final class Twilight {
 	private Twilight() {
 	}
@@ -14,15 +14,6 @@ public final class Twilight {
 		}
 		float y = CirrusSky.sunDirection().y;
 		return smooth(0.02F, -0.05F, y) * smooth(-0.30F, -0.16F, y) * (1 - CirrusSky.rainLevel());
-	}
-
-	/** morning dew sparkling on the grass: just after sunrise, fading as the sun climbs (0..1) */
-	public static float dew() {
-		if (!SkySettings.on("morning_dew") || CirrusSky.sunDirection().x <= 0) {
-			return 0;
-		}
-		float y = CirrusSky.sunDirection().y;
-		return smooth(-0.02F, 0.08F, y) * (1 - smooth(0.25F, 0.55F, y)) * (1 - CirrusSky.rainLevel());
 	}
 
 	/** silver night clouds: early and late in the night on some (mostly summer) nights, low on the sun's side (0..1) */

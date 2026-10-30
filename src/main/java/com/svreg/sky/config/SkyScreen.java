@@ -127,7 +127,6 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("cloud_sea"),
 				flag("blue_hour"),
 				flag("silver_clouds"),
-				flag("morning_dew"),
 				flag("sky_lanterns"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
