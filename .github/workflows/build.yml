@@ -112,10 +112,10 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { grep -rn -E 'getRainTime|setRainTime|getThunderTime|getClearWeatherTime|rainTime' src2/net/minecraft --include=*.java | head -25; } > probe/a.txt
-          { grep -rln -E 'class WeatherData' src2/net/minecraft | head -8; } > probe/b.txt
-          { f=$(grep -rln 'class WeatherData' src2/net/minecraft | head -1); [ -n "$f" ] && grep -n -E 'public ' $f | head -30; } > probe/c.txt
-          { grep -n -E 'public .*([Ww]eather|[Rr]ain)' src2/net/minecraft/server/level/ServerLevel.java | head -20; } > probe/d.txt
+          { unzip -l "$JAR" | grep -E 'shaders/core/(entity|rendertype_entity)' | head -20; unzip -p "$JAR" assets/minecraft/shaders/core/entity.vsh; } > probe/a.txt
+          { unzip -p "$JAR" assets/minecraft/shaders/core/entity.fsh; } > probe/b.txt
+          { unzip -p "$JAR" assets/minecraft/shaders/include/light.glsl; } > probe/c.txt
+          { unzip -l "$JAR" | grep -E 'shaders/include/' | head -30; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
