@@ -695,13 +695,15 @@ public final class Wind {
 			            vec2 svDu = svN.y > 0.5 ? svWg.xz : vec2(dot(svWg.xz, normalize(vec2(-svN.z, svN.x) + vec2(1e-4))), svWg.y);
 			            vec2 svDc = floor(svDu * 6.0);
 			            float svDh = svHash(svDc + floor(svWg.y) * 7.1);
-			            vec2 svDp = (svDc + 0.2 + 0.6 * vec2(svHash(svDc + 3.1), svHash(svDc + 5.7))) / 6.0;
+			            vec2 svDp = (svDc + 0.3 + 0.4 * vec2(svHash(svDc + 3.1), svHash(svDc + 5.7))) / 6.0;
 			            float svDd = length(svDu - svDp) * 6.0;
 			            vec3 svRv = reflect(svV, svN.y > 0.5 ? vec3(0.0, 1.0, 0.0) : svN);
 			            float svToSun = pow(max(dot(svRv, normalize(svSunD)), 0.0), 2.0);
 			            float svTw = 0.55 + 0.45 * sin(svregsky_Wind.x * (2.0 + svDh * 5.0) + svDh * 40.0);
-			            float svOn = step(0.80 - 0.25 * svToSun, svDh) * svTw;
-			            float svSpark = svOn * (exp(-svDd * svDd * 14.0) + 0.5 * exp(-svDd * svDd * 3.0)) * (1.0 - smoothstep(5.0, 22.0, length(v_svWater.xyz)));
+			            float svOn = step(0.93 - 0.10 * svToSun, svDh) * svTw;
+			            vec2 svDo = (svDu - svDp) * 6.0;
+			            float svStar = exp(-svDd * svDd * 60.0) + 0.45 * max(0.0, 1.0 - abs(svDo.x) * 14.0) * max(0.0, 1.0 - abs(svDo.y) * 3.0) + 0.45 * max(0.0, 1.0 - abs(svDo.y) * 14.0) * max(0.0, 1.0 - abs(svDo.x) * 3.0);
+			            float svSpark = svOn * svStar * (1.0 - smoothstep(4.0, 18.0, length(v_svWater.xyz)));
 			            color.rgb += mix(vec3(1.0, 0.95, 0.82), vec3(1.0), svToSun) * svSpark * svregsky_Look2.z * (0.9 + svToSun);
 			        }
 			        if (svregsky_Extra.x > 0.01 && v_svWater.w < 0.5 && v_svInfo.x > 0.75) {
