@@ -123,14 +123,22 @@ public final class HeightShadows {
 			to = Math.min(SIZE, from + 16);
 			nextRow = to >= SIZE ? 0 : to;
 		}
+		net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
 		for (int z = from; z < to; z++) {
 			for (int x = 0; x < SIZE; x++) {
-				int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING, originX + x, originZ + z) - minY;
-				h = Math.max(0, Math.min(65535, h));
+				int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, originX + x, originZ + z);
+				int h = Math.max(0, Math.min(65535, top - minY));
+				// grass, ferns and flowers on top of the column: they cast small soft shadows too (height in 1/128 block)
+				int plant = 0;
+				pos.set(originX + x, top, originZ + z);
+				if (plant(level, pos)) {
+					pos.setY(top + 1);
+					plant = plant(level, pos) ? 230 : 100;
+				}
 				int i = (z * SIZE + x) * 4;
 				buf.put(i, (byte) (h & 255));
 				buf.put(i + 1, (byte) (h >> 8));
-				buf.put(i + 2, (byte) 0);
+				buf.put(i + 2, (byte) plant);
 				buf.put(i + 3, (byte) 255);
 			}
 		}
@@ -146,6 +154,11 @@ public final class HeightShadows {
 		buf.limit(to * SIZE * 4);
 		GL11C.glTexSubImage2D(GL11C.GL_TEXTURE_2D, 0, 0, from, SIZE, to - from, GL11C.GL_RGBA, GL11C.GL_UNSIGNED_BYTE, buf.slice());
 		buf.clear();
+	}
+
+	private static boolean plant(ClientLevel level, net.minecraft.core.BlockPos pos) {
+		net.minecraft.world.level.block.state.BlockState s = level.getBlockState(pos);
+		return !s.isAir() && s.getFluidState().isEmpty() && Wind.kind(s) > 0 && s.getCollisionShape(level, pos).isEmpty();
 	}
 
 	/** march steps, reach in blocks for the chosen quality */

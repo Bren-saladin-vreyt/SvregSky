@@ -431,10 +431,11 @@ public final class Wind {
 			            bool svIn = svDist < svRange && v_svInfo.x > 0.2;
 			            if (svIn) {
 			                vec3 svQ0 = v_svWater.xyz + svN * 0.06;
+			                vec2 svCell0 = floor(svQ0.xz + svregsky_Shadow.xy);
 			                float svT2 = 0.35;
 			                int svSteps = int(svregsky_Shadow2.x + 0.5);
 			                for (int svI = 0; svI < 48; svI++) {
-			                    if (svI >= svSteps || svOcc > 0.5) {
+			                    if (svI >= svSteps || svOcc > 0.99) {
 			                        break;
 			                    }
 			                    vec3 svQ = svQ0 + svL2 * svT2;
@@ -444,15 +445,23 @@ public final class Wind {
 			                    }
 			                    vec4 svH = texelFetch(svregsky_HeightTex, ivec2(svG), 0);
 			                    float svTop = floor(svH.r * 255.0 + 0.5) + floor(svH.g * 255.0 + 0.5) * 256.0;
-			                    if (svQ.y + svregsky_Shadow.z < svTop - 0.02) {
+			                    float svY = svQ.y + svregsky_Shadow.z;
+			                    if (svY < svTop - 0.02) {
 			                        svOcc = 1.0;
+			                    } else if (svH.b > 0.0 && svT2 < 4.0 && floor(svG) != svCell0) {
+			                        // grass / flowers in a neighbouring column: a soft, blade-patterned little shadow
+			                        float svPh = svH.b * 255.0 / 128.0;
+			                        vec2 svBl = floor(svG * 4.0);
+			                        if (svY < svTop + svPh * (0.55 + 0.45 * svHash(svBl)) && svHash(svBl + 17.0) > 0.35) {
+			                            svOcc = max(svOcc, 0.6);
+			                        }
 			                    }
 			                    svT2 += 0.30 + svT2 * 0.10;
 			                }
 			            }
 			            if (svregsky_Shadow2.w > 0.5) {
 			                // shadow check: blue = shadow, light grey = sunlit, dark grey = out of reach / no sky
-			                color.rgb = !svIn ? vec3(0.35) : (svOcc > 0.5 ? vec3(0.15, 0.25, 1.0) : vec3(0.85));
+			                color.rgb = !svIn ? vec3(0.35) : mix(vec3(0.85), vec3(0.15, 0.25, 1.0), svOcc);
 			            } else {
 			                float svK2 = svOcc * svregsky_Shadow.w * (1.0 - smoothstep(svRange * 0.6, svRange, svDist)) * smoothstep(0.2, 0.6, v_svInfo.x);
 			                vec3 svSc = svregsky_Shadow2.z < 0.5 ? vec3(0.32, 0.36, 0.62) : (svregsky_Shadow2.z < 1.5 ? vec3(0.36) : vec3(0.52, 0.37, 0.28));
