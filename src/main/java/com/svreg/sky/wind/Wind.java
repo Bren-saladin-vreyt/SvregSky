@@ -45,6 +45,9 @@ public final class Wind {
 		if (state == null) {
 			return 0;
 		}
+		if (!state.getFluidState().isEmpty()) {
+			return 0; // seagrass, kelp and other underwater / waterlogged plants stay out of the wind
+		}
 		if (state.is(BlockTags.LEAVES)) {
 			return 2;
 		}
@@ -66,6 +69,39 @@ public final class Wind {
 		}
 		float w = Math.max(0, Math.min(2, localY + (upper ? 1 : 0)));
 		return 255 - Math.min(24, Math.round(w * 12));
+	}
+
+	private static float hash(float x, float y) {
+		float px = frac(x * 0.1031F), py = frac(y * 0.1031F), pz = frac(x * 0.1031F);
+		float d = px * (py + 33.33F) + py * (pz + 33.33F) + pz * (px + 33.33F);
+		px += d; py += d; pz += d;
+		return frac((px + py) * pz);
+	}
+
+	private static float frac(float v) {
+		return v - (float) Math.floor(v);
+	}
+
+	private static float noise(float x, float y) {
+		float ix = (float) Math.floor(x), iy = (float) Math.floor(y), fx = x - ix, fy = y - iy;
+		fx = fx * fx * (3 - 2 * fx);
+		fy = fy * fy * (3 - 2 * fy);
+		float a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
+		return (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fy;
+	}
+
+	/** the same gust field the grass shader uses (0 calm .. 1 gust) at a world position, for the wind sound */
+	public static float gustAt(double x, double z) {
+		float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
+		float st = t * SkySettings.windSpeed;
+		float ang = 0.34F + 0.30F * (float) Math.sin(t * 0.011F) + 0.12F * (float) Math.sin(t * 0.037F + 1.3F);
+		float dx = (float) Math.cos(ang), dz = (float) Math.sin(ang);
+		float wx = (float) ((x + 0) % 4096.0), wz = (float) ((z + 0) % 4096.0);
+		float qx = wx * 0.032F - dx * st * 0.42F, qz = wz * 0.032F - dz * st * 0.42F;
+		float rx = noise(qx * 0.6F + 3.1F, qz * 0.6F + 3.1F) - 0.5F, rz = noise(qx * 0.6F + 7.7F, qz * 0.6F + 7.7F) - 0.5F;
+		float g1 = noise(qx + rx * 1.8F, qz + rz * 1.8F);
+		float g2 = noise(qx * 2.6F + rx - dx * st * 0.35F + 11, qz * 2.6F + rz - dz * st * 0.35F + 11);
+		return smoothstep(0.32F, 0.82F, g1 * 0.72F + g2 * 0.28F);
 	}
 
 	private static float smoothstep(float e0, float e1, float x) {
@@ -223,24 +259,44 @@ public final class Wind {
 			        if (svK > 0 && (svK <= 24 || svK == 26)) {
 			            _vert_color.a = 1.0;
 			            bool svLeaf = svK == 26;
-			            float svW = svLeaf ? 0.35 : float(svK) / 12.0;
+			            float svW = svLeaf ? 1.0 : float(svK) / 12.0;
 			            float svT = svregsky_Wind.x * svregsky_Wind.z;
-			            vec2 svDir = vec2(0.943, 0.333);
+			            // the wind slowly changes direction over minutes
+			            float svAng = 0.34 + 0.30 * sin(svregsky_Wind.x * 0.011) + 0.12 * sin(svregsky_Wind.x * 0.037 + 1.3);
+			            vec2 svDir = vec2(cos(svAng), sin(svAng));
 			            vec2 svSide = vec2(-svDir.y, svDir.x);
-			            float svAlong = dot(svWp.xz, svDir);
-			            float svPh = dot(svWp.xz, vec2(0.37, 0.21));
-			            // big gust bands rolling across the meadow + smaller cross ripples
-			            float svWave = 0.5 + 0.5 * sin(svAlong * 0.16 - svT * 2.1);
-			            float svWave2 = 0.5 + 0.5 * sin(svAlong * 0.41 + dot(svWp.xz, svSide) * 0.23 - svT * 3.3);
-			            float svGust = clamp(0.62 * svWave * svWave + 0.38 * svWave2 * svWave, 0.0, 1.0);
-			            float svFlutter = 0.6 * sin(svT * 7.3 + svPh * 2.0) + 0.4 * sin(svT * 11.7 + svPh * 3.1);
-			            float svLean = svLeaf
-			                ? svStr * (0.10 + 0.20 * svGust + 0.08 * svFlutter)
-			                : svStr * (0.20 + 0.62 * svGust + 0.07 * svFlutter);
-			            float svAmt = svLean * svW * 0.62;
-			            position.xz += svDir * svAmt + svSide * (svStr * svW * 0.05 * svFlutter);
-			            position.y -= svAmt * svAmt * 0.42;
-			            if (svregsky_Player.w > 0.5 && !svLeaf) {
+			            // gusts: soft, irregular patches (warped noise) drifting downwind, so the meadow ripples in waves
+			            vec2 svQ = svWp.xz * 0.032 - svDir * svT * 0.42;
+			            vec2 svWarp = vec2(svNoise(svQ * 0.6 + 3.1), svNoise(svQ * 0.6 + 7.7)) - 0.5;
+			            float svG1 = svNoise(svQ + svWarp * 1.8);
+			            float svG2 = svNoise(svQ * 2.6 + svWarp - svDir * svT * 0.35 + 11.0);
+			            float svGust = smoothstep(0.32, 0.82, svG1 * 0.72 + svG2 * 0.28);
+			            // every plant has its own rhythm (a continuous random field: no tearing at block edges)
+			            float svPh = svNoise(svWp.xz * 1.37 + svWp.y * 0.31) * 6.2832;
+			            float svPh2 = svNoise(svWp.xz * 0.53 - svWp.y * 0.47 + 5.0) * 6.2832;
+			            if (svLeaf) {
+			                // leaves: the whole crown leans with the gust, branches sway on slow loops, leaves rustle on top
+			                float svLean = svStr * (0.035 + 0.11 * svGust);
+			                vec3 svSway = vec3(sin(svT * 1.7 + svPh) + 0.5 * sin(svT * 0.9 + svPh2),
+			                                   0.5 * sin(svT * 2.1 + svPh2),
+			                                   cos(svT * 1.4 + svPh) + 0.5 * cos(svT * 1.1 + svPh2 * 1.3)) * svStr * (0.022 + 0.035 * svGust);
+			                float svRustle = sin(svT * 9.0 + svPh * 3.0) * svStr * (0.006 + 0.016 * svGust);
+			                position.xz += svDir * svLean + svSway.xz + svSide * svRustle;
+			                position.y += svSway.y + svRustle * 0.6;
+			                _vert_color.rgb *= 1.0 + min(svStr, 2.0) * 0.05 * svGust;
+			            } else {
+			                // grass: bends with the gusts and springs back, tips flutter, a little side-to-side wobble
+			                float svFlutter = 0.6 * sin(svT * 6.1 + svPh) + 0.4 * sin(svT * 9.7 + svPh2);
+			                float svLean = svStr * (0.16 + 0.80 * svGust + 0.06 * svFlutter);
+			                float svAmt = svLean * svW * 0.60;
+			                float svWob = svStr * svW * (0.05 + 0.05 * svGust) * sin(svT * 2.3 + svPh2);
+			                position.xz += svDir * svAmt + svSide * svWob;
+			                position.y -= svAmt * svAmt * 0.40;
+			                // the bent blades catch the light: the gusts show as silvery waves rolling over the field
+			                float svSheen = min(svStr, 2.0) * svGust * clamp(svW, 0.0, 1.0);
+			                _vert_color.rgb = mix(_vert_color.rgb, _vert_color.rgb * vec3(1.12, 1.16, 1.02) + vec3(0.03, 0.03, 0.0), clamp(svSheen * 0.85, 0.0, 1.0));
+			            }
+            if (svregsky_Player.w > 0.5 && !svLeaf) {
 			                // plants bend away from the player walking through them
 			                vec2 svAway = position.xz - svregsky_Player.xz;
 			                float svD = length(svAway);
@@ -248,8 +304,6 @@ public final class Wind {
 			                position.xz += svAway / max(svD, 0.05) * svPush * 0.45;
 			                position.y -= svPush * 0.25;
 			            }
-			            // light sheen on the bent grass, so the gusts show as bright waves
-			            _vert_color.rgb *= 1.0 + min(svStr, 2.0) * (svLeaf ? 0.05 : 0.13) * svGust * clamp(svW, 0.0, 1.0);
 			        }
 			        if (svregsky_Sun.w > 0.0) {
 			            // soft cloud shadows drifting over the land (projected along the sun, moving with the wind)

@@ -41,6 +41,7 @@ public final class Ambience {
 
 	private static Loop wind, crickets, stream, ocean, frogs, mountain, rainSoft, rainRoof, rustle;
 	private static float waterNear, oceanNear, forestNear, roofed;
+	private static float gustSmooth = 0.5F;
 	private static int tick, nextBird = 100, nextOwl = 400, nextDrip = 60, nextBell = 1200, villagers, thunderIn = -1;
 	private static boolean crowed;
 	private static long lastMusicDay = -1;
@@ -211,7 +212,10 @@ public final class Ambience {
 				}
 			}
 
-			wind = drive(wind, WIND, vol * open * (0.12F + 0.22F * Math.min(SkySettings.windStrength, 2)) * (1 + rain * 0.5F));
+			// the wind swells as the gusts that ripple the grass pass over the player
+			float gust = com.svreg.sky.wind.Wind.gustAt(player.getX(), player.getZ());
+			gustSmooth += (gust - gustSmooth) * 0.08F;
+			wind = drive(wind, WIND, vol * open * (0.12F + 0.22F * Math.min(SkySettings.windStrength, 2)) * (0.55F + 0.9F * gustSmooth) * (1 + rain * 0.5F));
 			crickets = drive(crickets, CRICKETS, (SkySettings.on("crickets") ? vol : 0) * open * smooth(0.4F, 0.9F, night) * (1 - rain) * 0.22F);
 			stream = drive(stream, STREAM, vol * waterNear * (underwater ? 0 : 0.5F));
 
