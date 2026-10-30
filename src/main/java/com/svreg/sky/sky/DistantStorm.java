@@ -84,13 +84,15 @@ public final class DistantStorm {
 			if (mc.getSingleplayerServer() != null) {
 				ServerLevel ow = mc.getSingleplayerServer().overworld();
 				WeatherData w = ow != null ? ow.getWeatherData() : null;
-				if (w != null && !w.isRaining() && w.getClearWeatherTime() <= 0 && w.getRainTime() > 0 && w.getRainTime() < WINDOW) {
-					float t = 1 - w.getRainTime() / (float) WINDOW;
+				// while a "clear weather" timer runs, the rain starts the moment it ends; otherwise the rain timer counts down
+				int until = w == null ? 0 : (w.getClearWeatherTime() > 0 ? w.getClearWeatherTime() : w.getRainTime());
+				if (w != null && !w.isRaining() && until > 0 && until < WINDOW) {
+					float t = 1 - until / (float) WINDOW;
 					target = t * t * (3 - 2 * t);
 					if (approach <= 0.01F && leave <= 0.01F) {
 						// a new storm: pick where it comes from
 						long dayNo = mc.level.getOverworldClockTime() / 24000L;
-						angle = (float) (((Math.sin(dayNo * 4.123 + w.getRainTime() * 0.0007) * 43758.5453) % 1.0 + 1.0) % 1.0 * Math.PI * 2);
+						angle = (float) (((Math.sin(dayNo * 4.123 + until * 0.0007) * 43758.5453) % 1.0 + 1.0) % 1.0 * Math.PI * 2);
 					}
 				}
 			}
