@@ -163,7 +163,7 @@ public final class SkySettings {
 	public static String ghibliStyle = "auto";
 	public static float ghibliAmount = 1.0F, ghibliSize = 1.0F;
 	/** screen-space sun shadows: quality (low / medium / high / ultra), darkness 0..1, colour (anime / neutral / warm) */
-	public static String shadowQuality = "medium", shadowColor = "anime";
+	public static String shadowQuality = "medium", shadowColor = "anime", shadowMethod = "world";
 	public static float shadowDarkness = 0.45F;
 
 	/** photo-mode time-lapse: the sky turns on its own (a day in about two minutes, or thirty seconds) */
@@ -235,6 +235,9 @@ public final class SkySettings {
 		}
 		if (o.has("shadow_quality")) {
 			shadowQuality = o.get("shadow_quality").getAsString();
+		}
+		if (o.has("shadow_method")) {
+			shadowMethod = o.get("shadow_method").getAsString();
 		}
 		if (o.has("shadow_color")) {
 			shadowColor = o.get("shadow_color").getAsString();

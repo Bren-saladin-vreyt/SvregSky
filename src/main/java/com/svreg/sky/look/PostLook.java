@@ -167,8 +167,8 @@ public final class PostLook {
 		boolean tone = SkySettings.on("film_tone"), outline = SkySettings.on("cartoon_outline"), paper = SkySettings.on("paper_texture");
 		boolean bloom = SkySettings.on("bloom"), dof = SkySettings.photoMode && SkySettings.on("photo_dof");
 		Vector3f sunW = CirrusSky.sunDirection();
-		float shadowK = SkySettings.on("screen_shadows") && sunW.y > 0.04F ? SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
-		boolean shDebug = SkySettings.on("screen_shadows") && SkySettings.on("shadow_debug");
+		float shadowK = SkySettings.on("screen_shadows") && !"world".equals(SkySettings.shadowMethod) && sunW.y > 0.04F ? SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
+		boolean shDebug = SkySettings.on("screen_shadows") && SkySettings.on("shadow_debug") && "screen".equals(SkySettings.shadowMethod);
 		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug)) {
 			return;
 		}

@@ -18,7 +18,7 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1;
 	private static long skyNanos;
 	/** test hook: paint the water-detection debug view */
 	public static boolean debugWater;
@@ -96,6 +96,9 @@ public final class Wind {
 			locSkyB = GL20C.glGetUniformLocation(prog, "svregsky_SkyB");
 			locSkyC = GL20C.glGetUniformLocation(prog, "svregsky_SkyC");
 			locLook2 = GL20C.glGetUniformLocation(prog, "svregsky_Look2");
+			locShadow = GL20C.glGetUniformLocation(prog, "svregsky_Shadow");
+			locShadow2 = GL20C.glGetUniformLocation(prog, "svregsky_Shadow2");
+			locHeightTex = GL20C.glGetUniformLocation(prog, "svregsky_HeightTex");
 		}
 		if (locWind >= 0) {
 			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
@@ -146,6 +149,23 @@ public final class Wind {
 			if (locSkyB >= 0) GL20C.glUniform4f(locSkyB, skyB[0], skyB[1], skyB[2], skyB[3]);
 			if (locSkyC >= 0) GL20C.glUniform4f(locSkyC, skyC[0], skyC[1], skyC[2], skyC[3]);
 			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, 0, debugWater ? 1 : 0);
+		}
+		if (locShadow >= 0) {
+			// world sun shadows from the column height map (see HeightShadows)
+			float k = 0;
+			if (HeightShadows.active()) {
+				HeightShadows.update(camX, camZ);
+				k = HeightShadows.strength();
+			}
+			if (k > 0) {
+				GL20C.glUniform4f(locShadow, (float) (camX - HeightShadows.originX()), (float) (camZ - HeightShadows.originZ()), (float) (camY - HeightShadows.minY()), k);
+				float[] q = HeightShadows.quality();
+				float ci = "neutral".equals(SkySettings.shadowColor) ? 1 : "warm".equals(SkySettings.shadowColor) ? 2 : 0;
+				if (locShadow2 >= 0) GL20C.glUniform4f(locShadow2, q[0], q[1], ci, SkySettings.on("shadow_debug") ? 1 : 0);
+				if (locHeightTex >= 0) GL20C.glUniform1i(locHeightTex, HeightShadows.UNIT);
+			} else {
+				GL20C.glUniform4f(locShadow, 0, 0, 0, 0);
+			}
 		}
 		if (locSeason >= 0) {
 			GL20C.glUniform4f(locSeason, com.svreg.sky.sky.Seasons.spring(), com.svreg.sky.sky.Seasons.autumn(), com.svreg.sky.sky.Seasons.winter(),
@@ -333,6 +353,9 @@ public final class Wind {
 			uniform vec4 svregsky_SkyB; // horizon away from the sun, anime face light on/off
 			uniform vec4 svregsky_SkyC; // zenith colour, night (moon instead of sun)
 			uniform vec4 svregsky_Look2; // sparkle dots, unused...
+			uniform vec4 svregsky_Shadow;  // height map offset x, z, camera height above the map floor, shadow strength
+			uniform vec4 svregsky_Shadow2; // march steps, reach, colour (0 anime, 1 neutral, 2 warm), debug view
+			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g
 			float svHash(vec2 p) {
 			    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
 			    p3 += dot(p3, p3.yzx + 33.33);
@@ -398,6 +421,44 @@ public final class Wind {
 			            vec3 svTone = svD > 0.2 ? mix(vec3(1.06, 1.01, 0.90), vec3(1.10, 0.96, 0.84), v_svInfo.z)
 			                        : (svD < -0.2 ? vec3(0.84, 0.88, 1.05) : vec3(0.96, 0.97, 1.0));
 			            color.rgb *= mix(vec3(1.0), svTone, svK * 0.85);
+			        }
+			        if (svregsky_Shadow.w > 0.0) {
+			            // world sun shadows: walk toward the sun over the column height map
+			            vec3 svL2 = normalize(svregsky_Sun.xyz);
+			            float svDist = length(v_svWater.xyz);
+			            float svRange = svregsky_Shadow2.y;
+			            float svOcc = 0.0;
+			            bool svIn = svDist < svRange && v_svInfo.x > 0.2;
+			            if (svIn) {
+			                svOcc = dot(svN, svL2) < -0.02 ? 1.0 : 0.0;
+			                vec3 svQ0 = v_svWater.xyz + svN * 0.06;
+			                float svT2 = 0.35;
+			                int svSteps = int(svregsky_Shadow2.x + 0.5);
+			                for (int svI = 0; svI < 48; svI++) {
+			                    if (svI >= svSteps || svOcc > 0.5) {
+			                        break;
+			                    }
+			                    vec3 svQ = svQ0 + svL2 * svT2;
+			                    vec2 svG = svQ.xz + svregsky_Shadow.xy;
+			                    if (svG.x < 0.0 || svG.y < 0.0 || svG.x >= 256.0 || svG.y >= 256.0) {
+			                        break;
+			                    }
+			                    vec4 svH = texelFetch(svregsky_HeightTex, ivec2(svG), 0);
+			                    float svTop = floor(svH.r * 255.0 + 0.5) + floor(svH.g * 255.0 + 0.5) * 256.0;
+			                    if (svQ.y + svregsky_Shadow.z < svTop - 0.02) {
+			                        svOcc = 1.0;
+			                    }
+			                    svT2 += 0.30 + svT2 * 0.10;
+			                }
+			            }
+			            if (svregsky_Shadow2.w > 0.5) {
+			                // shadow check: blue = shadow, light grey = sunlit, dark grey = out of reach / no sky
+			                color.rgb = !svIn ? vec3(0.35) : (svOcc > 0.5 ? vec3(0.15, 0.25, 1.0) : vec3(0.85));
+			            } else {
+			                float svK2 = svOcc * svregsky_Shadow.w * (1.0 - smoothstep(svRange * 0.6, svRange, svDist)) * smoothstep(0.2, 0.6, v_svInfo.x);
+			                vec3 svSc = svregsky_Shadow2.z < 0.5 ? vec3(0.32, 0.36, 0.62) : (svregsky_Shadow2.z < 1.5 ? vec3(0.36) : vec3(0.52, 0.37, 0.28));
+			                color.rgb *= mix(vec3(1.0), svSc, svK2);
+			            }
 			        }
 			    }
 			#endif
