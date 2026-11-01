@@ -168,10 +168,10 @@ jobs:
           set +e
           unzip -o -q "$SRC" 'net/minecraft/*' 'com/mojang/*' -d src2
           M=src2/net/minecraft
-          { grep -n -E 'public [A-Za-z<>]+ [a-zA-Z]+\(' src2/net/minecraft/client/gui/Gui.java | head -60; } > probe/a.txt
-          { grep -rn -E 'void (addMessage|setOverlayMessage|showActionBar|displayClientMessage|sendOverlay)' src2/net/minecraft/client --include=*.java | head -15; } > probe/b.txt
-          { grep -n -E 'public .* (gui|getGui|hud)\b' src2/net/minecraft/client/Minecraft.java | head; } > probe/c.txt
-          { grep -rn -E 'class ChatComponent|public void addMessage' src2/net/minecraft/client/gui/components/ChatComponent.java | head; } > probe/d.txt
+          { grep -rn -E 'RESOURCE_PACK_FORMAT|DATA_PACK_FORMAT|PackFormat|getPackVersion' src2/net/minecraft/SharedConstants.java src2/net/minecraft/DetectedVersion.java | head -20; } > probe/a.txt
+          { f=$(grep -rln 'min_format' src2/net/minecraft | head -3); echo $f; for x in $f; do grep -n -E 'min_format|max_format|pack_format|supported_formats|64|InclusiveRange|MAX_VALUE' $x | head -25; done; } > probe/b.txt
+          { unzip -p "$JAR" version.json | head -30; } > probe/c.txt
+          { grep -rn -E 'class PackFormat|record PackFormat' src2/net/minecraft | head; f=$(grep -rln 'record PackFormat' src2/net/minecraft | head -1); [ -n "$f" ] && sed -n 1,60p $f; } > probe/d.txt
           for f in a b c d; do split -b 3500 probe/$f.txt probe/$f.part.; done
           ls probe
       - name: report 1
