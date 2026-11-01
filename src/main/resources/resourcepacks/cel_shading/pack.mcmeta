@@ -1,6 +1,7 @@
 {
   "pack": {
-    "pack_format": 97,
-    "description": "SvregSky: cel-shading anime buat mob, player dan item"
+    "description": "SvregSky: cel-shading anime buat mob, player dan item",
+    "min_format": 88,
+    "max_format": 200
   }
 }

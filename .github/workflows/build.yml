@@ -125,7 +125,7 @@ jobs:
           chmod +x ./gradlew
           set +e
           for i in 1 2 3 4; do ./gradlew help -q -PirisVersion="$IRISV" && break; sleep 20; done
-          IRIS_TEST=1 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest -PirisVersion="$IRISV" --stacktrace 2>&1 | tee test.log
+          IRIS_TEST=1 PACK_DIR="$GITHUB_WORKSPACE/shaderpack/SvregShadow" xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest -PirisVersion="$IRISV" --stacktrace 2>&1 | tee test.log
           find . -name 'iris.properties' -not -path './.git/*' | head; find . -type d -name shaderpacks -not -path './.git/*' | head
           { grep -iE 'iris|shader|SvregSky:' test.log | grep -v DEBUG | head -80; echo '-----'; grep -E -B2 -A6 'ERROR|Exception|FAILED' test.log | head -100; } > notes.txt
           split -b 3500 notes.txt notepart.

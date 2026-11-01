@@ -1,6 +1,7 @@
 {
   "pack": {
-    "pack_format": 97,
-    "description": "SvregSky: hujan lembut (ganti suara hujan vanilla)"
+    "description": "SvregSky: hujan lembut (ganti suara hujan vanilla)",
+    "min_format": 88,
+    "max_format": 200
   }
 }

@@ -20,6 +20,31 @@ public class SkyScreenshots implements FabricClientGameTest {
 			}
 
 			if (System.getenv("IRIS_TEST") != null) {
+				// with Iris + the SvregShadow pack: copy the pack into the game folder and switch Iris to it
+				context.runOnClient(client -> {
+					try {
+						java.nio.file.Path game = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir();
+						java.nio.file.Path src = java.nio.file.Path.of(System.getenv("PACK_DIR"));
+						java.nio.file.Path dst = game.resolve("shaderpacks").resolve("SvregShadow");
+						try (var walk = java.nio.file.Files.walk(src)) {
+							for (java.nio.file.Path f : (Iterable<java.nio.file.Path>) walk::iterator) {
+								java.nio.file.Path t = dst.resolve(src.relativize(f).toString());
+								if (java.nio.file.Files.isDirectory(f)) java.nio.file.Files.createDirectories(t);
+								else java.nio.file.Files.copy(f, t, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+							}
+						}
+						Class<?> iris = Class.forName("net.irisshaders.iris.Iris");
+						Object cfg = iris.getMethod("getIrisConfig").invoke(null);
+						cfg.getClass().getMethod("setShaderPackName", String.class).invoke(cfg, "SvregShadow");
+						cfg.getClass().getMethod("setShadersEnabled", boolean.class).invoke(cfg, true);
+						cfg.getClass().getMethod("save").invoke(cfg);
+						iris.getMethod("reload").invoke(null);
+						com.svreg.sky.SvregSky.LOG.info("SvregSky test: Iris switched to SvregShadow (game dir {})", game);
+					} catch (Throwable t) {
+						com.svreg.sky.SvregSky.LOG.error("SvregSky test: could not switch Iris to the pack", t);
+					}
+				});
+				context.waitTicks(60);
 				// with Iris + the SvregShadow pack: a small scene with a house, a tree, animals and tall grass
 				sp.getServer().runCommand("weather clear");
 				sp.getServer().runCommand("execute as @p at @p run fill ~-12 ~ ~2 ~12 ~ ~22 short_grass replace air");
