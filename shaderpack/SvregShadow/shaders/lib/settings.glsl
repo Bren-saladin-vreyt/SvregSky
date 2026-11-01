@@ -3,7 +3,9 @@
 #define SHADOW_TINT 1 // [0 1 2]
 #define SOFT_SHADOWS 1 // [0 1]
 #define MOON_SHADOWS 1 // [0 1]
-#define ENTITY_SHADOWS
+#define ENTITY_SHADOWS // Mob & player shadows
+#ifdef ENTITY_SHADOWS
+#endif
 
 const int shadowMapResolution = 1024; // [512 1024 1536 2048]
 const float shadowDistance = 64.0; // [32.0 48.0 64.0 96.0 128.0]
