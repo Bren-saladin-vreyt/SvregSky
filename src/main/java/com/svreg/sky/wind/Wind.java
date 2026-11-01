@@ -745,9 +745,22 @@ public final class Wind {
 			            float svSl = dot(svN, normalize(svSunD + vec3(0.0, 0.4, 0.0)));
 			            vec3 svSnow = (svSl > 0.35 ? vec3(1.0) : (svSl > -0.1 ? vec3(0.90, 0.94, 1.0) : vec3(0.78, 0.85, 1.0))) * svLitS;
 			            svSnow = mix(svSnow, svSnow * vec3(1.05, 0.95, 0.88), v_svInfo.z * 0.6);
+			            // snow only settles on the highest surface of each column (roofs, ground, tree tops), never on
+			            // floors under a roof or on every block row of a wall: check the column height map
+			            float svTopS = -1.0;
+			            float svFyS = v_svWater.y + svregsky_Shadow.z;
+			            if (svregsky_Water.z > 0.5) {
+			                vec2 svGs = v_svWater.xz + svregsky_Shadow.xy - svN.xz * 0.08;
+			                if (svGs.x >= 0.0 && svGs.y >= 0.0 && svGs.x < 256.0 && svGs.y < 256.0) {
+			                    vec4 svHs = texelFetch(svregsky_HeightTex, ivec2(svGs), 0);
+			                    svTopS = floor(svHs.r * 255.0 + 0.5) + floor(svHs.g * 255.0 + 0.5) * 256.0;
+			                }
+			            }
 			            if (svN.y > 0.55) {
-			                color.rgb = mix(color.rgb, svSnow, svCover * (v_svInfo.w > 1.5 ? 0.5 : 0.95));
-			            } else if (svN.y > -0.3 && v_svInfo.w < 1.5) {
+			                float svOnTop = (svTopS < 0.0 || svFyS > svTopS - 0.6 || v_svInfo.w > 0.5) ? 1.0 : 0.0;
+			                color.rgb = mix(color.rgb, svSnow, svCover * svOnTop * (v_svInfo.w > 1.5 ? 0.5 : 0.95));
+			            } else if (svN.y > -0.3 && v_svInfo.w < 1.5 && svTopS >= 0.0 && abs(floor(svFyS - 0.0001) + 1.0 - svTopS) < 0.5) {
+			                // a thin lip of snow over the top edge of the highest block only
 			                float svLip = step(0.86 - 0.06 * svNz, fract(svWg.y - 0.0001));
 			                color.rgb = mix(color.rgb, svSnow * 0.96, svLip * svCover * 0.9);
 			            }

@@ -43,7 +43,8 @@ public final class HeightShadows {
 
 	/** the column map is needed by the world shadows, the anime water or the shore waves */
 	public static boolean active() {
-		return !broken && (shadowsOn() || SkySettings.on("anime_water") || SkySettings.on("shore_waves") || SkySettings.on("underwater_light"));
+		return !broken && (shadowsOn() || SkySettings.on("anime_water") || SkySettings.on("shore_waves") || SkySettings.on("underwater_light")
+				|| SkySettings.on("snow_cover") && com.svreg.sky.sky.Seasons.winter() > 0.01F);
 	}
 
 	/** the map has data (texture made and filled at least once) */

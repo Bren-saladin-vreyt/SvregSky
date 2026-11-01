@@ -212,6 +212,7 @@ public class SkyScreenshots implements FabricClientGameTest {
 			look(context, 0, -5, "zd_autumn");
 			sp.getServer().runCommand("time add 192000"); // winter
 			look(context, 0, -5, "ze_winter");
+			look(context, 45, 12, "ze2_winter_house");
 			sp.getServer().runCommand("time add 192000"); // spring
 			look(context, 0, -5, "zf_spring");
 			sp.getServer().runCommand("weather rain");
