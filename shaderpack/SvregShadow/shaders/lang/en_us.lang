@@ -1,0 +1,15 @@
+option.SHADOW_DARKNESS=Shadow Darkness
+option.SHADOW_TINT=Shadow Colour
+value.SHADOW_TINT.0=Neutral
+value.SHADOW_TINT.1=Anime (blue-violet)
+value.SHADOW_TINT.2=Warm
+option.SOFT_SHADOWS=Soft Edges
+value.SOFT_SHADOWS.0=Off (fastest)
+value.SOFT_SHADOWS.1=On
+option.MOON_SHADOWS=Moonlight Shadows
+value.MOON_SHADOWS.0=Off
+value.MOON_SHADOWS.1=On
+option.ENTITY_SHADOWS=Mob & Player Shadows
+option.shadowMapResolution=Shadow Quality
+option.shadowDistance=Shadow Distance
+option.sunPathRotation=Sun Angle

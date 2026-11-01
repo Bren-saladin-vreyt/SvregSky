@@ -38,7 +38,7 @@ public final class HeightShadows {
 
 	/** world shadows on (the "world" or "both" method) */
 	public static boolean shadowsOn() {
-		return !broken && SkySettings.on("screen_shadows") && !"screen".equals(SkySettings.shadowMethod);
+		return false; // the sun shadow feature was removed (the SvregShadow shader pack does shadows now)
 	}
 
 	/** the column map is needed by the world shadows, the anime water or the shore waves */
@@ -51,16 +51,9 @@ public final class HeightShadows {
 		return tex >= 0 && originX != Integer.MIN_VALUE;
 	}
 
-	/** strength for the shader right now (0 = off) */
+	/** strength for the shader right now: the sun shadows were removed, always 0 */
 	public static float strength() {
-		if (!shadowsOn() || tex < 0) {
-			return 0;
-		}
-		org.joml.Vector3f sun = CirrusSky.sunDirection();
-		if (sun.y < 0.04F) {
-			return 0;
-		}
-		return SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel());
+		return 0;
 	}
 
 	public static float originX() {
@@ -274,13 +267,5 @@ public final class HeightShadows {
 		return !s.isAir() && s.getFluidState().isEmpty() && Wind.kind(s) > 0 && s.getCollisionShape(level, pos).isEmpty();
 	}
 
-	/** march steps, reach in blocks for the chosen quality */
-	public static float[] quality() {
-		return switch (SkySettings.shadowQuality) {
-			case "low" -> new float[]{12, 40};
-			case "high" -> new float[]{30, 96};
-			case "ultra" -> new float[]{40, 124};
-			default -> new float[]{20, 64};
-		};
-	}
+
 }

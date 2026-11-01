@@ -1,0 +1,15 @@
+option.SHADOW_DARKNESS=Kegelapan Bayangan
+option.SHADOW_TINT=Warna Bayangan
+value.SHADOW_TINT.0=Netral
+value.SHADOW_TINT.1=Anime (biru-ungu)
+value.SHADOW_TINT.2=Hangat
+option.SOFT_SHADOWS=Pinggir Halus
+value.SOFT_SHADOWS.0=Mati (paling ringan)
+value.SOFT_SHADOWS.1=Nyala
+option.MOON_SHADOWS=Bayangan Bulan
+value.MOON_SHADOWS.0=Mati
+value.MOON_SHADOWS.1=Nyala
+option.ENTITY_SHADOWS=Bayangan Mob & Player
+option.shadowMapResolution=Kualitas Bayangan
+option.shadowDistance=Jarak Bayangan
+option.sunPathRotation=Sudut Matahari

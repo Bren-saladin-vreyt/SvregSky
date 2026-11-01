@@ -43,7 +43,8 @@ jobs:
         run: |
           JAR=$(ls build/libs/*.jar | grep -v -- '-sources' | head -1)
           gh release delete latest -y --cleanup-tag || true
-          gh release create latest "$JAR" --title "SvregSky (latest build)" --notes "Built from ${GITHUB_SHA::7}. Put the .jar in your mods folder (Fabric, Minecraft 26.2). Needs Fabric API." --prerelease
+          (cd shaderpack && zip -qr ../SvregShadow.zip SvregShadow)
+          gh release create latest "$JAR" SvregShadow.zip --title "SvregSky (latest build)" --notes "Built from ${GITHUB_SHA::7}. Put the .jar in your mods folder (Fabric, Minecraft 26.2). Needs Fabric API. SvregShadow.zip = shadow-only shader pack for Iris (put it in shaderpacks)." --prerelease
 
   screenshots:
     # Runs Minecraft with the mod under a virtual display and publishes sky screenshots to the ci-screens branch.
@@ -91,6 +92,61 @@ jobs:
           git add -A
           git commit -qm "screenshots $GITHUB_RUN_ID"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screens
+
+  iris:
+    # Runs the game with Iris and the SvregShadow shader pack, publishes screenshots to the ci-iris branch.
+    if: ${{ contains(github.event.head_commit.message, '[iris]') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: install virtual display
+        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb mesa-utils libgl1-mesa-dri
+      - name: find Iris for 26.2
+        run: |
+          V=$(curl -s 'https://api.modrinth.com/v2/project/iris/version?game_versions=%5B%2226.2%22%5D&loaders=%5B%22fabric%22%5D' | python3 -c "import json,sys;d=json.load(sys.stdin);print(d[0]['version_number'])")
+          echo "IRISV=$V" >> $GITHUB_ENV
+          echo "::notice title=iris::$V"
+      - name: place the shader pack
+        run: |
+          for d in run build/run/clientGameTest build/run/clientGametest run/clientGameTest; do
+            mkdir -p $d/shaderpacks $d/config
+            cp -r shaderpack/SvregShadow $d/shaderpacks/
+            printf 'enableShaders=true\nshaderPack=SvregShadow\n' > $d/config/iris.properties
+          done
+      - name: run client game test with Iris
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          set +e
+          for i in 1 2 3 4; do ./gradlew help -q -PirisVersion="$IRISV" && break; sleep 20; done
+          IRIS_TEST=1 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest -PirisVersion="$IRISV" --stacktrace 2>&1 | tee test.log
+          find . -name 'iris.properties' -not -path './.git/*' | head; find . -type d -name shaderpacks -not -path './.git/*' | head
+          { grep -iE 'iris|shader|SvregSky:' test.log | grep -v DEBUG | head -80; echo '-----'; grep -E -B2 -A6 'ERROR|Exception|FAILED' test.log | head -100; } > notes.txt
+          split -b 3500 notes.txt notepart.
+          for part in notepart.*; do
+            body=$(python3 -c "import sys;d=open(sys.argv[1]).read();print(d.replace('%','%25').replace('\r','').replace('\n','%0A'))" "$part")
+            echo "::warning title=iris-$part::$body"
+          done
+      - name: publish screenshots
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/shots
+          find . -path ./.git -prune -o -name '*.png' -path '*screenshots*' -print | xargs -r -I{} cp {} /tmp/shots/
+          cp test.log /tmp/shots/test.log || true
+          cd /tmp/shots
+          git init -q -b ci-iris
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "iris screenshots $GITHUB_RUN_ID"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-iris
 
   probe:
     # Prints the vanilla source of the classes the mod hooks into, so the code can match 26.2 exactly.

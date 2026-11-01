@@ -31,6 +31,9 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	if (project.hasProperty('irisVersion') && project.irisVersion) {
+		localRuntime "maven.modrinth:iris:${project.irisVersion}"
+	}
 }
 
 processResources {

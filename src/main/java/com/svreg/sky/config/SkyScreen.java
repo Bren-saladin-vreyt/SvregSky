@@ -227,12 +227,6 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("anime_water"),
 				flag("shore_waves"),
 				flag("face_light"),
-				flag("screen_shadows"),
-				choice("shadow_method", List.of("world", "screen", "both"), SkySettings.shadowMethod, v -> SkySettings.shadowMethod = v),
-				choice("shadow_quality", List.of("low", "medium", "high", "ultra"), SkySettings.shadowQuality, v -> SkySettings.shadowQuality = v),
-				slider("shadow_darkness", 10, 90, Math.round(SkySettings.shadowDarkness * 100), v -> v + "%", v -> SkySettings.shadowDarkness = v / 100F),
-				choice("shadow_color", List.of("anime", "neutral", "warm"), SkySettings.shadowColor, v -> SkySettings.shadowColor = v),
-				flag("shadow_debug"),
 				flag("torch_glow"),
 				flag("paper_texture"),
 				flag("bloom"));

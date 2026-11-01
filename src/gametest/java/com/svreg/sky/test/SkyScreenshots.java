@@ -19,6 +19,23 @@ public class SkyScreenshots implements FabricClientGameTest {
 				sp.getServer().runCommand("item replace entity @a hotbar." + i + " with " + items[i]);
 			}
 
+			if (System.getenv("IRIS_TEST") != null) {
+				// with Iris + the SvregShadow pack: a small scene with a house, a tree, animals and tall grass
+				sp.getServer().runCommand("weather clear");
+				sp.getServer().runCommand("execute as @p at @p run fill ~-12 ~ ~2 ~12 ~ ~22 short_grass replace air");
+				sp.getServer().runCommand("execute as @p at @p run fill ~3 ~ ~8 ~7 ~4 ~12 cobblestone hollow");
+				sp.getServer().runCommand("execute as @p at @p run place feature minecraft:oak ~-4 ~ ~10");
+				sp.getServer().runCommand("execute as @p at @p run summon cow ~-1 ~ ~6 {NoAI:1b}");
+				sp.getServer().runCommand("execute as @p at @p run summon villager ~1 ~ ~7 {NoAI:1b}");
+				context.waitTicks(200);
+				shot(context, sp, 6000, 0, 22, "iris_a_noon");
+				shot(context, sp, 9500, 0, 22, "iris_b_afternoon");
+				shot(context, sp, 11800, 0, 18, "iris_c_golden");
+				shot(context, sp, 11800, 90, -5, "iris_d_golden_sky_west");
+				shot(context, sp, 3000, -90, -20, "iris_e_morning_sky");
+				shot(context, sp, 18000, 0, 22, "iris_f_moon_night");
+				return;
+			}
 			shot(context, sp, 6000, 0, -25, "a_noon_south");
 			shot(context, sp, 6000, 135, -55, "b_noon_up");
 			shot(context, sp, 6000, 90, -6, "c_noon_horizon");
@@ -124,25 +141,7 @@ public class SkyScreenshots implements FabricClientGameTest {
 			// screen-space sun shadows, off / on
 			sp.getServer().runCommand("weather clear");
 			context.waitTicks(220);
-			shot(context, sp, 9800, 45, 18, "zu_shadows_off");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", true));
-			shot(context, sp, 9800, 45, 18, "zu2_shadows_on");
-			shot(context, sp, 11200, 20, 22, "zu3_shadows_late");
-			shot(context, sp, 3000, 100, 20, "zu4_shadows_morning_tree");
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "ultra"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.8F; com.svreg.sky.sky.SkySettings.shadowColor = "neutral"; });
-			shot(context, sp, 9800, 45, 18, "zu5_shadows_ultra_dark_neutral");
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "low"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.3F; com.svreg.sky.sky.SkySettings.shadowColor = "warm"; });
-			shot(context, sp, 9800, 45, 18, "zu6_shadows_low_light_warm");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("shadow_debug", true));
-			shot(context, sp, 9800, 45, 18, "zu7_shadows_debug_world");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.shadowMethod = "screen");
-			shot(context, sp, 9800, 45, 18, "zu8_shadows_debug_screen");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("shadow_debug", false));
-			shot(context, sp, 9800, 45, 18, "zu9_shadows_screen_method");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.shadowMethod = "world");
-			shot(context, sp, 7000, 200, 25, "zv_shadows_world_noon_back");
 			// a beach: sand shore around a lagoon that gets deeper toward the middle
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 			sp.getServer().runCommand("execute as @p at @p run fill ~-30 ~-6 ~14 ~30 ~-1 ~60 sand");
 			sp.getServer().runCommand("execute as @p at @p run fill ~-26 ~-1 ~18 ~26 ~-1 ~58 water");
 			sp.getServer().runCommand("execute as @p at @p run fill ~-20 ~-3 ~24 ~20 ~-2 ~58 water");
@@ -201,8 +200,6 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> com.svreg.sky.sky.Twilight.forceSilver = true);
 			shot(context, sp, 14000, 90, -10, "zz8_silver_clouds");
 			context.runOnClient(client -> com.svreg.sky.sky.Twilight.forceSilver = false);
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.shadowQuality = "medium"; com.svreg.sky.sky.SkySettings.shadowDarkness = 0.45F; com.svreg.sky.sky.SkySettings.shadowColor = "anime"; });
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 
 			// batch 3: towers, seasons, puddles, glow, paper, birds, reflection path, depth of field
 			context.runOnClient(client -> {

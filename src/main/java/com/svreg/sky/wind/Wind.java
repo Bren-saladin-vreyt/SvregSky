@@ -112,9 +112,9 @@ public final class Wind {
 
 	/** the same gust field the grass shader uses (0 calm .. 1 gust) at a world position, for the wind sound */
 	public static float gustAt(double x, double z) {
-		float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
-		float st = t * SkySettings.windSpeed;
-		float ang = 0.34F + 0.30F * (float) Math.sin(t * 0.011F) + 0.12F * (float) Math.sin(t * 0.037F + 1.3F);
+		float t = windTime();
+		float st = windPhase();
+		float ang = 0.34F + 0.30F * (float) Math.sin(t * 0.01F) + 0.12F * (float) Math.sin(t * 0.03F + 1.3F);
 		float dx = (float) Math.cos(ang), dz = (float) Math.sin(ang);
 		float wx = (float) ((x + 0) % 4096.0), wz = (float) ((z + 0) % 4096.0);
 		float qx = wx * 0.032F - dx * st * 0.42F, qz = wz * 0.032F - dz * st * 0.42F;
@@ -128,6 +128,25 @@ public final class Wind {
 		float t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
 		return t * t * (3 - 2 * t);
 	}
+
+	/**
+	 * Shader time, wrapped every 200*pi seconds (~10.5 min). Mobile GPUs lose precision in sin() with big arguments,
+	 * which made the grass shake wildly after a long session; all the sine frequencies are tenths (0.1, 1.3, 6.1 ...),
+	 * so they all complete whole turns in one period and the wrap is seamless.
+	 */
+	public static float windTime() {
+		return (float) (((System.nanoTime() - START) / 1e9) % 628.3185307179586);
+	}
+
+	/** the wind phase (time x wind speed), wrapped the same way */
+	public static float windPhase() {
+		windPhaseAcc = (windPhaseAcc + Math.max(0, (System.nanoTime() - lastPhaseNanos) / 1e9) * SkySettings.windSpeed) % 628.3185307179586;
+		lastPhaseNanos = System.nanoTime();
+		return (float) windPhaseAcc;
+	}
+
+	private static double windPhaseAcc;
+	private static long lastPhaseNanos = System.nanoTime();
 
 	public static boolean enabled() {
 		return SkySettings.windStrength > 0 || SkySettings.farGrassTint > 0;
@@ -173,7 +192,7 @@ public final class Wind {
 		locWater = loc[14];
 		locExtra = loc[15];
 		if (locWind >= 0) {
-			float t = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
+			float t = windTime();
 			GL20C.glUniform4f(locWind, t, SkySettings.windStrength, SkySettings.windSpeed, SkySettings.farGrassTint);
 		}
 		float drift = (float) (((System.nanoTime() - START) / 1e9 * 1.6 * SkySettings.cloudSpeed) % 4096.0);
@@ -219,7 +238,7 @@ public final class Wind {
 			if (locSkyA >= 0) GL20C.glUniform4f(locSkyA, skyA[0], skyA[1], skyA[2], skyA[3]);
 			if (locSkyB >= 0) GL20C.glUniform4f(locSkyB, skyB[0], skyB[1], skyB[2], skyB[3]);
 			if (locSkyC >= 0) GL20C.glUniform4f(locSkyC, skyC[0], skyC[1], skyC[2], skyC[3]);
-			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, 0, debugWater ? 1 : 0);
+			if (locLook2 >= 0) GL20C.glUniform4f(locLook2, SkySettings.on("water_sparkle_dots") ? 1 : 0, SkySettings.on("water_sunset") ? 1 : 0, windPhase(), debugWater ? 1 : 0);
 		}
 		if (locShadow >= 0) {
 			// world sun shadows from the column height map (see HeightShadows)
@@ -236,9 +255,6 @@ public final class Wind {
 			}
 			if (map) {
 				GL20C.glUniform4f(locShadow, (float) (camX - HeightShadows.originX()), (float) (camZ - HeightShadows.originZ()), (float) (camY - HeightShadows.minY()), k);
-				float[] q = HeightShadows.quality();
-				float ci = "neutral".equals(SkySettings.shadowColor) ? 1 : "warm".equals(SkySettings.shadowColor) ? 2 : 0;
-				if (locShadow2 >= 0) GL20C.glUniform4f(locShadow2, q[0], q[1], ci, SkySettings.on("shadow_debug") ? 1 : 0);
 				if (locHeightTex >= 0) GL20C.glUniform1i(locHeightTex, HeightShadows.UNIT);
 			} else {
 				GL20C.glUniform4f(locShadow, 0, 0, 0, 0);
@@ -274,6 +290,7 @@ public final class Wind {
 			uniform vec4 svregsky_Player; // player feet relative to the camera, grass bend on/off
 			uniform vec4 svregsky_Look;   // warm lamps, dappled light, valley fog, unused
 			uniform vec4 svregsky_Season; // spring, autumn, winter weights, ground wetness
+			uniform vec4 svregsky_Look2;  // sparkle dots, water sunset, wind phase (wrapped), debug
 			uniform vec4 svregsky_Extra;  // (fragment side) ..., w = blue hour
 			out vec4 v_svWater;           // camera-relative position, water surface flag
 			float svWaterMark;            // 1 for still water, 2 for flowing / falling water (marked by the fluid mesher)
@@ -308,9 +325,9 @@ public final class Wind {
 			            _vert_color.a = 1.0;
 			            bool svLeaf = svK == 26;
 			            float svW = svLeaf ? 1.0 : float(svK) / 12.0;
-			            float svT = svregsky_Wind.x * svregsky_Wind.z;
+			            float svT = svregsky_Look2.z; // wind phase (time x speed), wrapped seamlessly on the CPU
 			            // the wind slowly changes direction over minutes
-			            float svAng = 0.34 + 0.30 * sin(svregsky_Wind.x * 0.011) + 0.12 * sin(svregsky_Wind.x * 0.037 + 1.3);
+			            float svAng = 0.34 + 0.30 * sin(svregsky_Wind.x * 0.01) + 0.12 * sin(svregsky_Wind.x * 0.03 + 1.3);
 			            vec2 svDir = vec2(cos(svAng), sin(svAng));
 			            vec2 svSide = vec2(-svDir.y, svDir.x);
 			            // gusts: soft, irregular patches (warped noise) drifting downwind, so the meadow ripples in waves
@@ -463,7 +480,6 @@ public final class Wind {
 			uniform vec4 svregsky_SkyC; // zenith colour, night (moon instead of sun)
 			uniform vec4 svregsky_Look2; // sparkle dots, unused...
 			uniform vec4 svregsky_Shadow;  // height map offset x, z, camera height above the map floor, shadow strength
-			uniform vec4 svregsky_Shadow2; // march steps, reach, colour (0 anime, 1 neutral, 2 warm), debug view
 			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g; b plants; a = water depth << 4 | shore distance
 			uniform vec4 svregsky_Water;   // anime water, shore waves, column map ready, underwater light patterns
 			uniform vec4 svregsky_Extra;   // winter snow amount, flowing-water foam on/off, cloud sea level (+ amount as fraction), time
@@ -649,52 +665,6 @@ public final class Wind {
 			            vec3 svTone = svD > 0.2 ? mix(vec3(1.06, 1.01, 0.90), vec3(1.10, 0.96, 0.84), v_svInfo.z)
 			                        : (svD < -0.2 ? vec3(0.84, 0.88, 1.05) : vec3(0.96, 0.97, 1.0));
 			            color.rgb *= mix(vec3(1.0), svTone, svK * 0.85);
-			        }
-			        if (svregsky_Shadow.w > 0.0) {
-			            // world sun shadows: walk toward the sun over the column height map
-			            vec3 svL2 = normalize(svregsky_Sun.xyz);
-			            float svDist = length(v_svWater.xyz);
-			            float svRange = svregsky_Shadow2.y;
-			            float svOcc = 0.0;
-			            bool svIn = svDist < svRange && v_svInfo.x > 0.2;
-			            if (svIn) {
-			                vec3 svQ0 = v_svWater.xyz + svN * 0.06;
-			                vec2 svCell0 = floor(svQ0.xz + svregsky_Shadow.xy);
-			                float svT2 = 0.35;
-			                int svSteps = int(svregsky_Shadow2.x + 0.5);
-			                for (int svI = 0; svI < 48; svI++) {
-			                    if (svI >= svSteps || svOcc > 0.99) {
-			                        break;
-			                    }
-			                    vec3 svQ = svQ0 + svL2 * svT2;
-			                    vec2 svG = svQ.xz + svregsky_Shadow.xy;
-			                    if (svG.x < 0.0 || svG.y < 0.0 || svG.x >= 256.0 || svG.y >= 256.0) {
-			                        break;
-			                    }
-			                    vec4 svH = texelFetch(svregsky_HeightTex, ivec2(svG), 0);
-			                    float svTop = floor(svH.r * 255.0 + 0.5) + floor(svH.g * 255.0 + 0.5) * 256.0;
-			                    float svY = svQ.y + svregsky_Shadow.z;
-			                    if (svY < svTop - 0.02) {
-			                        svOcc = 1.0;
-			                    } else if (svH.b > 0.0 && svT2 < 4.0 && floor(svG) != svCell0) {
-			                        // grass / flowers in a neighbouring column: a soft, blade-patterned little shadow
-			                        float svPh = svH.b * 255.0 / 128.0;
-			                        vec2 svBl = floor(svG * 4.0);
-			                        if (svY < svTop + svPh * (0.55 + 0.45 * svHash(svBl)) && svHash(svBl + 17.0) > 0.35) {
-			                            svOcc = max(svOcc, 0.6);
-			                        }
-			                    }
-			                    svT2 += 0.30 + svT2 * 0.10;
-			                }
-			            }
-			            if (svregsky_Shadow2.w > 0.5) {
-			                // shadow check: blue = shadow, light grey = sunlit, dark grey = out of reach / no sky
-			                color.rgb = !svIn ? vec3(0.35) : mix(vec3(0.85), vec3(0.15, 0.25, 1.0), svOcc);
-			            } else {
-			                float svK2 = svOcc * svregsky_Shadow.w * (1.0 - smoothstep(svRange * 0.6, svRange, svDist)) * smoothstep(0.2, 0.6, v_svInfo.x);
-			                vec3 svSc = svregsky_Shadow2.z < 0.5 ? vec3(0.32, 0.36, 0.62) : (svregsky_Shadow2.z < 1.5 ? vec3(0.36) : vec3(0.52, 0.37, 0.28));
-			                color.rgb *= mix(vec3(1.0), svSc, svK2);
-			            }
 			        }
 			        vec3 svWg = v_svWater.xyz + svregsky_Cam.xyz;
 			        if (svregsky_Water.w > 0.5 && svregsky_Water.z > 0.5 && v_svWater.w < 0.5 && v_svInfo.x < 0.97) {
