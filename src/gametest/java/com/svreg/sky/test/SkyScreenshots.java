@@ -19,48 +19,6 @@ public class SkyScreenshots implements FabricClientGameTest {
 				sp.getServer().runCommand("item replace entity @a hotbar." + i + " with " + items[i]);
 			}
 
-			if (System.getenv("IRIS_TEST") != null) {
-				// with Iris + the SvregShadow pack: copy the pack into the game folder and switch Iris to it
-				context.runOnClient(client -> {
-					try {
-						java.nio.file.Path game = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir();
-						java.nio.file.Path src = java.nio.file.Path.of(System.getenv("PACK_DIR"));
-						java.nio.file.Path dst = game.resolve("shaderpacks").resolve("SvregShadow");
-						try (var walk = java.nio.file.Files.walk(src)) {
-							for (java.nio.file.Path f : (Iterable<java.nio.file.Path>) walk::iterator) {
-								java.nio.file.Path t = dst.resolve(src.relativize(f).toString());
-								if (java.nio.file.Files.isDirectory(f)) java.nio.file.Files.createDirectories(t);
-								else java.nio.file.Files.copy(f, t, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-							}
-						}
-						Class<?> iris = Class.forName("net.irisshaders.iris.Iris");
-						Object cfg = iris.getMethod("getIrisConfig").invoke(null);
-						cfg.getClass().getMethod("setShaderPackName", String.class).invoke(cfg, "SvregShadow");
-						cfg.getClass().getMethod("setShadersEnabled", boolean.class).invoke(cfg, true);
-						cfg.getClass().getMethod("save").invoke(cfg);
-						iris.getMethod("reload").invoke(null);
-						com.svreg.sky.SvregSky.LOG.info("SvregSky test: Iris switched to SvregShadow (game dir {})", game);
-					} catch (Throwable t) {
-						com.svreg.sky.SvregSky.LOG.error("SvregSky test: could not switch Iris to the pack", t);
-					}
-				});
-				context.waitTicks(60);
-				// with Iris + the SvregShadow pack: a small scene with a house, a tree, animals and tall grass
-				sp.getServer().runCommand("weather clear");
-				sp.getServer().runCommand("execute as @p at @p run fill ~-12 ~ ~2 ~12 ~ ~22 short_grass replace air");
-				sp.getServer().runCommand("execute as @p at @p run fill ~3 ~ ~8 ~7 ~4 ~12 cobblestone hollow");
-				sp.getServer().runCommand("execute as @p at @p run place feature minecraft:oak ~-4 ~ ~10");
-				sp.getServer().runCommand("execute as @p at @p run summon cow ~-1 ~ ~6 {NoAI:1b}");
-				sp.getServer().runCommand("execute as @p at @p run summon villager ~1 ~ ~7 {NoAI:1b}");
-				context.waitTicks(200);
-				shot(context, sp, 6000, 0, 22, "iris_a_noon");
-				shot(context, sp, 9500, 0, 22, "iris_b_afternoon");
-				shot(context, sp, 11800, 0, 18, "iris_c_golden");
-				shot(context, sp, 11800, 90, -5, "iris_d_golden_sky_west");
-				shot(context, sp, 3000, -90, -20, "iris_e_morning_sky");
-				shot(context, sp, 18000, 0, 22, "iris_f_moon_night");
-				return;
-			}
 			shot(context, sp, 6000, 0, -25, "a_noon_south");
 			shot(context, sp, 6000, 135, -55, "b_noon_up");
 			shot(context, sp, 6000, 90, -6, "c_noon_horizon");
@@ -218,6 +176,12 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(400);
 			look(context, 0, -12, "zz_sky_lanterns");
 			context.runOnClient(client -> com.svreg.sky.fx.Effects.forceLanterns = false);
+			// sun shadows (world + screen) at noon, and the world method alone in the afternoon
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", true); com.svreg.sky.sky.SkySettings.shadowMethod = "both"; });
+			shot(context, sp, 7000, 0, 20, "zs_sun_shadows_both");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.shadowMethod = "world");
+			shot(context, sp, 9500, 0, 20, "zs2_sun_shadows_world");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 			// blue hour, silver night clouds, morning dew
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("auto_fps", false)); // the CI machine is slow; keep every effect on
 			shot(context, sp, 13250, 90, -8, "zz6_blue_hour_west");

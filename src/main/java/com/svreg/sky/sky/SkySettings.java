@@ -137,6 +137,8 @@ public final class SkySettings {
 		FLAGS.put("light_rays", true);
 		FLAGS.put("water_sparkle_dots", true);
 		FLAGS.put("water_sunset", true);
+		FLAGS.put("screen_shadows", false);
+		FLAGS.put("shadow_debug", false);
 		FLAGS.put("anime_water", true);
 		FLAGS.put("distant_storm", true);
 		FLAGS.put("cloud_sea", true);
@@ -172,6 +174,9 @@ public final class SkySettings {
 	/** 3D Ghibli clouds: look ("auto" = a different weather each day), amount and size multipliers */
 	public static String ghibliStyle = "auto";
 	public static float ghibliAmount = 1.0F, ghibliSize = 1.0F;
+	/** screen-space sun shadows: quality (low / medium / high / ultra), darkness 0..1, colour (anime / neutral / warm) */
+	public static String shadowQuality = "medium", shadowColor = "anime", shadowMethod = "world";
+	public static float shadowDarkness = 0.45F;
 
 	/** photo-mode time-lapse: the sky turns on its own (a day in about two minutes, or thirty seconds) */
 	public static void tickPhoto() {
@@ -240,6 +245,18 @@ public final class SkySettings {
 		if (o.has("ghibli_size")) {
 			ghibliSize = Math.max(0.5F, Math.min(2.0F, o.get("ghibli_size").getAsFloat()));
 		}
+		if (o.has("shadow_quality")) {
+			shadowQuality = o.get("shadow_quality").getAsString();
+		}
+		if (o.has("shadow_method")) {
+			shadowMethod = o.get("shadow_method").getAsString();
+		}
+		if (o.has("shadow_color")) {
+			shadowColor = o.get("shadow_color").getAsString();
+		}
+		if (o.has("shadow_darkness")) {
+			shadowDarkness = Math.max(0.1F, Math.min(0.9F, o.get("shadow_darkness").getAsFloat()));
+		}
 		if (o.has("tower_style")) {
 			towerStyle = o.get("tower_style").getAsString();
 		}
@@ -251,6 +268,7 @@ public final class SkySettings {
 					e.setValue(o.get(e.getKey()).getAsBoolean());
 				}
 			}
+			FLAGS.put("shadow_debug", false); // the colour check view is only for a quick test; never comes back on by itself
 			cirrusSky = bool(o, "cirrus_sky", cirrusSky);
 			paintedClouds = bool(o, "painted_clouds", paintedClouds);
 			cloudLayers = Math.max(1, Math.min(3, (int) num(o, "cloud_layers", cloudLayers)));
