@@ -62,26 +62,60 @@ highp float coverage(highp vec2 xz) {
 // the high layer (altocumulus streaks) sits this far above the cloud base
 const highp float HIGH0 = 255.0, HIGH1 = 285.0;
 
-// low/mid cumulus: flat bases at different heights (some clouds float higher), heaped cauliflower tops
+// low/mid cumulus, built from big bubbles: every 48-block cell inside the cloud cover holds one wide bubble on the
+// flat base and one more stacked somewhere above it, each its own size and height, so the outline is a crowd of
+// round lobes (not a dome, not a pillar). Small baked bubbles then cover their surface.
+const highp float CELLW = 48.0;
+
+highp float lobes(highp vec3 p, highp float base) {
+    highp vec2 g = p.xz / CELLW;
+    highp vec2 gi = floor(g);
+    highp float best = -1.0;
+    for (int k = 0; k < 9; k++) {
+        highp vec2 c = gi + vec2(float(k - (k / 3) * 3 - 1), float(k / 3 - 1));
+        highp vec2 cxz = (c + 0.2 + 0.6 * vec2(h2(c), h2(c + 17.3))) * CELLW;
+        highp float cv = coverage(cxz);
+        if (cv <= 0.02) {
+            continue;
+        }
+        highp float r = (28.0 + 22.0 * h2(c + 5.1)) * (0.6 + 0.4 * sqrt(cv));
+        // the bubble sitting on the base: wider than tall
+        highp vec3 q = (p - vec3(cxz.x, base + r * 0.45, cxz.y)) / vec3(r * 1.25, r * 0.8, r * 1.25);
+        best = max(best, 1.0 - length(q));
+        // a second bubble stacked on top, off-centre, at a random height (some cells tower, most stay low)
+        highp float r2 = r * (0.55 + 0.35 * h2(c + 9.7));
+        highp float lift = r * 0.6 + layerH * 0.7 * sqrt(cv) * h2(c + 3.3);
+        highp vec2 off = (vec2(h2(c + 11.0), h2(c + 13.0)) - 0.5) * r;
+        q = (p - vec3(cxz.x + off.x, base + lift + r2 * 0.4, cxz.y + off.y)) / vec3(r2, r2 * 0.85, r2);
+        best = max(best, 1.0 - length(q));
+        // in the thick middle of a cloud a third bubble crowns the stack
+        if (cv > 0.45) {
+            highp float r3 = r2 * (0.6 + 0.3 * h2(c + 31.0));
+            highp vec2 off3 = off * -0.6 + (vec2(h2(c + 41.0), h2(c + 43.0)) - 0.5) * r2;
+            q = (p - vec3(cxz.x + off3.x, base + lift + r2 * 0.9 + r3 * 0.3, cxz.y + off3.y)) / vec3(r3, r3 * 0.9, r3);
+            best = max(best, 1.0 - length(q));
+        }
+    }
+    return best;
+}
+
 highp float cumulus(highp vec3 p) {
-    highp float cov = coverage(p.xz);
-    if (cov <= 0.0) {
-        return -1.0;
-    }
     highp float base = 38.0 * n2(p.xz / 300.0 + 11.0);              // each cloud field gets its own base height
-    highp float top = base + 14.0 + layerH * (0.45 + 0.85 * n2(p.xz / 160.0 + 4.0)) * sqrt(cov); // tall in the middle, low at the edges: domes, not pillars
-    highp float hf = (p.y - base) / (top - base);
-    if (hf < 0.0 || hf > 1.0) {
+    if (p.y < base || p.y > base + layerH + 50.0) {
         return -1.0;
     }
-    // dome: the higher up, the more coverage it takes to stay cloud, so tops round off instead of rising as walls
-    highp float d = 0.55 + cov * 0.6 - 0.95 * hf * hf;
+    // cheap early-out: no cloud cover anywhere near
+    if (coverage(p.xz) <= 0.0 && coverage(p.xz + vec2(40.0, 0.0)) <= 0.0 && coverage(p.xz - vec2(40.0, 0.0)) <= 0.0) {
+        return -1.0;
+    }
+    highp float d = lobes(p, base);
+    if (d < -0.35) {
+        return -1.0;
+    }
     highp float e = erosionTex(p);
-    // bubbles: almost none on the flat bottom, bulging most on the sides and top
-    highp float bubK = smoothstep(0.0, 0.12, hf) * (0.9 + 0.7 * hf);
-    // a flat base: just above it the cloud is held solid where there is coverage, so the underside is a straight line
-    highp float floorK = 1.0 - smoothstep(0.0, 0.06, hf);
-    return d + (e - 0.52) * bubK * lodK + floorK * 0.15 * step(0.35, cov) - 0.02;
+    // small bubbles on the surface, none on the flat bottom
+    highp float bubK = smoothstep(base, base + 6.0, p.y);
+    return d + (e - 0.52) * 0.45 * bubK * lodK - 0.02;
 }
 
 // high thin streaks stretched along the wind, in patches
@@ -91,7 +125,7 @@ highp float highLayer(highp vec3 p) {
     }
     highp vec2 q = vec2(p.x * 0.35, p.z);                            // stretched along x (the wind)
     highp float c = n2(q / 120.0 + 31.0) * 0.6 + n2(q / 40.0 + 17.0) * 0.4;
-    highp float cov = smoothstep(0.70 - 0.06 * amount, 0.86, c) * smoothstep(0.55, 0.72, n2(p.xz / 600.0 + 5.0));
+    highp float cov = smoothstep(0.74 - 0.06 * amount, 0.88, c) * smoothstep(0.62, 0.78, n2(p.xz / 600.0 + 5.0));
     if (cov <= 0.0) {
         return -1.0;
     }
