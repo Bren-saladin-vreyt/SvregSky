@@ -277,6 +277,13 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 160, -25, "zt2_anime_fine_noon");
 			shot(context, sp, 6000, 40, -8, "zt3_anime_fine_horizon");
 			shot(context, sp, 12300, 90, -10, "zt4_anime_fine_golden");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 0; com.svreg.sky.sky.SkySettings.version++; });
+			context.waitTicks(160);
+			shot(context, sp, 6000, 160, -25, "zt6_anime_lod_noon");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_merge", false); com.svreg.sky.sky.SkySettings.version++; });
+			context.waitTicks(100);
+			shot(context, sp, 6000, 160, -25, "zt7_anime_lod_merge_off");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_merge", true));
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 4; com.svreg.sky.sky.SkySettings.ghibliStyle = "cumulus"; com.svreg.sky.sky.SkySettings.version++; });
 			context.waitTicks(120);
 			shot(context, sp, 6000, 160, -25, "zt5_old_cumulus_style");

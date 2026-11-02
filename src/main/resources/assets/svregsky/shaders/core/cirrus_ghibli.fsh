@@ -62,15 +62,15 @@ void main() {
     pn = length(pn) > 1.0 ? normalize(pn) : n;
     highp vec3 rd = normalize(relPos);
 
-    pn = normalize(pn + n * 0.15);
+    pn = normalize(pn + vec3(0.0, 1e-3, 0.0)); // the cell's own smoothed normal: no per-face stripes
     highp float l = dot(pn, sunDir) * 0.5 + 0.5;
     highp float up = pn.y * 0.5 + 0.5;
     highp float hy = clamp(localY / max(layerH, 1.0), 0.0, 1.0);
     // painted look: tops and bubble centres white, bellies and creases blue, the sun only nudges it
-    highp float v = 0.28 + 0.24 * l * (1.0 - 0.5 * sh) + 0.24 * L + 0.24 * up + 0.12 * hy;
+    highp float v = 0.18 + 0.52 * L + 0.14 * l * (1.0 - 0.5 * sh) + 0.14 * up + 0.04 * hy;
     // bubble edges seen side-on catch the light: bright outlines around every puff
     highp float side = 1.0 - abs(dot(pn, rd));
-    v += 0.18 * smoothstep(0.5, 0.95, side) * (1.0 - rain * 0.7);
+    v += 0.08 * smoothstep(0.5, 0.95, side) * (1.0 - rain * 0.7);
     // backlit silver / golden rim toward the sun
     highp float rim = smoothstep(0.55, 0.8, side) * smoothstep(-0.25, 0.25, dot(pn, sunDir)) * smoothstep(0.3, 0.9, dot(rd, sunDir) * 0.5 + 0.5);
     v = max(v, mix(v, 0.8, rim * (1.0 - rain)));

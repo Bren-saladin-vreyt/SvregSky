@@ -129,6 +129,8 @@
   "svregsky.options.ghibli_detail": "§c● §rAnime Cloud Detail",
   "svregsky.options.ghibli_detail.4": "Normal (4-block cells, phone)",
   "svregsky.options.ghibli_detail.2": "Fine (2-block cells, PC)",
+  "svregsky.options.ghibli_detail.lod": "Fine Near (phone, LOD)",
+  "svregsky.options.cloud_merge": "§a● §rMerge Cloud Faces (lighter)",
   "svregsky.options.ghibli_style.auto": "Auto (new each day)",
   "svregsky.options.ghibli_style.fair": "Fair (small puffs)",
   "svregsky.options.ghibli_style.cumulus": "Big Cumulus",

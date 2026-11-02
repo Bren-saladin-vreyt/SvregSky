@@ -45,15 +45,31 @@ public final class GhibliClouds {
 	private static boolean broken;
 
 	/** the voxel field: occupancy, normal (3 signed bytes) and brightness per cell; cell = blocks per cell (4 or 2) */
-	private record Grid(int nx, int ny, int nz, float cell, byte[] occ, byte[] nrm, byte[] light) {
+	private record Grid(int nx, int ny, int nz, float cell, byte[] occ, byte[] nrm, byte[] light, double ox, double oz, boolean wrap) {
+		Grid(int nx, int ny, int nz, float cell, byte[] occ, byte[] nrm, byte[] light) {
+			this(nx, ny, nz, cell, occ, nrm, light, 0, 0, true);
+		}
+
 		int idx(int x, int y, int z) {
-			return (Math.floorMod(x, nx) * ny + y) * nz + Math.floorMod(z, nz);
+			return wrap ? (Math.floorMod(x, nx) * ny + y) * nz + Math.floorMod(z, nz) : (x * ny + y) * nz + z;
 		}
 
 		boolean filled(int x, int y, int z) {
-			return y >= 0 && y < ny && occ[idx(x, y, z)] != 0;
+			if (y < 0 || y >= ny || !wrap && (x < 0 || z < 0 || x >= nx || z >= nz)) {
+				return false;
+			}
+			return occ[idx(x, y, z)] != 0;
 		}
 	}
+
+	/** "Fine near" (LOD): a 2-block patch around the camera on top of the 4-block sky */
+	private static final float FINE_HALF = 160F, FINE_NEAR = 112F, FINE_MOVE = 40F;
+	private static volatile Grid fine;
+	private static volatile int fineVersion;
+	private static CompletableFuture<Void> fineJob;
+	private static double fineCx = Double.NaN, fineCz;
+	private static long fineSeed = Long.MIN_VALUE;
+	private static volatile long mainGenSeed = Long.MIN_VALUE + 1;
 
 	private static volatile Grid grid;
 	private static long gridSeed = Long.MIN_VALUE;
@@ -64,8 +80,10 @@ public final class GhibliClouds {
 	// mesh
 	private static GpuBuffer mesh;
 	private static int quadCount;
-	private static int builtCx = Integer.MIN_VALUE, builtCz, builtRadius, builtVersion = -1;
-	private static float builtCell = CELL;
+	private static double builtAx = Double.NaN, builtAz;
+	private static float builtReach;
+	private static int builtVersion = -1, builtFine = -1, builtRadius;
+	private static boolean builtGreedy;
 	private static float builtSunX, builtSunY, builtSunZ;
 	private static CompletableFuture<Built> meshJob;
 
@@ -73,7 +91,7 @@ public final class GhibliClouds {
 	private static long lastNanos;
 	private static int logs;
 
-	private record Built(MeshData data, ByteBufferBuilder bytes, int quads, int cx, int cz, int radius, float sx, float sy, float sz, int version, float cell) {
+	private record Built(MeshData data, ByteBufferBuilder bytes, int quads, double ax, double az, float reach, int radius, float sx, float sy, float sz, int version, int fineVer) {
 	}
 
 	private GhibliClouds() {
@@ -88,6 +106,7 @@ public final class GhibliClouds {
 			g.sizeMul = SkySettings.ghibliSize;
 			g.generate();
 			grid = new Grid(g.nx, g.ny, g.nz, g.cell, g.occ, g.nrm, g.light);
+			mainGenSeed = seed;
 		} else {
 			GhibliGen g = new GhibliGen(NX, NY, NZ, seed);
 			g.style = style;
@@ -97,6 +116,18 @@ public final class GhibliClouds {
 			grid = new Grid(NX, NY, NZ, CELL, g.occ, g.nrm, openness(g.occ));
 		}
 		gridVersion++;
+	}
+
+	/** the 2-block patch for "fine near": same sky as the 4-block grid, only around (cx, cz) in the drifting cloud space */
+	private static void generateFine(long seed, double cx, double cz) {
+		double ox = Math.floor((cx - FINE_HALF) / 2) * 2, oz = Math.floor((cz - FINE_HALF) / 2) * 2;
+		float fx = (float) (ox - Math.floor(ox / SPAN) * SPAN), fz = (float) (oz - Math.floor(oz / SPAN) * SPAN);
+		CumulusGen g = new CumulusGen(2, seed, fx, fz, FINE_HALF * 2);
+		g.countMul = SkySettings.ghibliAmount;
+		g.sizeMul = SkySettings.ghibliSize;
+		g.generate();
+		fine = new Grid(g.nx, g.ny, g.nz, 2, g.occ, g.nrm, g.light, ox, oz, false);
+		fineVersion++;
 	}
 
 	/** brightness for the older looks: thin, open parts of a cloud are lighter than its packed middle */
@@ -152,54 +183,186 @@ public final class GhibliClouds {
 		return s;
 	}
 
-	private static Built buildMesh(Grid g, int ccx, int ccz, int radius, float sx, float sy, float sz, int version) {
-		byte[] o = g.occ(), nn = g.nrm(), lt = g.light();
-		int ny = g.ny();
-		float cell = g.cell();
-		int r2 = radius * radius;
+	private static final int[][] DIRS = {{0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
+
+	private static Built buildMesh(Grid g, Grid fg, double ax, double az, float reach, int radius, float sx, float sy, float sz, int version, int fineVer, boolean greedy) {
 		ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize() * 4 * 8192);
 		BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 		int quads = 0;
-		int[][] dirs = {{0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
-		for (int dz = -radius; dz <= radius; dz++) {
-			for (int dx = -radius; dx <= radius; dx++) {
-				if (dx * dx + dz * dz > r2) {
-					continue;
-				}
-				int gx = ccx + dx, gz = ccz + dz;
-				for (int y = 0; y < ny; y++) {
-					int i = g.idx(gx, y, gz);
-					if (o[i] == 0) {
+		if (fg != null) {
+			quads += meshRegion(b, fg, ax, az, 0, FINE_NEAR, sx, sy, sz, greedy);
+			quads += meshRegion(b, g, ax, az, FINE_NEAR, reach, sx, sy, sz, greedy);
+		} else {
+			quads += meshRegion(b, g, ax, az, 0, reach, sx, sy, sz, greedy);
+		}
+		MeshData data = b.build();
+		return new Built(data, bytes, data == null ? 0 : quads, ax, az, reach, radius, sx, sy, sz, version, fineVer);
+	}
+
+	/**
+	 * Faces of the cells whose column centre lies between rMin and rMax blocks of (ax, az); vertices are relative to (ax, az).
+	 * Greedy: neighbouring faces in one plane with the same (rounded) look are merged into one rectangle.
+	 */
+	private static int meshRegion(BufferBuilder b, Grid g, double ax, double az, float rMin, float rMax, float sx, float sy, float sz, boolean greedy) {
+		float cell = g.cell();
+		int ny = g.ny();
+		int x0 = (int) Math.floor((ax - rMax - g.ox()) / cell), x1 = (int) Math.floor((ax + rMax - g.ox()) / cell);
+		int z0 = (int) Math.floor((az - rMax - g.oz()) / cell), z1 = (int) Math.floor((az + rMax - g.oz()) / cell);
+		if (!g.wrap()) {
+			x0 = Math.max(0, x0);
+			z0 = Math.max(0, z0);
+			x1 = Math.min(g.nx() - 1, x1);
+			z1 = Math.min(g.nz() - 1, z1);
+		}
+		if (x1 < x0 || z1 < z0) {
+			return 0;
+		}
+		int w = x1 - x0 + 1, h = z1 - z0 + 1;
+		boolean[] col = new boolean[w * h];
+		for (int x = x0; x <= x1; x++) {
+			for (int z = z0; z <= z1; z++) {
+				double dx = g.ox() + (x + 0.5) * cell - ax, dz = g.oz() + (z + 0.5) * cell - az;
+				double d = Math.sqrt(dx * dx + dz * dz);
+				col[(x - x0) * h + (z - z0)] = d >= rMin && d < rMax;
+			}
+		}
+		float offX = (float) (g.ox() - ax), offZ = (float) (g.oz() - az);
+		byte[] nn = g.nrm(), lt = g.light();
+		int quads = 0;
+		if (!greedy) {
+			for (int x = x0; x <= x1; x++) {
+				for (int z = z0; z <= z1; z++) {
+					if (!col[(x - x0) * h + (z - z0)]) {
 						continue;
 					}
-					int nr = nn[i * 3] + 128, ng = nn[i * 3 + 1] + 128, nb = nn[i * 3 + 2] + 128;
-					int a = lt[i] & 255;
-					int sh = -1;
-					for (int f = 0; f < 6; f++) {
-						int[] d = dirs[f];
-						if (g.filled(gx + d[0], y + d[1], gz + d[2])) {
+					for (int y = 0; y < ny; y++) {
+						int i = g.idx(x, y, z);
+						if (g.occ()[i] == 0) {
 							continue;
 						}
-						if (sh < 0) {
-							sh = shadow(g, gx, y, gz, sx, sy, sz);
+						int sh = -1;
+						for (int f = 0; f < 6; f++) {
+							int[] d = DIRS[f];
+							if (g.filled(x + d[0], y + d[1], z + d[2])) {
+								continue;
+							}
+							if (sh < 0) {
+								sh = shadow(g, x, y, z, sx, sy, sz);
+							}
+							emitBox(b, g, f, x, y, z, 1, 1, 1, offX, offZ, nn[i * 3] + 128, nn[i * 3 + 1] + 128, nn[i * 3 + 2] + 128, lt[i] & 255, sh);
+							quads++;
 						}
-						float u = f, w = sh;
-						float x0 = dx * cell, x1 = x0 + cell, y0 = y * cell, y1 = y0 + cell, z0 = dz * cell, z1 = z0 + cell;
-						switch (f) {
-							case 0 -> quad(b, nr, ng, nb, a, u, w, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
-							case 1 -> quad(b, nr, ng, nb, a, u, w, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
-							case 2 -> quad(b, nr, ng, nb, a, u, w, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
-							case 3 -> quad(b, nr, ng, nb, a, u, w, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
-							case 4 -> quad(b, nr, ng, nb, a, u, w, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
-							default -> quad(b, nr, ng, nb, a, u, w, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
+					}
+				}
+			}
+			return quads;
+		}
+		for (int f = 0; f < 6; f++) {
+			int[] d = DIRS[f];
+			int axis = d[0] != 0 ? 0 : (d[1] != 0 ? 1 : 2);
+			// slice axis s; in-plane axes u (rows) and v (columns)
+			int sN = axis == 0 ? w : (axis == 1 ? ny : h);
+			int uN = axis == 0 ? ny : w, vN = axis == 2 ? ny : h;
+			int[] key = new int[uN * vN];
+			for (int s = 0; s < sN; s++) {
+				for (int u = 0; u < uN; u++) {
+					for (int v = 0; v < vN; v++) {
+						int x, y, z;
+						if (axis == 0) {
+							x = x0 + s;
+							y = u;
+							z = z0 + v;
+						} else if (axis == 1) {
+							x = x0 + u;
+							y = s;
+							z = z0 + v;
+						} else {
+							x = x0 + u;
+							y = v;
+							z = z0 + s;
 						}
+						int k = -1;
+						if (col[(x - x0) * h + (z - z0)] && g.filled(x, y, z) && !g.filled(x + d[0], y + d[1], z + d[2])) {
+							int i = g.idx(x, y, z);
+							// rounded look: normal 3 bits per axis, brightness 4 bits, self-shadow 0..6
+							k = ((nn[i * 3] + 128) >> 5) | ((nn[i * 3 + 1] + 128) >> 5) << 3 | ((nn[i * 3 + 2] + 128) >> 5) << 6
+									| ((lt[i] & 255) >> 4) << 9 | shadow(g, x, y, z, sx, sy, sz) << 13;
+						}
+						key[u * vN + v] = k;
+					}
+				}
+				for (int u = 0; u < uN; u++) {
+					for (int v = 0; v < vN; v++) {
+						int k = key[u * vN + v];
+						if (k < 0) {
+							continue;
+						}
+						int cw = 1;
+						while (v + cw < vN && key[u * vN + v + cw] == k) {
+							cw++;
+						}
+						int ch = 1;
+						grow:
+						while (u + ch < uN) {
+							for (int t = 0; t < cw; t++) {
+								if (key[(u + ch) * vN + v + t] != k) {
+									break grow;
+								}
+							}
+							ch++;
+						}
+						for (int q = 0; q < ch; q++) {
+							for (int t = 0; t < cw; t++) {
+								key[(u + q) * vN + v + t] = -1;
+							}
+						}
+						int x, y, z, ex, ey, ez;
+						if (axis == 0) {
+							x = x0 + s;
+							y = u;
+							z = z0 + v;
+							ex = 1;
+							ey = ch;
+							ez = cw;
+						} else if (axis == 1) {
+							x = x0 + u;
+							y = s;
+							z = z0 + v;
+							ex = ch;
+							ey = 1;
+							ez = cw;
+						} else {
+							x = x0 + u;
+							y = v;
+							z = z0 + s;
+							ex = ch;
+							ey = cw;
+							ez = 1;
+						}
+						emitBox(b, g, f, x, y, z, ex, ey, ez, offX, offZ, ((k & 7) << 5) + 16, ((k >> 3 & 7) << 5) + 16, ((k >> 6 & 7) << 5) + 16,
+								((k >> 9 & 15) << 4) + 8, k >> 13 & 7);
 						quads++;
 					}
 				}
 			}
 		}
-		MeshData data = b.build();
-		return new Built(data, bytes, data == null ? 0 : quads, ccx, ccz, radius, sx, sy, sz, version, cell);
+		return quads;
+	}
+
+	/** face f of the box of ex x ey x ez cells starting at cell (x, y, z) */
+	private static void emitBox(BufferBuilder b, Grid g, int f, int x, int y, int z, int ex, int ey, int ez, float offX, float offZ,
+			int r, int gg, int bl, int a, int sh) {
+		float c = g.cell();
+		float x0 = offX + x * c, x1 = x0 + ex * c, y0 = y * c, y1 = y0 + ey * c, z0 = offZ + z * c, z1 = z0 + ez * c;
+		float u = f, w = sh;
+		switch (f) {
+			case 0 -> quad(b, r, gg, bl, a, u, w, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
+			case 1 -> quad(b, r, gg, bl, a, u, w, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
+			case 2 -> quad(b, r, gg, bl, a, u, w, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
+			case 3 -> quad(b, r, gg, bl, a, u, w, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
+			case 4 -> quad(b, r, gg, bl, a, u, w, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
+			default -> quad(b, r, gg, bl, a, u, w, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
+		}
 	}
 
 	/** colour = cell normal + brightness, uv = (face, self-shadow) */
@@ -219,16 +382,17 @@ public final class GhibliClouds {
 				}
 				mesh = next;
 				quadCount = built.quads();
-				builtCx = built.cx();
-				builtCz = built.cz();
+				builtAx = built.ax();
+				builtAz = built.az();
+				builtReach = built.reach();
 				builtRadius = built.radius();
+				builtFine = built.fineVer();
 				builtSunX = built.sx();
 				builtSunY = built.sy();
 				builtSunZ = built.sz();
 				builtVersion = built.version();
-				builtCell = built.cell();
 				if (logs++ < 3) {
-					SvregSky.LOG.info("SvregSky: Ghibli clouds built {} faces (radius {} cells)", quadCount, builtRadius);
+					SvregSky.LOG.info("SvregSky: Ghibli clouds built {} faces (reach {} blocks)", quadCount, builtReach);
 				}
 			}
 		} finally {
@@ -303,31 +467,48 @@ public final class GhibliClouds {
 			// a new set of clouds every in-game day
 			long day = mc.level == null ? 0 : Math.floorDiv(mc.level.getOverworldClockTime(), 24000L);
 			String style = SkySettings.ghibliStyle;
-			int cellSize = "anime".equals(style) ? SkySettings.ghibliCell : 4;
-			long seed = day * 7919L + 17 + style.hashCode() * 31L + Math.round(SkySettings.ghibliAmount * 100) * 977L + Math.round(SkySettings.ghibliSize * 100) * 6007L
-					+ cellSize * 104729L;
+			boolean anime = "anime".equals(style);
+			boolean lod = anime && SkySettings.ghibliCell == 0;
+			int cellSize = anime && !lod ? SkySettings.ghibliCell : 4;
+			long genSeed = day * 7919L + 17 + style.hashCode() * 31L + Math.round(SkySettings.ghibliAmount * 100) * 977L + Math.round(SkySettings.ghibliSize * 100) * 6007L;
+			long seed = genSeed + cellSize * 104729L;
 			if (seed != gridSeed && (gridJob == null || gridJob.isDone())) {
 				gridSeed = seed;
-				long genSeed = day * 7919L + 17 + style.hashCode() * 31L; // same sky at either cell size
-				gridJob = CompletableFuture.runAsync(() -> generate(genSeed + Math.round(SkySettings.ghibliAmount * 100) * 977L
-						+ Math.round(SkySettings.ghibliSize * 100) * 6007L, style, cellSize));
+				gridJob = CompletableFuture.runAsync(() -> generate(genSeed, style, cellSize)); // same sky at either cell size
 				builtVersion = -1;
 			}
 			Grid g = grid;
 			if (g == null) {
 				return;
 			}
-			float cell = g.cell();
 
-			double sx = cam.x - windX, sz = cam.z - windZ;
-			int ccx = (int) Math.floor(sx / cell), ccz = (int) Math.floor(sz / cell);
-			int radius = Math.round(radiusCells() * CELL / cell);
+			double sx = cam.x - windX, sz = cam.z - windZ; // camera in the drifting cloud space
+			// "fine near": a 2-block patch follows the camera on top of the 4-block sky
+			if (!lod) {
+				fine = null;
+				fineCx = Double.NaN;
+			} else if ((fineJob == null || fineJob.isDone()) && mainGenSeed == genSeed) {
+				boolean far = Double.isNaN(fineCx) || Math.hypot(sx - fineCx, sz - fineCz) > FINE_MOVE;
+				if (far || fineSeed != genSeed) {
+					fineSeed = genSeed;
+					fineCx = sx;
+					fineCz = sz;
+					double fcx = sx, fcz = sz;
+					fineJob = CompletableFuture.runAsync(() -> generateFine(genSeed, fcx, fcz));
+				}
+			}
+			Grid fg = lod && fineSeed == genSeed ? fine : null;
+			int fv = fg == null ? -1 : fineVersion;
+
+			int radius = radiusCells();
+			float reachBlocks = radius * CELL;
 			Vector3f sun = CirrusSky.sunDirection();
 			float sunLen = sun.length() + 1e-5F;
 			float ux = sun.x / sunLen, uy = Math.max(0.05F, sun.y / sunLen), uz = sun.z / sunLen;
-			int step = Math.max(2, radius / 10);
-			boolean stale = Math.abs(ccx - builtCx) >= step || Math.abs(ccz - builtCz) >= step || radius != builtRadius
-					|| builtVersion != SkySettings.version
+			float stepBlocks = Math.max(8, reachBlocks / 10);
+			boolean greedy = SkySettings.on("cloud_merge");
+			boolean stale = Double.isNaN(builtAx) || Math.abs(sx - builtAx) >= stepBlocks || Math.abs(sz - builtAz) >= stepBlocks || radius != builtRadius
+					|| builtVersion != SkySettings.version || fv != builtFine || greedy != builtGreedy
 					|| Math.abs(ux - builtSunX) + Math.abs(uy - builtSunY) + Math.abs(uz - builtSunZ) > 0.08F;
 			if (meshJob != null && meshJob.isDone()) {
 				Built done = meshJob.join();
@@ -336,15 +517,15 @@ public final class GhibliClouds {
 			}
 			if (stale && meshJob == null && gridJob != null && gridJob.isDone()) {
 				int v = SkySettings.version;
-				meshJob = CompletableFuture.supplyAsync(() -> buildMesh(g, ccx, ccz, radius, ux, uy, uz, v));
+				double ax = Math.floor(sx / 4) * 4, az = Math.floor(sz / 4) * 4;
+				builtGreedy = greedy;
+				meshJob = CompletableFuture.supplyAsync(() -> buildMesh(g, fg, ax, az, reachBlocks, radius, ux, uy, uz, v, fv, greedy));
 			}
 			if (mesh == null || quadCount == 0) {
 				return;
 			}
-			float bcell = builtCell;
-			Vector3f offset = new Vector3f((float) (builtCx * (double) bcell + windX - cam.x), (float) (bottomY - 4.0F - cam.y),
-					(float) (builtCz * (double) bcell + windZ - cam.z));
-			float reach = (builtRadius - step) * bcell;
+			Vector3f offset = new Vector3f((float) (builtAx + windX - cam.x), (float) (bottomY - 4.0F - cam.y), (float) (builtAz + windZ - cam.z));
+			float reach = builtReach - stepBlocks;
 			float[] hzSun = CirrusSky.horizonToward(true);
 			float[] hzAway = CirrusSky.horizonToward(false);
 			Matrix4f params = CirrusSky.skyParams();
@@ -387,6 +568,6 @@ public final class GhibliClouds {
 			mesh.close();
 			mesh = null;
 		}
-		builtCx = Integer.MIN_VALUE;
+		builtAx = Double.NaN;
 	}
 }

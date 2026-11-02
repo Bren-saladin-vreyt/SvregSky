@@ -144,9 +144,10 @@ public class SkyScreen extends OptionsSubScreen {
 				choice("ghibli_style", List.of("anime", "auto", "fair", "cumulus", "towers", "streets", "sheep", "storm", "castle", "mixed"), SkySettings.ghibliStyle, v -> {
 					SkySettings.ghibliStyle = v;
 				}),
-				choice("ghibli_detail", List.of("4", "2"), String.valueOf(SkySettings.ghibliCell), v -> {
-					SkySettings.ghibliCell = Integer.parseInt(v);
+				choice("ghibli_detail", List.of("4", "lod", "2"), SkySettings.ghibliCell == 0 ? "lod" : String.valueOf(SkySettings.ghibliCell), v -> {
+					SkySettings.ghibliCell = v.equals("lod") ? 0 : Integer.parseInt(v);
 				}),
+				flag("cloud_merge"),
 				slider("ghibli_amount", 25, 250, Math.round(SkySettings.ghibliAmount * 100), v -> v + "%", v -> SkySettings.ghibliAmount = v / 100F),
 				slider("ghibli_size", 50, 200, Math.round(SkySettings.ghibliSize * 100), v -> v + "%", v -> SkySettings.ghibliSize = v / 100F),
 				slider("cloud_3d_distance", 8, 96, SkySettings.cloud3dDistance, v -> String.valueOf(v), v -> {

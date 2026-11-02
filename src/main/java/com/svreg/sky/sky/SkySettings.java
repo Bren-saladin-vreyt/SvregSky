@@ -150,6 +150,7 @@ public final class SkySettings {
 		FLAGS.put("cel_shading", true);
 		FLAGS.put("blue_hour", true);
 		FLAGS.put("silver_clouds", true);
+		FLAGS.put("cloud_merge", true);
 		FLAGS.put("shore_waves", true);
 		// comfort
 		FLAGS.put("per_world", false);
@@ -173,7 +174,7 @@ public final class SkySettings {
 	public static String towerStyle = "mixed";
 	/** 3D Ghibli clouds: look ("auto" = a different weather each day), amount and size multipliers */
 	public static String ghibliStyle = "anime";
-	/** blocks per 3D Ghibli cloud cell for the "anime" look: 4 (phone) or 2 (finer, heavier) */
+	/** blocks per 3D Ghibli cloud cell for the "anime" look: 4 (phone), 2 (finer, heavier) or 0 = 2 near the camera, 4 further out */
 	public static int ghibliCell = 4;
 	public static float ghibliAmount = 1.0F, ghibliSize = 1.0F;
 	/** screen-space sun shadows: quality (low / medium / high / ultra), darkness 0..1, colour (anime / neutral / warm) */
@@ -246,7 +247,8 @@ public final class SkySettings {
 			}
 		}
 		if (o.has("ghibli_cell")) {
-			ghibliCell = o.get("ghibli_cell").getAsInt() <= 2 ? 2 : 4;
+			int c = o.get("ghibli_cell").getAsInt();
+			ghibliCell = c <= 0 ? 0 : (c <= 2 ? 2 : 4);
 		}
 		if (o.has("ghibli_amount")) {
 			ghibliAmount = Math.max(0.25F, Math.min(2.5F, o.get("ghibli_amount").getAsFloat()));
