@@ -69,15 +69,19 @@ highp float cumulus(highp vec3 p) {
         return -1.0;
     }
     highp float base = 38.0 * n2(p.xz / 300.0 + 11.0);              // each cloud field gets its own base height
-    highp float top = base + 40.0 + layerH * (0.35 + 0.95 * n2(p.xz / 160.0 + 4.0)); // tall, every cloud its own height
+    highp float top = base + 14.0 + layerH * (0.45 + 0.85 * n2(p.xz / 160.0 + 4.0)) * sqrt(cov); // tall in the middle, low at the edges: domes, not pillars
     highp float hf = (p.y - base) / (top - base);
     if (hf < 0.0 || hf > 1.0) {
         return -1.0;
     }
     // dome: the higher up, the more coverage it takes to stay cloud, so tops round off instead of rising as walls
-    highp float d = cov * 1.3 - 0.9 * hf * hf - 0.35 * (1.0 - smoothstep(0.0, 0.08, hf));
+    highp float d = 0.55 + cov * 0.6 - 0.95 * hf * hf;
     highp float e = erosionTex(p);
-    return d + (e - 0.52) * (0.85 + 0.6 * hf) * lodK - 0.02; // the surface is a crowd of round bubbles, more so up top
+    // bubbles: almost none on the flat bottom, bulging most on the sides and top
+    highp float bubK = smoothstep(0.0, 0.12, hf) * (0.9 + 0.7 * hf);
+    // a flat base: just above it the cloud is held solid where there is coverage, so the underside is a straight line
+    highp float floorK = 1.0 - smoothstep(0.0, 0.06, hf);
+    return d + (e - 0.52) * bubK * lodK + floorK * 0.15 * step(0.35, cov) - 0.02;
 }
 
 // high thin streaks stretched along the wind, in patches
@@ -166,7 +170,13 @@ void main() {
             lodK = lodSave;
             highp float l = dot(n, sunDir) * 0.5 + 0.5;
             highp float bub = erosionTex(p);
-            highp float v = 0.40 + 0.28 * l + 0.14 * (n.y * 0.5 + 0.5) - 0.16 * occl - 0.14 * up + (bub - 0.5) * 0.5 * lodK;
+            // under the belly of a bubble: the bubble grows upward from here -> a small blue shadow band below each bulge
+            highp float bubUp = erosionTex(p + vec3(0.0, 4.0, 0.0)) - erosionTex(p - vec3(0.0, 4.0, 0.0));
+            highp float belly = smoothstep(0.02, 0.12, bubUp) * lodK;
+            highp float v = 0.42 + 0.28 * l + 0.16 * (n.y * 0.5 + 0.5) - 0.16 * occl - 0.14 * up + (bub - 0.5) * 0.4 * lodK - 0.22 * belly;
+            // a thin bright rim on edges seen side-on that face the sun
+            highp float sideOn = 1.0 - abs(dot(n, rd));
+            v += 0.18 * smoothstep(0.65, 0.9, sideOn) * smoothstep(0.0, 0.4, dot(n, sunDir)) * (1.0 - rain);
             // tones with soft steps between them (painted, not hard-cut)
             highp float k1 = smoothstep(0.28, 0.33, v), k2 = smoothstep(0.44, 0.49, v), k3 = smoothstep(0.60, 0.65, v);
             int band = v > 0.62 ? 3 : (v > 0.46 ? 2 : (v > 0.30 ? 1 : 0));
