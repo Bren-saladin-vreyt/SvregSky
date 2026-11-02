@@ -35,7 +35,7 @@ import java.util.OptionalDouble;
  */
 public final class RaymarchClouds {
 	/** the cloud layer is this tall (blocks) */
-	public static final float LAYER = 140F;
+	public static final float LAYER = 95F;
 
 	private static RenderPipeline marchPipeline, compPipeline;
 	private static GpuBuffer quad;

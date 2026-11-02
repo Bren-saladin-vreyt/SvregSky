@@ -53,23 +53,50 @@ highp float erosionTex(highp vec3 p) {
 highp float layerH, amount;
 
 highp float coverage(highp vec2 xz) {
-    highp float c = n2(xz / 230.0) * 0.58 + n2(xz / 80.0 + 7.0) * 0.42;
-    return smoothstep(0.66 - 0.1 * amount, 0.86 - 0.1 * amount, c);
+    highp float c = n2(xz / 170.0) * 0.55 + n2(xz / 60.0 + 7.0) * 0.45;
+    return smoothstep(0.71 - 0.1 * amount, 0.98 - 0.1 * amount, c); // wide ramp: cloud cores are 'thicker' than edges -> domes
 }
 
-highp float density(highp vec3 p) {
+// the high layer (altocumulus streaks) sits this far above the cloud base
+const highp float HIGH0 = 185.0, HIGH1 = 215.0;
+
+// low/mid cumulus: flat bases at different heights (some clouds float higher), heaped cauliflower tops
+highp float cumulus(highp vec3 p) {
     highp float cov = coverage(p.xz);
     if (cov <= 0.0) {
         return -1.0;
     }
-    highp float top = 30.0 + (layerH - 30.0) * cov;
-    highp float hf = p.y / top;
+    highp float base = 38.0 * n2(p.xz / 300.0 + 11.0);              // each cloud field gets its own base height
+    highp float top = base + 40.0 + layerH * (0.6 + 0.4 * n2(p.xz / 140.0 + 4.0));
+    highp float hf = (p.y - base) / (top - base);
     if (hf < 0.0 || hf > 1.0) {
         return -1.0;
     }
-    highp float prof = smoothstep(0.0, 0.16, hf) * (1.0 - smoothstep(0.4, 1.0, hf));
+    // dome: the higher up, the more coverage it takes to stay cloud, so tops round off instead of rising as walls
+    highp float d = cov * 1.3 - 0.9 * hf * hf - 0.35 * (1.0 - smoothstep(0.0, 0.08, hf));
     highp float e = erosionTex(p);
-    return cov * prof - (1.0 - e) * (0.42 + 0.25 * (1.0 - hf)) + 0.12;
+    return d - (1.0 - e) * (0.38 + 0.22 * (1.0 - hf)) + 0.16;
+}
+
+// high thin streaks stretched along the wind, in patches
+highp float highLayer(highp vec3 p) {
+    if (p.y < HIGH0 || p.y > HIGH1) {
+        return -1.0;
+    }
+    highp vec2 q = vec2(p.x * 0.35, p.z);                            // stretched along x (the wind)
+    highp float c = n2(q / 120.0 + 31.0) * 0.6 + n2(q / 40.0 + 17.0) * 0.4;
+    highp float cov = smoothstep(0.70 - 0.06 * amount, 0.86, c) * smoothstep(0.55, 0.72, n2(p.xz / 600.0 + 5.0));
+    if (cov <= 0.0) {
+        return -1.0;
+    }
+    highp float hf = (p.y - HIGH0) / (HIGH1 - HIGH0);
+    highp float prof = smoothstep(0.0, 0.35, hf) * (1.0 - smoothstep(0.55, 1.0, hf));
+    highp float e = erosionTex(vec3(p.x * 0.5, p.y * 2.0, p.z) + 40.0);
+    return cov * prof - (1.0 - e) * 0.55 + 0.1;
+}
+
+highp float density(highp vec3 p) {
+    return p.y > HIGH0 - 1.0 ? highLayer(p) : cumulus(p);
 }
 
 void main() {
@@ -91,7 +118,7 @@ void main() {
     if (abs(rd.y) < 1e-4) {
         return;
     }
-    highp float a = (0.0 - ro.y) / rd.y, b = (layerH - ro.y) / rd.y;
+    highp float a = (0.0 - ro.y) / rd.y, b = (HIGH1 - ro.y) / rd.y;
     highp float tA = max(min(a, b), 0.0), tB = min(max(a, b), reach);
     if (tB <= tA) {
         return;
@@ -131,7 +158,7 @@ void main() {
             highp float d3 = density(p + vec3(-e, e, -e)), d4 = density(p + vec3(e, e, e));
             highp vec3 n = -normalize(vec3(d1 - d2 - d3 + d4, -d1 - d2 + d3 + d4, -d1 + d2 - d3 + d4) + vec3(0.0, 1e-4, 0.0));
             highp float l = dot(n, sunDir) * 0.5 + 0.5;
-            highp float v = 0.42 + 0.30 * l + 0.18 * (n.y * 0.5 + 0.5) - 0.18 * occl - 0.18 * up;
+            highp float v = 0.48 + 0.30 * l + 0.18 * (n.y * 0.5 + 0.5) - 0.18 * occl - 0.18 * up;
             v += (erosionTex(p * 3.0) - 0.5) * 0.06;
             // tones with soft steps between them (painted, not hard-cut)
             highp float k1 = smoothstep(0.28, 0.33, v), k2 = smoothstep(0.44, 0.49, v), k3 = smoothstep(0.60, 0.65, v);
