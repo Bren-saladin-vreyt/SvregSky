@@ -91,6 +91,14 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 42, -3, "w4_big_hill_noon");
 			shot(context, sp, 18500, 105, -2, "w5_village_night");
 			shot(context, sp, 13300, -90, -3, "w6_moon_rising");
+			shot(context, sp, 13700, -90, -8, "w6b_moon_rising_later");
+			shot(context, sp, 6000, -64, -4, "w7_waterfall");
+			shot(context, sp, 6000, -21, -2, "w8_lake_noon");
+			shot(context, sp, 12300, -21, -2, "w8b_lake_golden");
+			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceShower = 4); // 4 -> (3/32) turn = 33.75 deg
+			context.waitTicks(5);
+			shot(context, sp, 6000, -56, -5, "w9_far_shower");
+			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceShower = -1);
 			shot(context, sp, 23300, -60, 5, "x_morning_mist");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.colorGrading = 0F);
 			shot(context, sp, 6000, 0, 10, "y_grading_off");

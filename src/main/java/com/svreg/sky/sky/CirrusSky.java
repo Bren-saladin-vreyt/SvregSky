@@ -63,6 +63,34 @@ public final class CirrusSky {
 	private static final Identifier TOWERS = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/towers.png");
 	/** test hook: towers every day */
 	public static boolean forceTowers;
+	/** test hook: far shower direction index 1..32 (0 = none, -1 = pick by the day) */
+	public static int forceShower = -1;
+
+	/** lake bit + today's far shower, packed above the rainbow level (see cirrus_sky.fsh) */
+	private static float horizonCode() {
+		int code = 0;
+		if (SkySettings.horizonMountains && SkySettings.on("horizon_lake")) {
+			code |= 1;
+		}
+		int shower = 0;
+		if (forceShower >= 0) {
+			shower = forceShower;
+		} else if (SkySettings.horizonMountains && SkySettings.on("far_shower")) {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.level != null) {
+				long d = Math.floorDiv(mc.level.getOverworldClockTime(), 24000L);
+				long h = d * 0x9E3779B97F4A7C15L + 0x632BE59BD9B4E019L;
+				h ^= h >>> 29;
+				h *= 0xBF58476D1CE4E5B9L;
+				h ^= h >>> 32;
+				if (Math.floorMod(h, 100L) < 40) {           // a shower somewhere on the horizon on 4 days out of 10
+					shower = 1 + (int) Math.floorMod(h >>> 8, 32L);
+				}
+			}
+		}
+		code |= shower << 1;
+		return code * 2.0F;
+	}
 	private static boolean megaToday;
 	private static int moonPhase;
 	private static boolean rainbowArmed;
@@ -361,9 +389,11 @@ public final class CirrusSky {
 			if (SkySettings.on("hill_wind")) flags |= 131072;
 			if (SkySettings.on("horizon_train")) flags |= 262144;
 			if (SkySettings.on("horizon_village")) flags |= 1048576;
+			if (SkySettings.on("waterfall_far")) flags |= 8388608;
 		}
 		if (SkySettings.on("big_moon")) flags |= 524288;
 		if (SkySettings.on("horizon_birds")) flags |= 2097152;
+		if (SkySettings.on("airships")) flags |= 4194304;
 		boolean ok = draw(skyPipeline, flags, 0.0F, "SvregSky sky");
 		if (ok) {
 			lastDrawNanos = System.nanoTime();
@@ -414,7 +444,7 @@ public final class CirrusSky {
 			Matrix4f params = new Matrix4f(
 					sunDir.x, sunDir.y, sunDir.z, time,
 					day, gold, night, rain,
-					offX, offZ, rainbowLevel, mode > 0.5F ? rayX : SkySettings.aurora,
+					offX, offZ, Math.min(0.999F, rainbowLevel) + horizonCode(), mode > 0.5F ? rayX : SkySettings.aurora,
 					flags, coverage(), slotC, mode);
 			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
 			// 3D + painted: the near painted layer is skipped (the 3D clouds take its place); 3D Ghibli + painted keeps every layer behind the 3D puffs

@@ -156,6 +156,10 @@ public final class SkySettings {
 		FLAGS.put("horizon_village", true);
 		FLAGS.put("big_moon", true);
 		FLAGS.put("horizon_birds", true);
+		FLAGS.put("airships", true);
+		FLAGS.put("waterfall_far", true);
+		FLAGS.put("horizon_lake", true);
+		FLAGS.put("far_shower", true);
 		FLAGS.put("shore_waves", true);
 		// comfort
 		FLAGS.put("per_world", false);
