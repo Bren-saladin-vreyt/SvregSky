@@ -134,6 +134,7 @@ public final class SkyConfig {
 		o.addProperty("ghibli_style", SkySettings.ghibliStyle);
 		o.addProperty("ghibli_look_v2", true);
 		o.addProperty("ghibli_cell", SkySettings.ghibliCell);
+		o.addProperty("raymarch_scale", SkySettings.raymarchScale);
 		o.addProperty("ghibli_amount", SkySettings.ghibliAmount);
 		o.addProperty("ghibli_size", SkySettings.ghibliSize);
 		o.addProperty("shadow_quality", SkySettings.shadowQuality);

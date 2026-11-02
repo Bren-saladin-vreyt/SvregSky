@@ -83,7 +83,7 @@ public class SkyScreen extends OptionsSubScreen {
 		if (this.list == null) {
 			return;
 		}
-		String mode = !SkySettings.paintedClouds ? "off" : SkySettings.ghibliMix() ? "3d_ghibli_mix" : SkySettings.cloudGhibli() ? "3d_ghibli" : SkySettings.cloud3dFull() ? "3d_full" : SkySettings.cloud3d() ? "3d" : "painted";
+		String mode = !SkySettings.paintedClouds ? "off" : SkySettings.cloudRaymarch() ? "3d_raymarch" : SkySettings.ghibliMix() ? "3d_ghibli_mix" : SkySettings.cloudGhibli() ? "3d_ghibli" : SkySettings.cloud3dFull() ? "3d_full" : SkySettings.cloud3d() ? "3d" : "painted";
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.presets"));
 		this.list.addSmall(
@@ -145,7 +145,7 @@ public class SkyScreen extends OptionsSubScreen {
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
 		this.list.addSmall(
-				choice("cloud_mode", List.of("painted", "3d_ghibli", "3d_ghibli_mix", "3d", "3d_full", "off"), mode, v -> {
+				choice("cloud_mode", List.of("painted", "3d_ghibli", "3d_ghibli_mix", "3d_raymarch", "3d", "3d_full", "off"), mode, v -> {
 					SkySettings.cloudMode = v.equals("off") ? "painted" : v;
 					SkySettings.paintedClouds = !v.equals("off");
 					SkySettings.version++;
@@ -162,6 +162,7 @@ public class SkyScreen extends OptionsSubScreen {
 					SkySettings.ghibliCell = v.equals("lod") ? 0 : Integer.parseInt(v);
 				}),
 				flag("cloud_merge"),
+				choice("raymarch_scale", List.of("2", "3", "4"), String.valueOf(SkySettings.raymarchScale), v -> SkySettings.raymarchScale = Integer.parseInt(v)),
 				slider("ghibli_amount", 25, 250, Math.round(SkySettings.ghibliAmount * 100), v -> v + "%", v -> SkySettings.ghibliAmount = v / 100F),
 				slider("ghibli_size", 50, 200, Math.round(SkySettings.ghibliSize * 100), v -> v + "%", v -> SkySettings.ghibliSize = v / 100F),
 				slider("cloud_3d_distance", 8, 96, SkySettings.cloud3dDistance, v -> String.valueOf(v), v -> {

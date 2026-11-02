@@ -415,12 +415,15 @@ public final class CirrusSky {
 			return;
 		}
 		boolean ghibli = SkySettings.cloudGhibli();
-		int f = F_CLOUDS | (SkySettings.cloudGodRays && !ghibli ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0);
+		int f = F_CLOUDS | (SkySettings.cloudGodRays && !ghibli && !SkySettings.cloudRaymarch() ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0);
 		if (megaToday) f |= 1024;
 		if (SkySettings.on("sun_beams")) f |= 2048;
 		if (SkySettings.on("tower_lightning")) f |= 4096;
 		if (SkySettings.on("cloud_rows")) f |= 8192;
 		if (SkySettings.on("cirrus_layer")) f |= 16384;
+		if (SkySettings.cloudRaymarch()) {
+			f |= 32768; // the raymarched clouds replace the painted cumulus
+		}
 		if (ghibli) {
 			if (!SkySettings.ghibliMix()) f |= 32768; // the 3D clouds replace the painted cumulus (the mix keeps the far painted layers)
 			if (SkySettings.on("light_rays") && GhibliClouds.gridVersion() > 0) f |= 65536;

@@ -15,7 +15,7 @@ import java.util.Random;
  */
 public final class CumulusGen {
 	/** sky size in blocks (the field tiles) and layer height in blocks */
-	public static final float SIZE = 1024F, HEIGHT = 88F;
+	public static final float SIZE = 1024F, HEIGHT = 144F;
 	public final int nx, ny, nz;
 	public final float cell;
 	public final byte[] occ;
@@ -74,14 +74,37 @@ public final class CumulusGen {
 	/** humilis / mediocris: a main dome with smaller domes around it, flat base */
 	private void mediocris(float cx, float cz, float R, float tall) {
 		float base = rnd(4, 12);
-		float H = R * (0.55F + 0.35F * tall);
-		domes.add(new Dome(cx, base + 3, cz, R, H, R * rnd(0.8F, 1.1F), base, 0.5F));
-		int n = 4 + rng.nextInt(6);
+		float H = R * (0.85F + 0.5F * tall);
+		// lopsided and stretched along one direction (like a ship's hull), lobes of very different size and height
+		double th = rng.nextDouble() * Math.PI;
+		float ax = (float) Math.cos(th), az = (float) Math.sin(th);
+		float len = R * rnd(0.7F, 1.35F);
+		float lean = rnd(-0.5F, 0.5F);                       // the tall part sits toward one end
+		int n = 3 + rng.nextInt(4);
 		for (int i = 0; i < n; i++) {
-			double a = rng.nextDouble() * Math.PI * 2;
-			float d = R * rnd(0.45F, 1.1F);
-			float r = R * rnd(0.35F, 0.65F);
-			domes.add(new Dome(cx + (float) Math.cos(a) * d, base + r * rnd(0.1F, 0.4F), cz + (float) Math.sin(a) * d, r, r * rnd(0.75F, 1.0F), r, base, 0.5F)); // round, never taller than wide
+			float t = (n == 1 ? 0 : i / (float) (n - 1)) * 2 - 1;   // -1..1 along the hull
+			float along = t * len + gauss(R * 0.12F);
+			float side = gauss(R * 0.4F);
+			float k = (float) Math.exp(-(t - lean) * (t - lean) * 1.6F); // taller near the lean point
+			float r = R * rnd(0.4F, 0.75F) * (0.55F + 0.6F * k);
+			float hy = base + r * rnd(0.05F, 0.3F) + H * 0.55F * k * rnd(0.4F, 1.0F);
+			domes.add(new Dome(cx + ax * along - az * side, hy, cz + az * along + ax * side, r, r * rnd(0.75F, 0.95F), r, base, 0.5F));
+		}
+		// a low flat keel along the whole length keeps the bottom straight and long
+		domes.add(new Dome(cx, base + 1.5F, cz, Math.abs(ax) * len * 0.75F + R * 0.3F, Math.max(3, H * 0.16F), Math.abs(az) * len * 0.75F + R * 0.3F, base, 0.5F));
+		// rounded heads on top around the tall part
+		for (int i = 0; i < 2 + rng.nextInt(3); i++) {
+			float r = R * rnd(0.3F, 0.5F);
+			float along = lean * len + gauss(R * 0.35F);
+			domes.add(new Dome(cx + ax * along + gauss(R * 0.2F), base + H * rnd(0.55F, 0.85F), cz + az * along + gauss(R * 0.2F), r, r * 0.9F, r, base, 0.5F));
+		}
+		// deep notches between lobes (the clover look): carve a few round bites out of the sides
+		for (int i = 0; i < 1 + rng.nextInt(3); i++) {
+			float t = rnd(-0.8F, 0.8F);
+			float sgn = rng.nextBoolean() ? 1 : -1;
+			float r = R * rnd(0.25F, 0.4F);
+			float off = R * rnd(0.55F, 0.8F) * sgn;
+			domes.add(new Dome(cx + ax * t * len - az * off, base + H * rnd(0.3F, 0.7F), cz + az * t * len + ax * off, r, r * 1.3F, r, base, -1F));
 		}
 		// little torn puffs hanging around the heap
 		for (int i = 0; i < 3 + rng.nextInt(6); i++) {
@@ -91,12 +114,43 @@ public final class CumulusGen {
 			float py = base + rnd(0, H * 0.6F);
 			domes.add(new Dome(cx + (float) Math.cos(a) * d, py, cz + (float) Math.sin(a) * d, r * rnd(1, 1.6F), r * rnd(0.6F, 0.9F), r * rnd(1, 1.4F), py - r, 0.75F));
 		}
-		// rounded heads on top: the heap bulges upward like a cauliflower
-		for (int i = 0; i < 3 + rng.nextInt(4); i++) {
-			float r = R * rnd(0.38F, 0.55F);
+	}
+
+	/**
+	 * A giant billowing cumulus (the CazToon / Ghibli hero cloud): a long lopsided base, a towering cauliflower crown
+	 * built from big round heads that shrink as they climb, side lobes at different heights and deep notches.
+	 */
+	private void giant(float cx, float cz, float R) {
+		float base = rnd(3, 7);
+		mediocris(cx, cz, R * 0.6F, 1.0F);
+		double th = rng.nextDouble() * Math.PI * 2;
+		float lx = (float) Math.cos(th) * 0.12F, lz = (float) Math.sin(th) * 0.12F; // the crown leans downwind
+		float y = base + R * 0.3F, r = R * 0.48F;
+		while (y < HEIGHT - r * 0.5F && r > 8) {
+			int m = 3 + rng.nextInt(3);
+			for (int j = 0; j < m; j++) {
+				double a = rng.nextDouble() * Math.PI * 2;
+				float d = r * rnd(0.25F, 0.75F);
+				float rr = r * rnd(0.55F, 0.85F);
+				domes.add(new Dome(cx + lx * (y - base) + (float) Math.cos(a) * d, y + gauss(r * 0.12F), cz + lz * (y - base) + (float) Math.sin(a) * d,
+						rr, rr * rnd(0.8F, 0.95F), rr, base, 0.5F));
+			}
+			y += r * rnd(0.38F, 0.5F);
+			r *= rnd(0.9F, 0.96F);
+		}
+		// big side lobes bulging out at mid height
+		for (int i = 0; i < 2 + rng.nextInt(3); i++) {
 			double a = rng.nextDouble() * Math.PI * 2;
-			float d = R * rnd(0.1F, 0.55F);
-			domes.add(new Dome(cx + (float) Math.cos(a) * d, base + H * rnd(0.45F, 0.7F), cz + (float) Math.sin(a) * d, r, r * 0.9F, r, base, 0.5F));
+			float d = R * rnd(0.35F, 0.6F);
+			float rr = R * rnd(0.25F, 0.38F);
+			domes.add(new Dome(cx + (float) Math.cos(a) * d, base + R * rnd(0.3F, 0.9F), cz + (float) Math.sin(a) * d, rr, rr * 0.9F, rr, base, 0.5F));
+		}
+		// deep notches between the heads
+		for (int i = 0; i < 2 + rng.nextInt(2); i++) {
+			double a = rng.nextDouble() * Math.PI * 2;
+			float d = R * rnd(0.4F, 0.6F);
+			float rr = R * rnd(0.16F, 0.24F);
+			domes.add(new Dome(cx + (float) Math.cos(a) * d, base + R * rnd(0.5F, 1.1F), cz + (float) Math.sin(a) * d, rr, rr * 1.3F, rr, base, -1F));
 		}
 	}
 
@@ -156,6 +210,27 @@ public final class CumulusGen {
 		int count = Math.max(4, Math.round((150 + rng.nextInt(20)) * countMul));
 		// Poisson-disk style placement: every big cloud keeps clear sky around it, so clouds stand apart instead of merging
 		List<float[]> placed = new ArrayList<>();
+		// a few giant billowing cumulus first, spread over the sky so one is usually in view
+		int giants = Math.max(1, Math.round((2 + rng.nextInt(3)) * Math.min(1.5F, countMul)));
+		for (int g = 0, tries = 0; g < giants && tries < 200; tries++) {
+			float cx = rng.nextFloat() * SIZE, cz = rng.nextFloat() * SIZE;
+			boolean free = true;
+			for (float[] o : placed) {
+				float dx = Math.abs(o[0] - cx), dz = Math.abs(o[1] - cz);
+				dx = Math.min(dx, SIZE - dx);
+				dz = Math.min(dz, SIZE - dz);
+				if (dx * dx + dz * dz < 420 * 420) {
+					free = false;
+					break;
+				}
+			}
+			if (!free) {
+				continue;
+			}
+			placed.add(new float[]{cx, cz, 170, 0});
+			giant(cx, cz, Math.min(120, 95 * sizeMul * rnd(0.9F, 1.1F)));
+			g++;
+		}
 		for (int c = 0, tries = 0; c < count && tries < count * 30; tries++) {
 			float cx = rng.nextFloat() * SIZE, cz = rng.nextFloat() * SIZE;
 			float p = rng.nextFloat();
@@ -178,12 +253,12 @@ public final class CumulusGen {
 			placed.add(new float[]{cx, cz, foot, small ? 1 : 0});
 			c++;
 			if (p < 0.38F) {
-				mediocris(cx, cz, sz(32, 0.3F), rng.nextFloat());
+				mediocris(cx, cz, sz(36, 0.3F), rng.nextFloat());
 			} else if (p < 0.45F) {
 				congestus(cx, cz, sz(34, 0.2F));
 			} else if (p < 0.62F) {
 				terraces(cx, cz, sz(20, 0.3F));
-			} else {
+			} else if (p < 0.82F) {
 				fracto(cx, cz, sz(6, 0.4F));
 			}
 		}
@@ -254,6 +329,7 @@ public final class CumulusGen {
 		java.util.Arrays.fill(v, -9);
 		// one scratch byte per cell: first the "eaten harder" flag, then the bubble value, then the raw light
 		byte[] tmp = new byte[v.length];
+		float[] carve = new float[v.length]; // 0 = not carved
 		// 1. soft envelope: 1 at a dome's core, 0 on its ellipsoid, a bit beyond (so bubbles can poke out); flat base
 		float[] shifts = window ? new float[]{-SIZE, 0, SIZE} : new float[]{0};
 		for (Dome d0 : domes) for (float shx : shifts) for (float shz : shifts) {
@@ -287,7 +363,9 @@ public final class CumulusGen {
 							continue;
 						}
 						int i = idx(x, y, z);
-						if (f > v[i]) {
+						if (d.bite < 0) {
+							carve[i] = Math.max(carve[i], f); // remember the deepest bite, applied after all domes
+						} else if (f > v[i]) {
 							v[i] = f;
 							tmp[i] = (byte) (d.bite > 0.6F ? 1 : 0);
 						}
@@ -295,6 +373,13 @@ public final class CumulusGen {
 				}
 			}
 		}
+		// carve the notches: a bite pushes the field down by its strength (only into cloud that exists)
+		for (int i = 0; i < v.length; i++) {
+			if (carve[i] > 0 && v[i] > -1) {
+				v[i] -= carve[i] * 1.4F;
+			}
+		}
+		carve = null;
 		// 2. erode with warped, layered bubbles
 		float[] out = v; // eroded in place: each cell only reads itself
 		for (int x = 0; x < nx; x++) {

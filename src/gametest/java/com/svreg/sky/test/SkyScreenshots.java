@@ -303,6 +303,15 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 4; com.svreg.sky.sky.SkySettings.ghibliStyle = "cumulus"; com.svreg.sky.sky.SkySettings.version++; });
 			context.waitTicks(120);
 			shot(context, sp, 6000, 160, -25, "zt5_old_cumulus_style");
+			// raymarched clouds (beta) at 1/3 and 1/2 resolution
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_raymarch"; com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
+			context.waitTicks(40);
+			shot(context, sp, 6000, 160, -25, "zu_raymarch_noon");
+			shot(context, sp, 6000, 40, -8, "zu2_raymarch_horizon");
+			shot(context, sp, 12300, 90, -10, "zu3_raymarch_golden");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 2);
+			shot(context, sp, 6000, 160, -25, "zu4_raymarch_half");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli"; com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliStyle = "anime"; com.svreg.sky.sky.SkySettings.version++; });
 
 			// under the lagoon: light patterns on the bottom, seen from above
