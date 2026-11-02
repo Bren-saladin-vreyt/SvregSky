@@ -172,7 +172,9 @@ public final class SkySettings {
 	/** horizon cumulonimbus look: mixed (random each day) / tower / wide / anvil */
 	public static String towerStyle = "mixed";
 	/** 3D Ghibli clouds: look ("auto" = a different weather each day), amount and size multipliers */
-	public static String ghibliStyle = "auto";
+	public static String ghibliStyle = "anime";
+	/** blocks per 3D Ghibli cloud cell for the "anime" look: 4 (phone) or 2 (finer, heavier) */
+	public static int ghibliCell = 4;
 	public static float ghibliAmount = 1.0F, ghibliSize = 1.0F;
 	/** screen-space sun shadows: quality (low / medium / high / ultra), darkness 0..1, colour (anime / neutral / warm) */
 	public static String shadowQuality = "medium", shadowColor = "anime", shadowMethod = "world";
@@ -238,6 +240,13 @@ public final class SkySettings {
 	public static void apply(JsonObject o) {
 		if (o.has("ghibli_style")) {
 			ghibliStyle = o.get("ghibli_style").getAsString();
+			// configs from before the anime cumulus look: the old default moves to the new default once
+			if ("auto".equals(ghibliStyle) && !o.has("ghibli_look_v2")) {
+				ghibliStyle = "anime";
+			}
+		}
+		if (o.has("ghibli_cell")) {
+			ghibliCell = o.get("ghibli_cell").getAsInt() <= 2 ? 2 : 4;
 		}
 		if (o.has("ghibli_amount")) {
 			ghibliAmount = Math.max(0.25F, Math.min(2.5F, o.get("ghibli_amount").getAsFloat()));

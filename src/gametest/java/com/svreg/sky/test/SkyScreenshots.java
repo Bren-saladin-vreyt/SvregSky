@@ -271,6 +271,16 @@ public class SkyScreenshots implements FabricClientGameTest {
 			});
 			sp.getServer().runCommand("time add 48000");
 			shot(context, sp, 6000, 160, -25, "zt_ghibli_other_day");
+			// anime cumulus with fine 2-block cells, then the older bubble look for comparison
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 2; com.svreg.sky.sky.SkySettings.version++; });
+			context.waitTicks(160);
+			shot(context, sp, 6000, 160, -25, "zt2_anime_fine_noon");
+			shot(context, sp, 6000, 40, -8, "zt3_anime_fine_horizon");
+			shot(context, sp, 12300, 90, -10, "zt4_anime_fine_golden");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 4; com.svreg.sky.sky.SkySettings.ghibliStyle = "cumulus"; com.svreg.sky.sky.SkySettings.version++; });
+			context.waitTicks(120);
+			shot(context, sp, 6000, 160, -25, "zt5_old_cumulus_style");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliStyle = "anime"; com.svreg.sky.sky.SkySettings.version++; });
 
 			// under the lagoon: light patterns on the bottom, seen from above
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~6 ~26");

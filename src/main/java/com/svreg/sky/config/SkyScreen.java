@@ -141,8 +141,11 @@ public class SkyScreen extends OptionsSubScreen {
 					SkySettings.cloudCoverage = v / 100F;
 				}),
 				percent("cloud_speed", 300, SkySettings.cloudSpeed, v -> SkySettings.cloudSpeed = v),
-				choice("ghibli_style", List.of("auto", "fair", "cumulus", "towers", "streets", "sheep", "storm", "castle", "mixed"), SkySettings.ghibliStyle, v -> {
+				choice("ghibli_style", List.of("anime", "auto", "fair", "cumulus", "towers", "streets", "sheep", "storm", "castle", "mixed"), SkySettings.ghibliStyle, v -> {
 					SkySettings.ghibliStyle = v;
+				}),
+				choice("ghibli_detail", List.of("4", "2"), String.valueOf(SkySettings.ghibliCell), v -> {
+					SkySettings.ghibliCell = Integer.parseInt(v);
 				}),
 				slider("ghibli_amount", 25, 250, Math.round(SkySettings.ghibliAmount * 100), v -> v + "%", v -> SkySettings.ghibliAmount = v / 100F),
 				slider("ghibli_size", 50, 200, Math.round(SkySettings.ghibliSize * 100), v -> v + "%", v -> SkySettings.ghibliSize = v / 100F),

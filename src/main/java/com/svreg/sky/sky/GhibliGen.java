@@ -19,6 +19,10 @@ public final class GhibliGen {
 	/** "auto" (each day picks a weather) or a fixed look: fair, cumulus, towers, streets, storm, castle, sheep, mixed */
 	public String style = "auto";
 	public float countMul = 1.0F, sizeMul = 1.0F;
+	/** cotton mode: puffs only give a soft density, then layered warped noise tears it into irregular cotton-wool shapes */
+	public boolean cotton;
+	/** cotton density per cell (0..1, cloud above 0.5), kept for previews and finer meshes */
+	public float[] dens;
 
 	public GhibliGen(int nx, int ny, int nz, long seed) {
 		this.nx = nx;
@@ -46,6 +50,9 @@ public final class GhibliGen {
 
 	/** an ellipsoid puff; prio lets small bumps win over the body they sit on */
 	private void puff(float cx, float cy, float cz, float rx, float ry, float rz, float prio) {
+		if (dens != null) {
+			softPuff(cx, cy, cz, rx, ry, rz);
+		}
 		int x0 = (int) Math.floor(cx - rx - 1), x1 = (int) Math.ceil(cx + rx + 1);
 		int y0 = Math.max(0, (int) Math.floor(cy - ry - 1)), y1 = Math.min(ny - 1, (int) Math.ceil(cy + ry + 1));
 		int z0 = (int) Math.floor(cz - rz - 1), z1 = (int) Math.ceil(cz + rz + 1);
@@ -71,6 +78,117 @@ public final class GhibliGen {
 						nrm[i * 3 + 1] = (byte) Math.round(gy / gl * 127);
 						nrm[i * 3 + 2] = (byte) Math.round(gz / gl * 127);
 					}
+				}
+			}
+		}
+	}
+
+	/** soft density: 0.5 on the ellipsoid surface, rising to 1 in the middle, fading to 0 at twice the radius */
+	private void softPuff(float cx, float cy, float cz, float rx, float ry, float rz) {
+		float k = 1.9F;
+		int x0 = (int) Math.floor(cx - rx * k), x1 = (int) Math.ceil(cx + rx * k);
+		int y0 = Math.max(0, (int) Math.floor(cy - ry * k)), y1 = Math.min(ny - 1, (int) Math.ceil(cy + ry * k));
+		int z0 = (int) Math.floor(cz - rz * k), z1 = (int) Math.ceil(cz + rz * k);
+		for (int x = x0; x <= x1; x++) {
+			float dx = (x + 0.5F - cx) / rx;
+			for (int y = y0; y <= y1; y++) {
+				float dy = (y + 0.5F - cy) / ry;
+				for (int z = z0; z <= z1; z++) {
+					float dz = (z + 0.5F - cz) / rz;
+					float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+					float f = d < 1 ? 1 - 0.5F * d : Math.max(0, 0.5F - 0.5F * (d - 1) / (k - 1));
+					int i = idx(x, y, z);
+					// soft union: overlapping puffs thicken a bit instead of just taking the max
+					dens[i] = Math.max(dens[i], f) + Math.min(dens[i], f) * 0.12F;
+				}
+			}
+		}
+	}
+
+	private static float hash3(int x, int y, int z) {
+		int h = x * 374761393 + y * 668265263 + z * 1274126177;
+		h = (h ^ (h >>> 13)) * 1274126177;
+		return ((h ^ (h >>> 16)) & 0xFFFFFF) / (float) 0xFFFFFF;
+	}
+
+	/** smooth value noise 0..1 (tiles every `per` cells in x and z so the sky wraps without seams) */
+	private float vnoise(float x, float y, float z, int per) {
+		int ix = (int) Math.floor(x), iy = (int) Math.floor(y), iz = (int) Math.floor(z);
+		float fx = x - ix, fy = y - iy, fz = z - iz;
+		fx = fx * fx * (3 - 2 * fx);
+		fy = fy * fy * (3 - 2 * fy);
+		fz = fz * fz * (3 - 2 * fz);
+		float r = 0;
+		for (int c = 0; c < 8; c++) {
+			int ax = (c & 1), ay = (c >> 1) & 1, az = (c >> 2) & 1;
+			float w = (ax == 1 ? fx : 1 - fx) * (ay == 1 ? fy : 1 - fy) * (az == 1 ? fz : 1 - fz);
+			r += w * hash3(Math.floorMod(ix + ax, per) + seedOff, iy + ay, Math.floorMod(iz + az, per));
+		}
+		return r;
+	}
+
+	private int seedOff;
+
+	/** tears the soft density into cotton: warped, wind-stretched, layered noise eats the edges and leaves tufts and holes */
+	private void cottonize() {
+		seedOff = rng.nextInt(100000) * 7;
+		float[] v = new float[dens.length];
+		// noise lattice periods must divide the grid so the sky tiles: base frequency 1/16 cell
+		for (int x = 0; x < nx; x++) {
+			for (int y = 0; y < ny; y++) {
+				for (int z = 0; z < nz; z++) {
+					int i = idx(x, y, z);
+					float d = dens[i];
+					if (d < 0.08F) {
+						v[i] = d;
+						continue;
+					}
+					float px = x + 0.5F, py = y + 0.5F, pz = z + 0.5F;
+					// domain warp: big slow bends so lobes are never round
+					float wx = (vnoise(px / 16F, py / 8F, pz / 16F, nx / 16) - 0.5F) * 7F;
+					float wy = (vnoise(px / 16F + 5.2F, py / 8F, pz / 16F, nx / 16) - 0.5F) * 3F;
+					float wz = (vnoise(px / 16F, py / 8F + 3.7F, pz / 16F + 9.1F, nx / 16) - 0.5F) * 7F;
+					float qx = px + wx, qy = py + wy, qz = pz + wz;
+					// billowy fbm: |2n-1| turned over gives round tufts with sharp creases between them (cotton wool)
+					float sum = 0, amp = 0.5F, tot = 0;
+					int[] per = {nx / 8, nx / 4, nx / 2, nx};
+					float[] fr = {1 / 8F, 1 / 4F, 1 / 2F, 1F};
+					for (int o = 0; o < 4; o++) {
+						float n = vnoise(qx * fr[o], qy * fr[o] * 1.3F, qz * fr[o], per[o]);
+						n = 1 - Math.abs(2 * n - 1);
+						sum += n * amp;
+						tot += amp;
+						amp *= 0.55F;
+					}
+					float e = sum / tot; // ~0.3..0.9
+					// edges get eaten far more than the core; a little noise adds even in the middle (tufts poke out)
+					float edge = 1 - Math.min(1, Math.max(0, (d - 0.5F) / 0.4F));
+					v[i] = d + (e - 0.62F) * (0.35F + 0.75F * edge);
+				}
+			}
+		}
+		dens = v;
+		// normals from the density gradient (two cells wide so the light bands stay smooth)
+		for (int x = 0; x < nx; x++) {
+			for (int y = 0; y < ny; y++) {
+				for (int z = 0; z < nz; z++) {
+					int i = idx(x, y, z);
+					if (v[i] <= 0.5F) {
+						continue;
+					}
+					float gx = v[idx(x + 1, y, z)] - v[idx(x - 1, y, z)] + 0.5F * (v[idx(x + 2, y, z)] - v[idx(x - 2, y, z)]);
+					float gy = (y + 1 < ny ? v[idx(x, y + 1, z)] : 0) - (y > 0 ? v[idx(x, y - 1, z)] : 0)
+							+ 0.5F * ((y + 2 < ny ? v[idx(x, y + 2, z)] : 0) - (y > 1 ? v[idx(x, y - 2, z)] : 0));
+					float gz = v[idx(x, y, z + 1)] - v[idx(x, y, z - 1)] + 0.5F * (v[idx(x, y, z + 2)] - v[idx(x, y, z - 2)]);
+					float gl = (float) Math.sqrt(gx * gx + gy * gy + gz * gz);
+					if (gl < 1e-4F) {
+						gy = -1;
+						gl = 1;
+						gx = gz = 0;
+					}
+					nrm[i * 3] = (byte) Math.round(-gx / gl * 127);
+					nrm[i * 3 + 1] = (byte) Math.round(-gy / gl * 127);
+					nrm[i * 3 + 2] = (byte) Math.round(-gz / gl * 127);
 				}
 			}
 		}
@@ -265,6 +383,108 @@ public final class GhibliGen {
 		}
 	}
 
+	/** a huge billowy cumulus: a dome filled with many similar bubbles, arms reaching out sideways, little satellites */
+	private void billow(float cx, float cz, float R) {
+		float base = rnd(1, 2.5F);
+		float H = Math.min(ny - 2.5F - base, R * rnd(0.6F, 1.1F));
+		body(cx, cz, base, R * 0.8F, 0.8F);
+		int n = (int) (20 + R * 2.5F);
+		for (int i = 0; i < n; i++) {
+			double a = rng.nextDouble() * Math.PI * 2;
+			float h = (float) Math.pow(rng.nextFloat(), 0.9);
+			float rad = R * (1 - 0.6F * h) * (float) Math.sqrt(rng.nextFloat()) * 0.85F;
+			float r = Math.max(1.6F, R * rnd(0.2F, 0.32F) * (1 - 0.3F * h));
+			sphere(cx + (float) Math.cos(a) * rad, base + 1 + h * H, cz + (float) Math.sin(a) * rad, r, 0.2F + h * 0.3F);
+		}
+		// arms: a chain of shrinking bubbles reaching out and a little up
+		int arms = 1 + rng.nextInt(3);
+		for (int k = 0; k < arms; k++) {
+			double a = rng.nextDouble() * Math.PI * 2;
+			float ax = (float) Math.cos(a), az = (float) Math.sin(a);
+			float y = base + H * rnd(0.2F, 0.55F), d = R * 0.6F, len = R * rnd(1.2F, 1.9F);
+			float rise = rnd(-0.05F, 0.25F);
+			while (d < len) {
+				float t = d / len;
+				float r = Math.max(1.3F, R * (0.3F - 0.18F * t) * rnd(0.85F, 1.15F));
+				sphere(cx + ax * d + gauss(r * 0.3F), y + rise * (d - R * 0.6F) + gauss(0.5F), cz + az * d + gauss(r * 0.3F), r, 0.3F);
+				if (rng.nextFloat() < 0.5F) {
+					sphere(cx + ax * d + gauss(r * 0.5F), y + rise * (d - R * 0.6F) + r * 0.6F, cz + az * d + gauss(r * 0.5F), r * 0.7F, 0.45F);
+				}
+				d += r * rnd(0.7F, 1.0F);
+			}
+		}
+		bumps(cx, cz, R * 0.9F, (int) (12 + R * 1.8F), 1.1F);
+		// lumpy belly: rounded bubbles at different heights under the body so it is not one flat floor
+		for (int i = 0; i < (int) (6 + R * 0.5F); i++) {
+			double a = rng.nextDouble() * Math.PI * 2;
+			float d = R * rnd(0.3F, 0.95F);
+			float r = Math.max(1.6F, R * rnd(0.16F, 0.26F));
+			sphere(cx + (float) Math.cos(a) * d, base + r * rnd(0.55F, 1.1F), cz + (float) Math.sin(a) * d, r, 0.35F);
+		}
+		satellites(cx, cz, R);
+	}
+
+	/** small torn bits floating around a big cloud */
+	private void satellites(float cx, float cz, float R) {
+		int n = 3 + rng.nextInt(7);
+		for (int i = 0; i < n; i++) {
+			double a = rng.nextDouble() * Math.PI * 2;
+			float d = R * rnd(1.1F, 1.9F);
+			float r = rnd(1.0F, 2.4F);
+			float px = cx + (float) Math.cos(a) * d, pz = cz + (float) Math.sin(a) * d, py = rnd(2, Math.min(ny - 3, R * 0.8F));
+			sphere(px, py, pz, r, 0);
+			if (rng.nextFloat() < 0.6F) {
+				sphere(px + gauss(r), py + gauss(0.5F), pz + gauss(r), r * 0.7F, 0.2F);
+			}
+		}
+	}
+
+	/** wind-sheared pillow streak: a long row of flattened pillows in one or two tiers, tapering into ragged ends */
+	private void pillows(float cx, float cz, float R) {
+		double ang = Math.atan2(0.333, 0.943) + gauss(0.35F);
+		float ax = (float) Math.cos(ang), az = (float) Math.sin(ang);
+		float base = rnd(2, 6);
+		float half = R * rnd(1.6F, 2.6F);
+		for (float t = -half; t < half; t += R * rnd(0.25F, 0.4F)) {
+			float taper = (float) Math.sqrt(Math.max(0, 1 - Math.abs(t) / half));
+			float side = gauss(R * 0.22F);
+			float px = cx + ax * t - az * side, pz = cz + az * t + ax * side;
+			float r = Math.max(1.4F, R * rnd(0.32F, 0.5F) * (0.35F + 0.65F * taper));
+			puff(px, base + r * 0.25F, pz, r * 1.15F, Math.max(1.3F, r * 0.42F), r * 1.15F, 0);
+			if (taper > 0.35F && rng.nextFloat() < 0.65F) {
+				float r2 = r * rnd(0.55F, 0.8F);
+				puff(px + gauss(r * 0.3F), base + r * 0.25F + Math.max(1.3F, r * 0.42F) * 0.9F, pz + gauss(r * 0.3F), r2, Math.max(1.2F, r2 * 0.5F), r2, 0.3F);
+			}
+		}
+		// ragged tails
+		for (int i = 0; i < 6; i++) {
+			float t = (rng.nextBoolean() ? 1 : -1) * half * rnd(0.9F, 1.4F);
+			float px = cx + ax * t + gauss(R * 0.3F), pz = cz + az * t + gauss(R * 0.3F);
+			float r = rnd(1.0F, 2.2F);
+			puff(px, base + gauss(0.6F) + 1, pz, r * 1.3F, Math.max(1.0F, r * 0.5F), r * 1.3F, 0);
+		}
+	}
+
+	/** "giant" look like the Ghibli references: few huge billowy clouds, pillow streaks, tiny bits between */
+	private void giantDay() {
+		int count = Math.max(4, Math.round((27 + rng.nextInt(8)) * countMul));
+		for (int c = 0; c < count; c++) {
+			float cx = rng.nextFloat() * nx, cz = rng.nextFloat() * nz;
+			float p = rng.nextFloat();
+			if (p < 0.42F) {
+				billow(cx, cz, (float) Math.max(12, Math.min(26, sizeMul * Math.exp(Math.log(17) + rng.nextGaussian() * 0.25))));
+			} else if (p < 0.7F) {
+				pillows(cx, cz, sizeR(11F));
+			} else if (p < 0.8F) {
+				tower(cx, cz, sizeR(10F));
+			} else if (p < 0.92F) {
+				cumulus(cx, cz, sizeR(6F), rnd(0, 0.5F));
+			} else {
+				fragments(cx, cz, sizeR(7F));
+			}
+		}
+	}
+
 	private float sizeR(float mean) {
 		return (float) Math.max(3.5, Math.min(26, sizeMul * Math.exp(Math.log(mean) + rng.nextGaussian() * 0.45)));
 	}
@@ -272,6 +492,9 @@ public final class GhibliGen {
 	/** fills the grid; the day's weather decides how many clouds of each kind */
 	public GhibliGen generate() {
 		// weather of the day: 0 fair weather, 1 big cumulus, 2 towering afternoon, 3 cloud streets, 4 mixed / broken
+		if (cotton && dens == null) {
+			dens = new float[nx * ny * nz];
+		}
 		String st = style;
 		if ("auto".equals(st)) {
 			String[] days = {"fair", "cumulus", "towers", "streets", "mixed", "sheep", "storm", "castle"};
@@ -285,6 +508,10 @@ public final class GhibliGen {
 					break;
 				}
 			}
+		}
+		if ("giant".equals(st)) {
+			giantDay();
+			return finish();
 		}
 		float[] w = switch (st) {
 			case "fair" -> new float[]{0.45F, 0.12F, 0, 0.12F, 0, 0.08F, 0, 0.13F, 0, 0.1F, 0, 0};
@@ -324,9 +551,16 @@ public final class GhibliGen {
 				default -> sheet(cx, cz, sizeR(10F));                             // thin high sheets
 			}
 		}
+		return finish();
+	}
+
+	private GhibliGen finish() {
 		int n = nx * ny * nz;
+		if (dens != null) {
+			cottonize();
+		}
 		for (int i = 0; i < n; i++) {
-			occ[i] = (byte) (best[i] > -1e8F ? 1 : 0);
+			occ[i] = (byte) (dens != null ? (dens[i] > 0.5F ? 1 : 0) : (best[i] > -1e8F ? 1 : 0));
 		}
 		for (int x = 0; x < nx; x++) {
 			for (int z = 0; z < nz; z++) {
@@ -363,6 +597,7 @@ public final class GhibliGen {
 		} else {
 			g = new GhibliGen(nx, ny, nz, Long.parseLong(args[1]));
 			if (args.length > 2) g.style = args[2];
+			if (args.length > 3) g.cotton = true;
 			g.generate();
 		}
 		java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(nx * ny, nz, java.awt.image.BufferedImage.TYPE_INT_ARGB);
@@ -370,7 +605,9 @@ public final class GhibliGen {
 			for (int x = 0; x < nx; x++) {
 				for (int z = 0; z < nz; z++) {
 					int i = g.idx(x, y, z);
-					int a = g.occ[i] != 0 ? 255 : 0;
+					int a = g.dens != null ? Math.round(Math.max(0, Math.min(1, g.dens[i])) * 255) : (g.occ[i] != 0 ? 255 : 0);
+					if (g.occ[i] == 0 && a > 127) a = 127;
+					if (g.occ[i] != 0 && a < 128) a = 128;
 					int r = g.nrm[i * 3] + 128, gg = g.nrm[i * 3 + 1] + 128, b = g.nrm[i * 3 + 2] + 128;
 					img.setRGB(x + y * nx, z, a << 24 | (r & 255) << 16 | (gg & 255) << 8 | (b & 255));
 				}
