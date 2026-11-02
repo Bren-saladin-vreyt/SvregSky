@@ -87,6 +87,10 @@ public class SkyScreenshots implements FabricClientGameTest {
 			// painted mountains, colour grading and morning mist
 			shot(context, sp, 6000, 120, -3, "w_mountains_noon");
 			shot(context, sp, 12300, 90, -3, "w2_mountains_golden");
+			shot(context, sp, 6000, 105, -2, "w3_hill_village_noon");
+			shot(context, sp, 6000, 42, -3, "w4_big_hill_noon");
+			shot(context, sp, 18500, 105, -2, "w5_village_night");
+			shot(context, sp, 13300, -90, -3, "w6_moon_rising");
 			shot(context, sp, 23300, -60, 5, "x_morning_mist");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.colorGrading = 0F);
 			shot(context, sp, 6000, 0, 10, "y_grading_off");

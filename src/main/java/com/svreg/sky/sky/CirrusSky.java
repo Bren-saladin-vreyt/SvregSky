@@ -356,7 +356,14 @@ public final class CirrusSky {
 		if (SkySettings.aurora > 0) flags |= F_AURORA;
 		if (SkySettings.shootingStars) flags |= F_SHOOTING;
 		if (SkySettings.sunRays) flags |= F_RAYS;
-		if (SkySettings.horizonMountains) flags |= 256;
+		if (SkySettings.horizonMountains) {
+			flags |= 256;
+			if (SkySettings.on("hill_wind")) flags |= 131072;
+			if (SkySettings.on("horizon_train")) flags |= 262144;
+			if (SkySettings.on("horizon_village")) flags |= 1048576;
+		}
+		if (SkySettings.on("big_moon")) flags |= 524288;
+		if (SkySettings.on("horizon_birds")) flags |= 2097152;
 		boolean ok = draw(skyPipeline, flags, 0.0F, "SvregSky sky");
 		if (ok) {
 			lastDrawNanos = System.nanoTime();

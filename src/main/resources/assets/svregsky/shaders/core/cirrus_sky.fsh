@@ -31,6 +31,11 @@ const int F_RAYS = 64;
 const int F_GODRAYS = 128;
 const int F_MOUNTAINS = 256;
 const int F_TOWERS = 512;
+const int F_HILLWIND = 131072;
+const int F_TRAIN = 262144;
+const int F_BIGMOON = 524288;
+const int F_VILLAGE = 1048576;
+const int F_BIRDS = 2097152;
 
 // ---------------------------------------------------------------- noise
 highp float hash2(highp vec2 p) {
@@ -380,56 +385,294 @@ highp float ridge(highp float a, highp float freq, highp float seed, highp float
     return v;
 }
 
+// set in main(): sky time (seconds, wraps every hour) and the menu toggles
+highp float tmLand;
+highp float windWaves, trainOn, featBirds, featVillage;
+const highp float TAU = 6.2831853;
+
+// wind sweeping over the grass of the hills: bright bands travelling along the slopes
+highp float hillWind(highp float a, highp float y, highp float seed) {
+    highp float ph = a * 11.0 - mod(tmLand * 0.349066, TAU) + noise(vec2(a * 3.0 + seed, y * 30.0)) * 2.5 + y * 40.0;
+    return smoothstep(0.75, 0.93, sin(mod(ph, TAU)) * 0.5 + 0.5) * windWaves;
+}
+
+// a little train running along the foot of the far hills: cars, a smoking engine, lit windows at night
+highp vec4 train(highp float a, highp float y0, highp float night, highp float gold) {
+    if (trainOn < 0.5) {
+        return vec4(0.0);
+    }
+    highp float ta = mod(tmLand * 0.0122173, TAU);         // engine azimuth, 7 loops an hour
+    highp float d = atan(sin(a - ta), cos(a - ta));           // >0 ahead of the engine
+    // the track runs along the near ridge (without the tree crowns), the train is drawn in front of it
+    highp float yT = 0.007 + 0.032 * ridge(ta + 4.1, 5.0, 3.0, 0.05) - 0.001;
+    highp float y = y0;
+    highp float len = 0.16;
+    highp vec3 body = mix(vec3(0.20, 0.24, 0.34), vec3(0.30, 0.20, 0.24), gold);
+    body = mix(body, vec3(0.04, 0.05, 0.10), night);
+    highp float c = 0.0;
+    highp vec3 col = body;
+    if (d < 0.0 && d > -len && y > yT && y < yT + 0.016) {
+        highp float car = fract(-d / 0.031);
+        c = step(0.08, car);                                  // gaps between cars
+        // windows: a row of small squares, warm at night
+        highp float wx = fract(-d / 0.0062);
+        highp float win = step(0.3, wx) * step(wx, 0.75) * step(yT + 0.0075, y) * step(y, yT + 0.0125) * step(0.15, car) * step(car, 0.95);
+        col = mix(body, mix(body * 1.4, vec3(1.0, 0.82, 0.45), night), win);
+    }
+    // engine: a bit taller with a chimney
+    if (d >= 0.0 && d < 0.024 && y > yT && y < yT + 0.018 + step(0.011, d) * step(d, 0.016) * 0.007) {
+        c = 1.0;
+        col = body * 0.85;
+    }
+    // smoke puffs drifting back over the train
+    for (int i = 0; i < 6; i++) {
+        highp float fi = float(i);
+        highp vec2 pc = vec2(0.0135 - fi * 0.018, yT + 0.029 + fi * 0.005);
+        highp float r = 0.005 + fi * 0.002;
+        highp float sd = length(vec2(d, y) - pc);
+        if (sd < r) {
+            c = max(c, 0.85 - fi * 0.11);
+            col = mix(vec3(0.95, 0.96, 1.0), vec3(1.0, 0.86, 0.76), gold) * (1.0 - night * 0.65);
+        }
+    }
+    return vec4(col, c);
+}
+
+// ---------------------------------------------------------------- painted Ghibli hills v2
+// layers: far range with occasional sharp spires (snow on the tallest), rounded mid hills, a near ridge with round tree crowns.
+// Each layer is toon-lit in two tones by which way its slope faces the sun, and melts into the haze toward its base.
+highp float spires(highp float a) {
+    highp float k = a * 9.0;
+    highp float i = floor(k), f = fract(k) - 0.5;
+    highp float h = hash2(vec2(i, 17.0));
+    highp float w = 0.28 + 0.2 * hash2(vec2(i, 5.0));
+    highp float hh = (0.06 + 0.07 * hash2(vec2(i, 9.0))) * step(0.93, h);
+    return hh * pow(max(0.0, 1.0 - abs(f - (hash2(vec2(i, 3.0)) - 0.5) * 0.3) / w), 1.8);
+}
+
+highp float crowns(highp float a) {
+    highp float k = a * 48.0;
+    highp float i = floor(k), f = fract(k) * 2.0 - 1.0;
+    highp float r = (0.004 + 0.006 * hash2(vec2(i, 21.0))) * step(0.25, hash2(vec2(i, 23.0)));
+    return r * sqrt(max(0.0, 1.0 - f * f * 0.9));
+}
+
+// one big round green hill (Totoro-like) in a fixed direction
+highp float hero(highp float a) {
+    highp float d = abs(atan(sin(a - 2.3), cos(a - 2.3)));
+    return 0.11 * pow(max(0.0, 1.0 - d / 0.42), 0.6) * smoothstep(0.42, 0.25, d) + 0.035 * max(0.0, 1.0 - d / 0.42);
+}
+
+highp float landFar(highp float a) {
+    return 0.04 + 0.28 * pow(ridge(a, 2.0, 1.0, 0.85), 1.7) + spires(a);
+}
+
+highp float landMid(highp float a) {
+    return 0.022 + 0.14 * pow(ridge(a + 1.7, 3.0, 2.0, 0.0), 1.25) + hero(a);
+}
+
+highp float nearBase(highp float a);
+
+highp float landNear(highp float a) {
+    return nearBase(a) + crowns(a) * smoothstep(0.05, 0.08, abs(atan(sin(a - 3.4), cos(a - 3.4))));
+}
+
+highp float nearBase(highp float a) {
+    highp float flat1 = 1.0 - smoothstep(0.08, 0.16, abs(atan(sin(a - 3.4), cos(a - 3.4))));
+    return 0.007 + 0.032 * ridge(a + 4.1, 5.0, 3.0, 0.05) * (1.0 - 0.6 * flat1);
+}
+
 highp vec3 landHeights(highp float a) {
-    highp float h1 = 0.02 + 0.24 * pow(ridge(a, 2.0, 1.0, 0.85), 1.7);           // far mountains
-    highp float h2 = 0.012 + 0.10 * pow(ridge(a + 1.7, 3.5, 2.0, 0.35), 1.3);    // rolling hills
-    highp float trees = noise(vec2(a * 140.0, 3.0)) * 0.009 + step(0.62, noise(vec2(a * 55.0, 9.0))) * 0.007;
-    highp float h3 = 0.006 + 0.03 * ridge(a + 4.1, 6.0, 3.0, 0.1) + trees;       // forest line
-    return vec3(h1, h2, h3);
+    return vec3(landFar(a), landMid(a), landNear(a));
+}
+
+// painted toon tone for one layer: a lit rim along the top (stronger on the sun side), broad brush-like shadow patches lower down
+highp vec3 paintLayer(highp vec3 base, highp float a, highp float y, highp float h, highp float rim, highp float seed, highp float sideK, highp float lightK, highp float gold) {
+    highp vec3 lit = base * 1.2 + mix(vec3(0.08, 0.08, -0.02), vec3(0.14, 0.06, 0.0), gold);
+    highp vec3 shade = base * 0.82 + vec3(0.0, 0.015, 0.05);
+    highp float depth = (h - y) / max(h, 1e-3);
+    highp float patchN = noise(vec2(a * 7.0 + seed, depth * 3.0 + seed * 2.0)) * 0.7 + noise(vec2(a * 19.0 + seed, depth * 7.0)) * 0.3;
+    highp vec3 c = mix(base, shade, step(0.58, patchN) * step(0.18, depth) * lightK);
+    c = mix(c, lit, step(y, h) * step(h - rim, y) * (0.35 + 0.65 * sideK) * lightK);
+    // wind sweeping the grass (near and mid hills only: seed > 3)
+    c = mix(c, lit * 1.12 + vec3(0.03, 0.04, 0.0), hillWind(a, y, seed) * step(3.0, seed) * step(0.06, depth) * lightK * 0.85);
+    // shadows of passing clouds drift across the slopes
+    highp vec2 q = vec2(a * 9.0 - mod(tmLand * 0.02, 500.0) + seed, y * 70.0 + seed * 1.7);
+    highp float cs = noise(q) * 0.7 + noise(q * 2.3 + 5.0) * 0.3;
+    return mix(c, c * vec3(0.74, 0.80, 0.93), step(0.64, cs) * step(0.1, depth) * lightK * 0.9);
+}
+
+
+highp float wrapA(highp float x) {
+    return atan(sin(x), cos(x));
+}
+
+highp float segD(highp vec2 p, highp vec2 a, highp vec2 b) {
+    highp vec2 pa = p - a, ba = b - a;
+    highp float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h);
+}
+
+// a V of birds gliding along the horizon, wings flapping
+highp float birds(highp float a, highp float y) {
+    if (featBirds < 0.5) {
+        return 0.0;
+    }
+    highp float fa = mod(tmLand * 0.0157080, TAU) + 1.0, fy = 0.085 + 0.015 * sin(mod(tmLand * 0.0506, TAU));
+    highp float m = 0.0;
+    for (int i = 0; i < 9; i++) {
+        highp float k = float((i + 1) / 2);
+        highp float side = mod(float(i), 2.0) < 0.5 ? 1.0 : -1.0;
+        highp vec2 c = vec2(fa - k * 0.026, fy + side * k * 0.013);
+        highp vec2 p = vec2(wrapA(a - c.x), y - c.y);
+        if (abs(p.x) > 0.02 || abs(p.y) > 0.02) {
+            continue;
+        }
+        highp float flap = sin(mod(tmLand * 7.0, TAU) + float(i) * 1.7) * 0.005;
+        highp float d = min(segD(p, vec2(-0.0095, flap), vec2(0.0, -0.001)), segD(p, vec2(0.0, -0.001), vec2(0.0095, flap)));
+        m = max(m, 1.0 - smoothstep(0.0009, 0.0015, d));
+    }
+    return m;
+}
+
+
+
+
+// a little village on the near ridge: houses with coloured roofs, a turning windmill, chimney smoke, lit windows at night
+highp vec4 village(highp float a, highp float y0, highp float night, highp float gold) {
+    highp float y = y0;
+    if (featVillage < 0.5) {
+        return vec4(0.0);
+    }
+    highp float d = wrapA(a - 3.4) / 1.6;
+    if (abs(d) > 0.09 || y > 0.12) {
+        return vec4(0.0);
+    }
+    highp float yb = nearBase(a) - 0.0015;
+    y = yb + (y - yb) / 1.6;
+    highp vec3 wall = mix(vec3(0.95, 0.92, 0.84), vec3(1.0, 0.82, 0.66), gold);
+    wall = mix(wall, vec3(0.10, 0.11, 0.20), night);
+    for (int i = 0; i < 6; i++) {
+        highp float fi = float(i);
+        highp float cx = (fi - 2.5) * 0.0145 + (hash2(vec2(fi, 4.0)) - 0.5) * 0.004;
+        highp float hw = 0.0042 + 0.0018 * hash2(vec2(fi, 6.0));
+        highp float wh = 0.0055 + 0.0025 * hash2(vec2(fi, 8.0));
+        highp float px = d - cx, py = y - yb;
+        highp vec3 roof = hash2(vec2(fi, 2.0)) < 0.4 ? vec3(0.80, 0.30, 0.22) : (hash2(vec2(fi, 2.0)) < 0.75 ? vec3(0.25, 0.50, 0.55) : vec3(0.85, 0.55, 0.25));
+        roof = mix(roof, vec3(0.07, 0.07, 0.14), night);
+        if (abs(px) < hw && py > 0.0 && py < wh) {
+            highp float win = step(abs(px), hw * 0.45) * step(wh * 0.35, py) * step(py, wh * 0.7) * step(0.5, fract(px / hw * 1.5));
+            return vec4(mix(wall, vec3(1.0, 0.78, 0.40), win * night), 1.0);
+        }
+        if (py >= wh && py < wh + (hw * 1.25 - abs(px)) * 0.95 && abs(px) < hw * 1.25) {
+            return vec4(roof, 1.0);
+        }
+        if (i == 2 && abs(px - hw * 0.5) < 0.0009 && py > wh && py < wh + 0.0075) {
+            return vec4(roof * 0.7, 1.0);
+        }
+        if (i == 2) {
+            for (int j = 0; j < 4; j++) {
+                highp float fj = float(j);
+                highp vec2 sc = vec2(hw * 0.5 - fj * 0.0035 - mod(tmLand * 0.004, 0.0035), wh + 0.009 + fj * 0.0028);
+                if (length(vec2(px, py) - sc) < 0.0014 + fj * 0.0006) {
+                    return vec4(mix(vec3(0.96), vec3(0.4, 0.42, 0.5), night), 0.8 - fj * 0.15);
+                }
+            }
+        }
+    }
+    // windmill
+    highp vec2 wp = vec2(d - 0.062, y - yb);
+    if (wp.y > 0.0 && wp.y < 0.017 && abs(wp.x) < 0.0035 - wp.y * 0.1) {
+        return vec4(wall * 0.92, 1.0);
+    }
+    highp vec2 hub = wp - vec2(0.0, 0.017);
+    highp float ang = mod(tmLand * 0.7994, TAU);
+    highp float bl = 1.0;
+    for (int k = 0; k < 4; k++) {
+        highp float t = ang + float(k) * 1.5708;
+        bl = min(bl, segD(hub, vec2(0.0), vec2(cos(t), sin(t)) * 0.012));
+    }
+    if (bl < 0.0011 && length(hub) < 0.0125) {
+        return vec4(mix(vec3(0.45, 0.32, 0.22), vec3(0.06, 0.06, 0.12), night), 1.0);
+    }
+    return vec4(0.0);
+}
+
+highp vec3 layerColor(int k, highp float day, highp float gold, highp float night, highp float org, highp float rain) {
+    highp vec3 far = mix(vec3(0.12, 0.15, 0.34), vec3(0.47, 0.62, 0.86), day);
+    highp vec3 mid = mix(vec3(0.08, 0.12, 0.26), vec3(0.30, 0.58, 0.46), day);
+    highp vec3 near = mix(vec3(0.05, 0.08, 0.18), vec3(0.20, 0.50, 0.24), day);
+    far = mix(far, mix(vec3(0.70, 0.44, 0.60), vec3(0.88, 0.58, 0.42), org), gold * 0.85);
+    mid = mix(mid, mix(vec3(0.50, 0.32, 0.50), vec3(0.66, 0.42, 0.34), org), gold * 0.85);
+    near = mix(near, mix(vec3(0.30, 0.20, 0.34), vec3(0.42, 0.28, 0.24), org), gold * 0.85);
+    highp vec3 grey = vec3(dot(far, vec3(0.3, 0.59, 0.11)));
+    far = mix(far, grey, rain * 0.6);
+    mid = mix(mid, grey * 0.8, rain * 0.6);
+    near = mix(near, grey * 0.6, rain * 0.6);
+    return k == 0 ? far : (k == 1 ? mid : near);
+}
+
+// far range and mid hills
+highp vec3 farMid(highp vec3 col, highp float a, highp float y, highp float sideK, highp float day, highp float gold, highp float night, highp float org, highp float rain) {
+    highp float h1 = landFar(a), h2 = landMid(a);
+    highp float lightK = (1.0 - rain) * (1.0 - night * 0.7);
+    highp vec3 c = col;
+    if (y < h1) {
+        highp vec3 lc = paintLayer(layerColor(0, day, gold, night, org, rain), a, y, h1, 0.008, 1.0, sideK, lightK, gold);
+        highp float tip = step(0.035, spires(a)) * step(h1 - 0.03, y);
+        lc = mix(lc, mix(vec3(0.93, 0.96, 1.0), vec3(1.0, 0.88, 0.82), gold), tip * (1.0 - night) * (1.0 - rain) * 0.9);
+        highp float mist = 0.55 * (1.0 - smoothstep(0.0, h1 * 0.85 + 0.02, y));
+        c = mix(col, lc, 0.85 - mist);
+    }
+    if (y < h2) {
+        highp vec3 lc = paintLayer(layerColor(1, day, gold, night, org, rain), a, y, h2, 0.008, 4.0, sideK, lightK, gold);
+        highp float mist = 0.25 * (1.0 - smoothstep(0.0, h2 * 0.8 + 0.01, y));
+        c = mix(col, lc, 0.95 - mist);
+    }
+    return c;
+}
+
+// the painted landscape above the horizon
+highp vec3 landLayers(highp vec3 col, highp float a, highp float y, highp vec3 dir, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float org, highp float rain) {
+    highp vec2 dxz = normalize(dir.xz + vec2(1e-5));
+    highp vec2 sxz = normalize(sunDir.xz + vec2(1e-5));
+    highp float sideK = pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.5);
+    highp float lightK = (1.0 - rain) * (1.0 - night * 0.7);
+    highp vec3 c = farMid(col, a, y, sideK, day, gold, night, org, rain);
+    highp float h3 = landNear(a);
+    if (y < h3) {
+        highp vec3 lc = paintLayer(layerColor(2, day, gold, night, org, rain), a, y, h3, 0.003, 9.0, sideK, lightK, gold);
+        highp float mist = 0.12 * (1.0 - smoothstep(0.0, h3 * 0.7 + 0.004, y));
+        c = mix(col, lc, 1.0 - mist);
+    }
+    highp vec4 vl = village(a, y, night, gold);
+    c = mix(c, vl.rgb, vl.a);
+    highp vec4 tr = train(a, y, night, gold);
+    c = mix(c, tr.rgb, tr.a);
+    highp float bd = birds(a, y);
+    c = mix(c, mix(vec3(0.16, 0.18, 0.26), vec3(0.30, 0.18, 0.22), gold) * (1.0 - night * 0.5), bd * (1.0 - night * 0.6));
+    return c;
 }
 
 highp vec3 horizonLand(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float org, highp float rain) {
     highp float a = atan(dir.z, dir.x);
     highp float y = dir.y;
-    if (y > 0.26) {
+    if (y > 0.36) {
         return col;
     }
-    highp vec3 hs = landHeights(a);
-    highp float h1 = hs.x, h2 = hs.y, h3 = hs.z;
-    highp vec2 dxz = normalize(dir.xz + vec2(1e-5));
-    highp vec2 sxz = normalize(sunDir.xz + vec2(1e-5));
-    highp float side = pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.5);
-    // layer colours: day blue-green, golden hour warm silhouettes, night deep blue
-    highp vec3 far = mix(vec3(0.10, 0.12, 0.30), vec3(0.50, 0.66, 0.88), day);
-    highp vec3 mid = mix(vec3(0.07, 0.10, 0.22), vec3(0.38, 0.60, 0.56), day);
-    highp vec3 near = mix(vec3(0.05, 0.07, 0.16), vec3(0.26, 0.47, 0.34), day);
-    far = mix(far, mix(vec3(0.72, 0.42, 0.56), vec3(0.88, 0.58, 0.40), org), gold * 0.85);
-    mid = mix(mid, mix(vec3(0.50, 0.30, 0.46), vec3(0.66, 0.40, 0.34), org), gold * 0.85);
-    near = mix(near, mix(vec3(0.32, 0.20, 0.34), vec3(0.42, 0.27, 0.26), org), gold * 0.85);
-    highp vec3 grey = vec3(dot(far, vec3(0.3, 0.59, 0.11)));
-    far = mix(far, grey, rain * 0.6); mid = mix(mid, grey * 0.8, rain * 0.6); near = mix(near, grey * 0.6, rain * 0.6);
-    highp vec3 c = col;
-    // each layer fades into the sky with height (aerial perspective) and lights up its rim toward the sun
-    if (y < h1) {
-        highp float k = 0.78 + 0.17 * (1.0 - smoothstep(h1 - 0.05, h1, y));
-        highp vec3 lc = far + vec3(1.0, 0.85, 0.6) * gold * side * 0.15 * smoothstep(h1 - 0.006, h1, y);
-        c = mix(col, lc, k);
+    if (y >= 0.0) {
+        return landLayers(col, a, y, dir, sunDir, day, gold, night, org, rain);
     }
-    if (y < h2) {
-        c = mix(col, mid, 0.78) + vec3(1.0, 0.8, 0.5) * gold * side * 0.12 * smoothstep(h2 - 0.004, h2, y);
-    }
-    if (y < h3) {
-        c = mix(col, near, 0.9);
-    }
-    // the very bottom melts into the horizon haze, so terrain fog meets it smoothly
-    // below the horizon: distant land, fading into a soft haze further down
-    // (fades into the horizon colour right at the horizon, where the world's distance fog ends)
-    highp vec3 land = mix(mix(near, col, 0.3), col, smoothstep(-0.10, 0.0, y));
-    return y < 0.0 ? land : c;
+    highp vec3 near = layerColor(2, day, gold, night, org, rain);
+    return mix(mix(near, col, 0.3), col, smoothstep(-0.10, 0.0, y));
 }
 
 // ---------------------------------------------------------------- Ghibli sun & moon (replace the vanilla squares)
-highp vec3 sunAndMoon(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float rain, highp float phase) {
+// landTop: height of the painted hills in this direction (sun and moon set behind them); bigMoon: huge amber moon while it rises
+highp vec3 sunAndMoon(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float rain, highp float phase, highp float landTop, highp float bigMoon) {
+    if (dir.y < landTop) {
+        return col;
+    }
     highp float clear = 1.0 - 0.85 * rain;
     // sun: soft round disc with a warm core
     highp float sa = acos(clamp(dot(dir, sunDir), -1.0, 1.0));
@@ -444,7 +687,8 @@ highp vec3 sunAndMoon(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp f
     highp vec3 md = -sunDir;
     if (md.y > -0.08) {
         highp float ma = acos(clamp(dot(dir, md), -1.0, 1.0));
-        highp float mr = 0.045;
+        highp float riseK = smoothstep(0.02, 0.30, md.y);
+        highp float mr = 0.045 * mix(mix(2.8, 1.0, riseK), 1.0, 1.0 - bigMoon);
         highp float fullness = 0.5 + 0.5 * cos(phase / 8.0 * 6.2831853);
         col += vec3(0.55, 0.70, 1.0) * exp(-ma * ma / 0.004) * 0.10 * (0.3 + 0.7 * fullness) * night * clear;
         if (ma < mr) {
@@ -455,7 +699,7 @@ highp vec3 sunAndMoon(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp f
             highp float side = phase < 4.0 ? -1.0 : 1.0;
             highp float lit = step(-c * sqrt(max(0.0, 1.0 - p.y * p.y)), side * p.x);
             highp float crater = smoothstep(0.62, 0.7, noise(p * 3.0 + 4.0)) * 0.12;
-            highp vec3 mc = vec3(0.99, 0.96, 0.86) * (1.0 - crater);
+            highp vec3 mc = mix(vec3(1.0, 0.68, 0.38), vec3(0.99, 0.96, 0.86), mix(riseK, 1.0, 1.0 - bigMoon)) * (1.0 - crater);
             highp float edge = 1.0 - smoothstep(0.85, 1.0, length(p));
             highp vec3 darkSide = col * 1.08 + vec3(0.01, 0.015, 0.03);
             col = mix(col, mix(darkSide, mc, lit), edge * clear * (0.35 + 0.65 * (1.0 - day)));
@@ -761,6 +1005,11 @@ void main() {
     highp vec2 cloudOff = TextureMat[2].xy;
     highp float auroraStrength = TextureMat[2].w;
     int flags = int(TextureMat[3].x + 0.5);
+    tmLand = tm;
+    windWaves = (flags & F_HILLWIND) != 0 ? 1.0 : 0.0;
+    trainOn = (flags & F_TRAIN) != 0 ? 1.0 : 0.0;
+    featVillage = (flags & F_VILLAGE) != 0 ? 1.0 : 0.0;
+    featBirds = (flags & F_BIRDS) != 0 ? 1.0 : 0.0;
     highp float coverAdj = TextureMat[3].y;
     highp float shootPeriod = TextureMat[3].z;
     highp float mode = TextureMat[3].w;
@@ -902,7 +1151,12 @@ void main() {
     }
 
     if (ModelOffset.z > 0.5) {
-        col = sunAndMoon(col, dir, sunDir, day, gold, night, rain, ModelOffset.y);
+        highp float landTop = -1.0;
+        if ((flags & F_MOUNTAINS) != 0 && dir.y < 0.4) {
+            highp vec3 hsM = landHeights(atan(dir.z, dir.x));
+            landTop = max(hsM.x, max(hsM.y, hsM.z));
+        }
+        col = sunAndMoon(col, dir, sunDir, day, gold, night, rain, ModelOffset.y, landTop, (flags & F_BIGMOON) != 0 ? 1.0 : 0.0);
     }
     if (blueA > 0.01) {
         // the blue hour: deep soft blue overhead, a last pink glow where the sun went down,

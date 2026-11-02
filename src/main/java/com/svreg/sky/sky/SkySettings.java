@@ -151,6 +151,11 @@ public final class SkySettings {
 		FLAGS.put("blue_hour", true);
 		FLAGS.put("silver_clouds", true);
 		FLAGS.put("cloud_merge", true);
+		FLAGS.put("hill_wind", true);
+		FLAGS.put("horizon_train", true);
+		FLAGS.put("horizon_village", true);
+		FLAGS.put("big_moon", true);
+		FLAGS.put("horizon_birds", true);
 		FLAGS.put("shore_waves", true);
 		// comfort
 		FLAGS.put("per_world", false);
