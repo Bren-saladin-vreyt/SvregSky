@@ -67,7 +67,7 @@ void main() {
     highp float up = pn.y * 0.5 + 0.5;
     highp float hy = clamp(localY / max(layerH, 1.0), 0.0, 1.0);
     // painted look: tops and bubble centres white, bellies and creases blue, the sun only nudges it
-    highp float v = 0.22 + 0.24 * l * (1.0 - 0.5 * sh) + 0.24 * L + 0.26 * up + 0.14 * hy;
+    highp float v = 0.28 + 0.24 * l * (1.0 - 0.5 * sh) + 0.24 * L + 0.24 * up + 0.12 * hy;
     // bubble edges seen side-on catch the light: bright outlines around every puff
     highp float side = 1.0 - abs(dot(pn, rd));
     v += 0.18 * smoothstep(0.5, 0.95, side) * (1.0 - rain * 0.7);
@@ -109,7 +109,7 @@ void main() {
     highp vec3 haze = mix(hazeAway, hazeSun, sd);
     haze = mix(haze, mix(vec3(0.45, 0.52, 0.64), vec3(0.50, 0.38, 0.50), gold) * (0.3 + 0.7 * max(day, gold)), stormK * 0.6);
     highp float f = clamp(dist / fadeEnd, 0.0, 1.0);
-    col = mix(col, haze, smoothstep(0.15, 1.0, f) * 0.85);
+    col = mix(col, haze, smoothstep(0.4, 1.0, f) * 0.8);
     highp float a = 1.0 - smoothstep(fadeStart, fadeEnd, dist);
     if (a < 0.01) {
         discard;
