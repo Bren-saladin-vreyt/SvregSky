@@ -139,7 +139,7 @@ public final class RaymarchClouds {
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer ib = indices.getBuffer(6);
 			IndexType type = indices.type();
-			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch clouds", bufView, Optional.of(0), null, OptionalDouble.empty())) {
+			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch clouds", bufView, Optional.of(new Vector4f(0, 0, 0, 0)), null, OptionalDouble.empty())) {
 				pass.setPipeline(marchPipeline);
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", marchT);
