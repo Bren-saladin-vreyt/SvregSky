@@ -162,7 +162,7 @@ public class SkyScreen extends OptionsSubScreen {
 					SkySettings.ghibliCell = v.equals("lod") ? 0 : Integer.parseInt(v);
 				}),
 				flag("cloud_merge"),
-				choice("raymarch_scale", List.of("2", "3", "4"), String.valueOf(SkySettings.raymarchScale), v -> SkySettings.raymarchScale = Integer.parseInt(v)),
+				choice("raymarch_scale", List.of("2", "3", "4", "6", "8"), String.valueOf(SkySettings.raymarchScale), v -> SkySettings.raymarchScale = Integer.parseInt(v)),
 				slider("ghibli_amount", 25, 250, Math.round(SkySettings.ghibliAmount * 100), v -> v + "%", v -> SkySettings.ghibliAmount = v / 100F),
 				slider("ghibli_size", 50, 200, Math.round(SkySettings.ghibliSize * 100), v -> v + "%", v -> SkySettings.ghibliSize = v / 100F),
 				slider("cloud_3d_distance", 8, 96, SkySettings.cloud3dDistance, v -> String.valueOf(v), v -> {

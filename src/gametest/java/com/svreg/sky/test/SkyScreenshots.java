@@ -311,6 +311,10 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 12300, 90, -10, "zu3_raymarch_golden");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 2);
 			shot(context, sp, 6000, 160, -25, "zu4_raymarch_half");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 6);
+			shot(context, sp, 6000, 160, -25, "zu5_raymarch_sixth");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 8);
+			shot(context, sp, 6000, 160, -25, "zu6_raymarch_eighth");
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli"; com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliStyle = "anime"; com.svreg.sky.sky.SkySettings.version++; });
 

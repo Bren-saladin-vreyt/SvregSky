@@ -19,6 +19,8 @@ layout(std140) uniform Projection {
     highp mat4 ProjMat;
 };
 
+uniform highp sampler2D Sampler0; // baked erosion noise atlas (RaymarchNoise): 32 slices of 66 x 66
+
 in highp vec2 uv;
 
 out highp vec4 fragColor;
@@ -36,16 +38,26 @@ highp float n3(highp vec3 p) {
     return mix(mix(mix(h3(i), h3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(h3(i + vec3(0.0, 1.0, 0.0)), h3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
                mix(mix(h3(i + vec3(0.0, 0.0, 1.0)), h3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(h3(i + vec3(0.0, 1.0, 1.0)), h3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
 }
-highp float billow(highp vec3 p) { return 1.0 - abs(2.0 * n3(p) - 1.0); }
+// baked erosion: tile 128 x 64 x 128 blocks, two bilinear reads (neighbouring y slices)
+highp float erosionTex(highp vec3 p) {
+    highp float fy = fract(p.y / 64.0) * 32.0 - 0.5;
+    highp float s0 = floor(fy);
+    highp float wy = fy - s0;
+    highp float sa = mod(s0, 32.0), sb = mod(s0 + 1.0, 32.0);
+    highp vec2 xz = fract(p.xz / 128.0) * 64.0 + 1.0;
+    highp float a = texture(Sampler0, vec2((sa * 66.0 + xz.x) / 2112.0, xz.y / 66.0)).r;
+    highp float b = texture(Sampler0, vec2((sb * 66.0 + xz.x) / 2112.0, xz.y / 66.0)).r;
+    return mix(a, b, wy);
+}
 
 highp float layerH, amount;
 
 highp float coverage(highp vec2 xz) {
-    highp float c = n2(xz / 230.0) * 0.5 + n2(xz / 95.0 + 7.0) * 0.32 + n2(xz / 40.0 + 3.0) * 0.18;
+    highp float c = n2(xz / 230.0) * 0.58 + n2(xz / 80.0 + 7.0) * 0.42;
     return smoothstep(0.66 - 0.1 * amount, 0.86 - 0.1 * amount, c);
 }
 
-highp float density(highp vec3 p, bool detail) {
+highp float density(highp vec3 p) {
     highp float cov = coverage(p.xz);
     if (cov <= 0.0) {
         return -1.0;
@@ -56,8 +68,7 @@ highp float density(highp vec3 p, bool detail) {
         return -1.0;
     }
     highp float prof = smoothstep(0.0, 0.16, hf) * (1.0 - smoothstep(0.4, 1.0, hf));
-    highp vec3 q = p + vec3(n3(p / 60.0) * 25.0, 0.0, n3(p / 60.0 + 5.0) * 25.0);
-    highp float e = billow(q / 38.0) * 0.58 + billow(q / 14.0 + 3.0) * 0.34 + (detail ? billow(q / 8.0 + 9.0) : 0.5) * 0.08;
+    highp float e = erosionTex(p);
     return cov * prof - (1.0 - e) * (0.42 + 0.25 * (1.0 - hf)) + 0.12;
 }
 
@@ -88,17 +99,18 @@ void main() {
     highp float t = tA;
     highp float jit = h2(gl_FragCoord.xy + 17.0) * 0.5;
     highp float tPrev = t;
+    int maxSteps = int(ColorModulator.z);
     for (int i = 0; i < 110; i++) {
-        if (t > tB) {
+        if (t > tB || i >= maxSteps) {
             break;
         }
         highp vec3 p = ro + rd * t;
-        highp float d = density(p, t < 700.0);
+        highp float d = density(p);
         if (d > 0.0) {
             highp float t0 = tPrev, t1 = t;
-            for (int k = 0; k < 5; k++) {
+            for (int k = 0; k < 4; k++) {
                 highp float tm = 0.5 * (t0 + t1);
-                if (density(ro + rd * tm, true) > 0.0) {
+                if (density(ro + rd * tm) > 0.0) {
                     t1 = tm;
                 } else {
                     t0 = tm;
@@ -108,18 +120,21 @@ void main() {
             p = ro + rd * t;
             // light: cloud toward the sun and above darkens; open sun-facing surfaces are bright
             highp float occl = 0.0;
-            for (int k = 1; k <= 4; k++) {
-                occl += max(0.0, density(p + sunDir * float(k) * 10.0, false));
+            for (int k = 1; k <= 3; k++) {
+                occl += max(0.0, density(p + sunDir * float(k) * 12.0));
             }
-            highp float up = max(0.0, density(p + vec3(0.0, 10.0, 0.0), false)) + max(0.0, density(p + vec3(0.0, 20.0, 0.0), false));
+            occl *= 1.33;
+            highp float up = max(0.0, density(p + vec3(0.0, 14.0, 0.0))) * 2.0;
             // soft normal from 4 samples (tetrahedron)
             const highp float e = 4.0;
-            highp float d1 = density(p + vec3(e, -e, -e), false), d2 = density(p + vec3(-e, -e, e), false);
-            highp float d3 = density(p + vec3(-e, e, -e), false), d4 = density(p + vec3(e, e, e), false);
+            highp float d1 = density(p + vec3(e, -e, -e)), d2 = density(p + vec3(-e, -e, e));
+            highp float d3 = density(p + vec3(-e, e, -e)), d4 = density(p + vec3(e, e, e));
             highp vec3 n = -normalize(vec3(d1 - d2 - d3 + d4, -d1 - d2 + d3 + d4, -d1 + d2 - d3 + d4) + vec3(0.0, 1e-4, 0.0));
             highp float l = dot(n, sunDir) * 0.5 + 0.5;
             highp float v = 0.42 + 0.30 * l + 0.18 * (n.y * 0.5 + 0.5) - 0.18 * occl - 0.18 * up;
-            v += (n3(p / 6.0) - 0.5) * 0.06;
+            v += (erosionTex(p * 3.0) - 0.5) * 0.06;
+            // tones with soft steps between them (painted, not hard-cut)
+            highp float k1 = smoothstep(0.28, 0.33, v), k2 = smoothstep(0.44, 0.49, v), k3 = smoothstep(0.60, 0.65, v);
             int band = v > 0.62 ? 3 : (v > 0.46 ? 2 : (v > 0.30 ? 1 : 0));
 
             // the same four tones as the voxel clouds (day -> golden hour -> night, rain greys)
@@ -137,7 +152,7 @@ void main() {
             c1 = mix(c1, vec3(0.52, 0.55, 0.61) * dim, rain * 0.8);
             c2 = mix(c2, vec3(0.62, 0.65, 0.71) * dim, rain * 0.8);
             c3 = mix(c3, vec3(0.70, 0.73, 0.78) * dim, rain * 0.8);
-            highp vec3 col = band == 3 ? c3 : (band == 2 ? c2 : (band == 1 ? c1 : c0));
+            highp vec3 col = mix(mix(mix(c0, c1, k1), c2, k2), c3, k3);
             col = mix(col, col * 0.6 + hazeAway * 0.4, float(3 - band) / 3.0 * 0.3 * (1.0 - rain));
             // distance haze into the horizon colour
             highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
@@ -150,6 +165,7 @@ void main() {
             return;
         }
         tPrev = t;
-        t += max(2.0, (d < -0.5 ? 12.0 : 2.5) * (1.0 + t / 700.0)) * (0.75 + jit);
+        // big strides through empty sky (no coverage), small ones near cloud
+        t += max(2.5, (d < -0.5 ? 16.0 : 3.0) * (1.0 + t / 600.0)) * (0.75 + jit);
     }
 }

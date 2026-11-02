@@ -39,6 +39,7 @@ public final class RaymarchClouds {
 
 	private static RenderPipeline marchPipeline, compPipeline;
 	private static GpuBuffer quad;
+	private static net.minecraft.client.renderer.texture.DynamicTexture noiseTex;
 	private static GpuTexture buf;
 	private static GpuTextureView bufView;
 	private static boolean broken;
@@ -68,8 +69,20 @@ public final class RaymarchClouds {
 
 	private static void init() {
 		if (marchPipeline == null) {
-			marchPipeline = pipeline("cirrus_raymarch", ColorTargetState.DEFAULT, Optional.empty(), false);
+			marchPipeline = pipeline("cirrus_raymarch", ColorTargetState.DEFAULT, Optional.empty(), true);
 			compPipeline = pipeline("cirrus_rmcomp", ColorTargetState.DEFAULT, Optional.of(DepthStencilState.DEFAULT), true);
+		}
+		if (noiseTex == null) {
+			// the erosion noise is baked once (about a quarter second) and read with bilinear filtering from then on
+			byte[] a = RaymarchNoise.bake();
+			com.mojang.blaze3d.platform.NativeImage img = new com.mojang.blaze3d.platform.NativeImage(RaymarchNoise.WIDTH, RaymarchNoise.HEIGHT, false);
+			for (int y = 0; y < RaymarchNoise.HEIGHT; y++) {
+				for (int x = 0; x < RaymarchNoise.WIDTH; x++) {
+					int g = a[x + y * RaymarchNoise.WIDTH] & 255;
+					img.setPixel(x, y, 0xFF000000 | g << 16 | g << 8 | g);
+				}
+			}
+			noiseTex = new net.minecraft.client.renderer.texture.DynamicTexture(() -> "SvregSky raymarch noise", img);
 		}
 		if (quad == null) {
 			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION.getVertexSize() * 4)) {
@@ -101,7 +114,9 @@ public final class RaymarchClouds {
 
 			RenderTarget cloudTarget = mc.levelRenderer.cloudsTarget();
 			RenderTarget target = cloudTarget != null ? cloudTarget : mc.gameRenderer.mainRenderTarget();
-			int scale = Math.max(2, Math.min(4, SkySettings.raymarchScale));
+			int scale = Math.max(2, Math.min(8, SkySettings.raymarchScale));
+			// fewer march steps at lower resolutions: the big pixels hide the coarser sampling
+			int steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 80 : scale >= 3 ? 90 : 100;
 			int w = Math.max(1, (target.width + scale - 1) / scale), h = Math.max(1, (target.height + scale - 1) / scale);
 			if (buf == null || buf.getWidth(0) != w || buf.getHeight(0) != h) {
 				if (bufView != null) {
@@ -132,7 +147,7 @@ public final class RaymarchClouds {
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
 			Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
-			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(params.m03(), reach, 0, org), camCloud, params);
+			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(params.m03(), reach, steps, org), camCloud, params);
 			boolean zeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
 			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(scale, zeroToOne ? 1 : 0, 0, 0), new Vector3f(), new Matrix4f());
 
@@ -143,6 +158,7 @@ public final class RaymarchClouds {
 				pass.setPipeline(marchPipeline);
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", marchT);
+				pass.bindTexture("Sampler0", noiseTex.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 				pass.setVertexBuffer(0, quad.slice());
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);

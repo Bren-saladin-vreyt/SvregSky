@@ -191,7 +191,7 @@ public final class SkySettings {
 	/** blocks per 3D Ghibli cloud cell for the "anime" look: 4 (phone), 2 (finer, heavier) or 0 = 2 near the camera, 4 further out */
 	public static int ghibliCell = 4;
 	/** Raymarch Ghibli clouds: screen pixels per cloud pixel (2 = half resolution .. 4 = quarter) */
-	public static int raymarchScale = 3;
+	public static int raymarchScale = 4;
 	public static float ghibliAmount = 1.0F, ghibliSize = 1.0F;
 	/** screen-space sun shadows: quality (low / medium / high / ultra), darkness 0..1, colour (anime / neutral / warm) */
 	public static String shadowQuality = "medium", shadowColor = "anime", shadowMethod = "world";
@@ -267,7 +267,7 @@ public final class SkySettings {
 			}
 		}
 		if (o.has("raymarch_scale")) {
-			raymarchScale = Math.max(2, Math.min(4, o.get("raymarch_scale").getAsInt()));
+			raymarchScale = Math.max(2, Math.min(8, o.get("raymarch_scale").getAsInt()));
 		}
 		if (o.has("ghibli_cell")) {
 			int c = o.get("ghibli_cell").getAsInt();
