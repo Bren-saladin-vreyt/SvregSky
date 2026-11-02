@@ -42,11 +42,32 @@ public final class RaymarchNoise {
 		return 1 - Math.abs(2 * vn(x, y, z, lx, ly, lz, s) - 1);
 	}
 
-	/** erosion value 0..1 at tile coordinates (0..1 each axis): big round heaps, then smaller bubbles */
+	/** inverted 3D Worley on a periodic lattice: 1 at a bubble centre, falling to ~0 where bubbles meet */
+	private static float bubbles(float x, float y, float z, int lx, int ly, int lz, int s) {
+		x *= lx;
+		y *= ly;
+		z *= lz;
+		int ix = (int) Math.floor(x), iy = (int) Math.floor(y), iz = (int) Math.floor(z);
+		float best = 9;
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					int cx = ix + dx, cy = iy + dy, cz = iz + dz;
+					int hx = Math.floorMod(cx, lx), hy = Math.floorMod(cy, ly), hz = Math.floorMod(cz, lz);
+					float px = cx + 0.15F + 0.7F * hash(hx, hy, hz, s), py = cy + 0.15F + 0.7F * hash(hx, hy, hz, s + 7), pz = cz + 0.15F + 0.7F * hash(hx, hy, hz, s + 13);
+					float ddx = px - x, ddy = (py - y) * 1.15F, ddz = pz - z;
+					best = Math.min(best, ddx * ddx + ddy * ddy + ddz * ddz);
+				}
+			}
+		}
+		return Math.max(0, 1 - (float) Math.sqrt(best) * 0.95F);
+	}
+
+	/** erosion value 0..1 at tile coordinates (0..1 each axis): big round bubbles, smaller bubbles on them, a little warp */
 	public static float erosion(float u, float v, float w) {
-		float wx = (vn(u, v, w, 2, 1, 2, 1) - 0.5F) * 0.2F, wz = (vn(u, v, w, 2, 1, 2, 2) - 0.5F) * 0.2F;
+		float wx = (vn(u, v, w, 2, 1, 2, 1) - 0.5F) * 0.12F, wz = (vn(u, v, w, 2, 1, 2, 2) - 0.5F) * 0.12F;
 		float qx = u + wx, qz = w + wz;
-		return billow(qx, v, qz, 3, 2, 3, 3) * 0.58F + billow(qx, v, qz, 9, 4, 9, 4) * 0.34F + billow(qx, v, qz, 16, 8, 16, 5) * 0.08F;
+		return bubbles(qx, v, qz, 5, 3, 5, 3) * 0.75F + bubbles(qx, v, qz, 10, 5, 10, 4) * 0.25F;
 	}
 
 	/** the atlas as grey values 0..255, row-major WIDTH x HEIGHT */

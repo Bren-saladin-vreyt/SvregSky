@@ -51,6 +51,8 @@ highp float erosionTex(highp vec3 p) {
 }
 
 highp float layerH, amount;
+// detail level: far away a cloud pixel covers many blocks, so the bubbles fade toward a smooth average (no sparkling)
+highp float lodK = 1.0;
 
 highp float coverage(highp vec2 xz) {
     highp float c = n2(xz / 170.0) * 0.55 + n2(xz / 60.0 + 7.0) * 0.45;
@@ -58,7 +60,7 @@ highp float coverage(highp vec2 xz) {
 }
 
 // the high layer (altocumulus streaks) sits this far above the cloud base
-const highp float HIGH0 = 185.0, HIGH1 = 215.0;
+const highp float HIGH0 = 255.0, HIGH1 = 285.0;
 
 // low/mid cumulus: flat bases at different heights (some clouds float higher), heaped cauliflower tops
 highp float cumulus(highp vec3 p) {
@@ -67,7 +69,7 @@ highp float cumulus(highp vec3 p) {
         return -1.0;
     }
     highp float base = 38.0 * n2(p.xz / 300.0 + 11.0);              // each cloud field gets its own base height
-    highp float top = base + 40.0 + layerH * (0.6 + 0.4 * n2(p.xz / 140.0 + 4.0));
+    highp float top = base + 40.0 + layerH * (0.35 + 0.95 * n2(p.xz / 160.0 + 4.0)); // tall, every cloud its own height
     highp float hf = (p.y - base) / (top - base);
     if (hf < 0.0 || hf > 1.0) {
         return -1.0;
@@ -75,7 +77,7 @@ highp float cumulus(highp vec3 p) {
     // dome: the higher up, the more coverage it takes to stay cloud, so tops round off instead of rising as walls
     highp float d = cov * 1.3 - 0.9 * hf * hf - 0.35 * (1.0 - smoothstep(0.0, 0.08, hf));
     highp float e = erosionTex(p);
-    return d - (1.0 - e) * (0.38 + 0.22 * (1.0 - hf)) + 0.16;
+    return d + (e - 0.52) * (0.85 + 0.6 * hf) * lodK - 0.02; // the surface is a crowd of round bubbles, more so up top
 }
 
 // high thin streaks stretched along the wind, in patches
@@ -124,7 +126,7 @@ void main() {
         return;
     }
     highp float t = tA;
-    highp float jit = h2(gl_FragCoord.xy + 17.0) * 0.5;
+    highp float jit = h2(gl_FragCoord.xy + 17.0) * 0.25;
     highp float tPrev = t;
     int maxSteps = int(ColorModulator.z);
     for (int i = 0; i < 110; i++) {
@@ -132,12 +134,13 @@ void main() {
             break;
         }
         highp vec3 p = ro + rd * t;
+        lodK = 1.0 - 0.75 * smoothstep(250.0, 1100.0, t);
         highp float d = density(p);
-        if (d > 0.0) {
+        if (d > 0.05) { // a little margin: wisps thinner than that are skipped instead of sparkling
             highp float t0 = tPrev, t1 = t;
-            for (int k = 0; k < 4; k++) {
+            for (int k = 0; k < 6; k++) {
                 highp float tm = 0.5 * (t0 + t1);
-                if (density(ro + rd * tm) > 0.0) {
+                if (density(ro + rd * tm) > 0.05) {
                     t1 = tm;
                 } else {
                     t0 = tm;
@@ -147,19 +150,23 @@ void main() {
             p = ro + rd * t;
             // light: cloud toward the sun and above darkens; open sun-facing surfaces are bright
             highp float occl = 0.0;
+            // lighting from the smooth cloud body (bubbles off), so it doesn't sparkle pixel to pixel
+            highp float lodSave = lodK;
+            lodK = 0.0;
             for (int k = 1; k <= 3; k++) {
                 occl += max(0.0, density(p + sunDir * float(k) * 12.0));
             }
             occl *= 1.33;
             highp float up = max(0.0, density(p + vec3(0.0, 14.0, 0.0))) * 2.0;
             // soft normal from 4 samples (tetrahedron)
-            const highp float e = 4.0;
+            const highp float e = 7.0; // wide: bubbles meet in sharp creases, a small step would make the normal flicker
             highp float d1 = density(p + vec3(e, -e, -e)), d2 = density(p + vec3(-e, -e, e));
             highp float d3 = density(p + vec3(-e, e, -e)), d4 = density(p + vec3(e, e, e));
             highp vec3 n = -normalize(vec3(d1 - d2 - d3 + d4, -d1 - d2 + d3 + d4, -d1 + d2 - d3 + d4) + vec3(0.0, 1e-4, 0.0));
+            lodK = lodSave;
             highp float l = dot(n, sunDir) * 0.5 + 0.5;
-            highp float v = 0.48 + 0.30 * l + 0.18 * (n.y * 0.5 + 0.5) - 0.18 * occl - 0.18 * up;
-            v += (erosionTex(p * 3.0) - 0.5) * 0.06;
+            highp float bub = erosionTex(p);
+            highp float v = 0.40 + 0.28 * l + 0.14 * (n.y * 0.5 + 0.5) - 0.16 * occl - 0.14 * up + (bub - 0.5) * 0.5 * lodK;
             // tones with soft steps between them (painted, not hard-cut)
             highp float k1 = smoothstep(0.28, 0.33, v), k2 = smoothstep(0.44, 0.49, v), k3 = smoothstep(0.60, 0.65, v);
             int band = v > 0.62 ? 3 : (v > 0.46 ? 2 : (v > 0.30 ? 1 : 0));
