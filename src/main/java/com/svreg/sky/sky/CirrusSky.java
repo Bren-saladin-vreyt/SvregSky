@@ -89,6 +89,14 @@ public final class CirrusSky {
 			}
 		}
 		code |= shower << 1;
+		if (SkySettings.horizonMountains) {
+			String[] icons = {"horizon_pines", "lone_tree", "power_poles", "hill_meadow", "hill_torii"};
+			for (int k = 0; k < icons.length; k++) {
+				if (SkySettings.on(icons[k])) {
+					code |= 1 << (7 + k);
+				}
+			}
+		}
 		return code * 2.0F;
 	}
 	private static boolean megaToday;

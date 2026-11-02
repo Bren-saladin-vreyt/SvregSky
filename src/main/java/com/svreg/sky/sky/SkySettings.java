@@ -160,6 +160,11 @@ public final class SkySettings {
 		FLAGS.put("waterfall_far", true);
 		FLAGS.put("horizon_lake", true);
 		FLAGS.put("far_shower", true);
+		FLAGS.put("horizon_pines", true);
+		FLAGS.put("lone_tree", true);
+		FLAGS.put("power_poles", true);
+		FLAGS.put("hill_meadow", true);
+		FLAGS.put("hill_torii", true);
 		FLAGS.put("shore_waves", true);
 		// comfort
 		FLAGS.put("per_world", false);

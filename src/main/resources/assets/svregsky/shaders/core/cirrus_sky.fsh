@@ -473,11 +473,74 @@ highp float spires(highp float a) {
     return hh * pow(max(0.0, 1.0 - abs(f - (hash2(vec2(i, 3.0)) - 0.5) * 0.3) / w), 1.8);
 }
 
+highp float featPines;
+
+// tall pointed pine: a tiered triangle (zigzag edges), f = -1..1 across the tree
+highp float pineShape(highp float f, highp float H) {
+    highp float hb = H * max(0.0, 1.0 - abs(f) * 1.05);
+    return max(0.0, hb - H * 0.10 * fract(hb / H * 3.5)) + H * 0.08 * step(abs(f), 0.06); // + a thin trunk tip
+}
+
 highp float crowns(highp float a) {
     highp float k = a * 48.0;
     highp float i = floor(k), f = fract(k) * 2.0 - 1.0;
-    highp float r = (0.004 + 0.006 * hash2(vec2(i, 21.0))) * step(0.25, hash2(vec2(i, 23.0)));
-    return r * sqrt(max(0.0, 1.0 - f * f * 0.9));
+    highp float t = hash2(vec2(i, 23.0));
+    highp float r = (0.004 + 0.006 * hash2(vec2(i, 21.0))) * step(0.25, t);
+    highp float round_ = r * sqrt(max(0.0, 1.0 - f * f * 0.9));
+    // pines: some cells grow a tall pointed pine instead (two thin ones when the cell is a pair)
+    highp float isPine = step(0.62, t) * featPines;
+    highp float H = 0.012 + 0.012 * hash2(vec2(i, 27.0));
+    highp float pine = hash2(vec2(i, 29.0)) < 0.5 ? pineShape(f * 1.3, H) : max(pineShape(f * 2.4 + 1.1, H * 0.85), pineShape(f * 2.4 - 1.1, H));
+    return mix(round_, pine, isPine);
+}
+
+// is this spot (just under the near ridge line) inside a pine tree? (for darker colouring)
+highp float pineHere(highp float a) {
+    highp float k = a * 48.0;
+    highp float i = floor(k);
+    return step(0.62, hash2(vec2(i, 23.0))) * featPines;
+}
+
+highp float landMid(highp float a);
+
+// little pine forests on the slopes of the mid hills: a dark wooded patch with rows of toon pine tops sticking out
+highp vec4 midForest(highp float a, highp float y, highp float h2, highp float sideK, highp float gold, highp float night, highp float rain, highp vec3 hill) {
+    if (featPines < 0.5 || y > h2 + 0.02) {
+        return vec4(0.0);
+    }
+    highp float patchK = smoothstep(0.62, 0.7, noise(vec2(a * 9.0, 7.0)));
+    if (patchK <= 0.0) {
+        return vec4(0.0);
+    }
+    // forest tones derived from the hill colour: a deeper, bluer green, lit side a bit lighter
+    highp vec3 dark = hill * vec3(0.62, 0.72, 0.80);
+    highp vec3 lit = hill * vec3(0.82, 0.92, 0.92);
+    highp float litK = (0.3 + 0.7 * sideK) * (1.0 - rain);
+    // the wooded band hugs the slope from the ridge down
+    highp float top = h2 - 0.004;
+    highp float depth = (0.012 + 0.012 * noise(vec2(a * 30.0, 3.0))) * patchK + 0.004 * (noise(vec2(a * 140.0, 5.0)) - 0.5);
+    highp vec4 o = vec4(0.0);
+    if (y < top && y > top - depth) {
+        o = vec4(dark, 1.0);
+    }
+    // rows of pine tops along the upper edge and inside the band
+    for (int row = 0; row < 4; row++) {
+        highp float fr = float(row);
+        highp float freq = 75.0 - fr * 6.0;
+        highp float k = a * freq + fr * 0.41;
+        highp float i = floor(k), f = fract(k) * 2.0 - 1.0;
+        if (hash2(vec2(i, 41.0 + fr)) > 0.85) {
+            continue;
+        }
+        highp float ca = (i + 0.5 - fr * 0.41) / freq;
+        highp float base = landMid(ca) - 0.005 - fr * 0.006;
+        highp float H = 0.009 + 0.004 * hash2(vec2(i, 43.0 + fr));
+        highp float ty = y - base;
+        if (ty > 0.0 && ty < pineShape(f * 1.1, H) && hash2(vec2(i, 47.0 + fr)) < patchK) {
+            o = vec4(mix(dark, lit, step(0.0, f) * litK), 1.0);
+        }
+    }
+    return o;
 }
 
 // one big round green hill (Totoro-like) in a fixed direction
@@ -497,7 +560,7 @@ highp float landMid(highp float a) {
 highp float nearBase(highp float a);
 
 highp float landNear(highp float a) {
-    return nearBase(a) + crowns(a) * smoothstep(0.05, 0.08, abs(atan(sin(a - 3.4), cos(a - 3.4)))) * (1.0 - featLake * (1.0 - smoothstep(0.30, 0.40, abs(atan(sin(a - 1.2), cos(a - 1.2))))));
+    return nearBase(a) + crowns(a) * smoothstep(0.05, 0.08, abs(atan(sin(a - 3.4), cos(a - 3.4)))) * smoothstep(0.03, 0.05, abs(atan(sin(a - 5.9), cos(a - 5.9)))) * (1.0 - featLake * (1.0 - smoothstep(0.30, 0.40, abs(atan(sin(a - 1.2), cos(a - 1.2))))));
 }
 
 highp float nearBase(highp float a) {
@@ -826,6 +889,179 @@ highp float lakeTop(highp float a) {
     return 0.06 * sqrt(max(0.0, 1.0 - d * d / 0.16)) + (noise(vec2(a * 40.0, 2.0)) - 0.5) * 0.002;
 }
 
+
+// ---------------------------------------------------------------- stage 4: Ghibli icons
+highp float featTree, featPoles, featMeadow, featTorii;
+const highp float treeScale = 0.6;
+
+// a huge lone camphor-like tree on top of the big round hill: thick trunk, a cloud of round leafy masses, toon lit
+const highp float TREE_A = 2.3;
+highp vec4 loneTree(highp float a, highp float y, highp float sideK, highp float gold, highp float night, highp float rain) {
+    if (featTree < 0.5) {
+        return vec4(0.0);
+    }
+    highp float d = wrapA(a - TREE_A);
+    if (abs(d) > 0.16) {
+        return vec4(0.0);
+    }
+    highp float base = landMid(TREE_A) - 0.004;
+    highp vec2 p = vec2(d, y - base) / treeScale;
+    if (p.y < -0.002 || p.y > 0.14) {
+        return vec4(0.0);
+    }
+    highp vec3 leafD = mix(mix(vec3(0.14, 0.36, 0.22), vec3(0.36, 0.22, 0.28), gold), vec3(0.04, 0.06, 0.13), night);
+    highp vec3 leafM = mix(mix(vec3(0.24, 0.52, 0.28), vec3(0.58, 0.36, 0.30), gold), vec3(0.06, 0.09, 0.17), night);
+    highp vec3 leafL = mix(mix(vec3(0.46, 0.72, 0.36), vec3(0.95, 0.62, 0.40), gold), vec3(0.09, 0.12, 0.22), night);
+    highp vec3 bark = mix(mix(vec3(0.30, 0.22, 0.18), vec3(0.32, 0.18, 0.18), gold), vec3(0.04, 0.04, 0.09), night);
+    highp float sway = sin(mod(tmLand * 0.6, TAU)) * 0.0006;
+    // canopy: overlapping round masses; light from the sun side and from above
+    highp float best = -1.0;
+    highp vec2 bc = vec2(0.0);
+    highp float br = 0.0;
+    for (int i = 0; i < 9; i++) {
+        highp float fi = float(i);
+        highp float ang = fi * 2.39996;
+        highp float rr = 0.014 + 0.022 * sqrt(fi / 9.0);
+        highp vec2 c = vec2(cos(ang) * rr * 1.5 + sway * (1.0 + fi * 0.2), 0.058 + sin(ang) * rr * 0.75 + (fi < 0.5 ? 0.012 : 0.0));
+        highp float r = 0.024 - fi * 0.0009;
+        highp float k = r - length(p - c);
+        if (k > best) {
+            best = k;
+            bc = c;
+            br = r;
+        }
+    }
+    if (best > 0.0) {
+        highp vec2 q = (p - bc) / br;
+        highp float l = dot(normalize(q + vec2(0.0, 0.0001)), normalize(vec2(sideK - 0.5, 0.8)));
+        highp vec3 c = l > 0.45 ? leafL : (l > -0.25 ? leafM : leafD);
+        c = mix(c, leafD, step(best, 0.0012) * step(q.y, 0.2)); // dark contour under each mass
+        c = mix(c, leafD, (1.0 - rain) * 0.0 + rain * 0.3);
+        return vec4(c, 1.0);
+    }
+    // trunk with two spreading limbs
+    highp float tw = 0.0042 + max(0.0, 0.012 - p.y) * 0.25;
+    if (p.y < 0.05 && abs(p.x + p.y * 0.04) < tw) {
+        return vec4(mix(bark, bark * 1.35, step(0.0, p.x) * sideK), 1.0);
+    }
+    if (segD(p, vec2(0.0, 0.03), vec2(-0.02, 0.05)) < 0.0018 || segD(p, vec2(0.0, 0.034), vec2(0.022, 0.052)) < 0.0016) {
+        return vec4(bark, 1.0);
+    }
+    return vec4(0.0);
+}
+
+// wooden power poles with sagging wires along the near ridge (the Totoro countryside)
+highp vec4 powerPoles(highp float a, highp float y, highp float gold, highp float night) {
+    if (featPoles < 0.5) {
+        return vec4(0.0);
+    }
+    highp float a0 = 4.15, a1 = 5.35, sp = 0.12;
+    highp float da = wrapA(a - a0);
+    if (da < -0.01 || da > a1 - a0 + 0.01) {
+        return vec4(0.0);
+    }
+    highp vec3 wood = mix(mix(vec3(0.28, 0.22, 0.20), vec3(0.30, 0.18, 0.20), gold), vec3(0.03, 0.03, 0.08), night);
+    highp float k = floor(da / sp + 0.5);
+    highp float pa = a0 + k * sp;
+    highp float x = wrapA(a - pa);
+    highp float gb = nearBase(pa) - 0.001;
+    highp float H = 0.042;
+    // pole and cross-arm
+    if (abs(x) < 0.0013 && y > gb && y < gb + H) {
+        return vec4(wood, 1.0);
+    }
+    if (abs(x) < 0.0075 && abs(y - (gb + H - 0.004)) < 0.0011) {
+        return vec4(wood, 1.0);
+    }
+    // two wires between this pole and the next, sagging in the middle
+    highp float f = da / sp - floor(da / sp);
+    highp float pA = a0 + floor(da / sp) * sp;
+    highp float yA = nearBase(pA) - 0.001 + H - 0.004, yB = nearBase(pA + sp) - 0.001 + H - 0.004;
+    if (pA + sp > a1 + 0.001) {
+        return vec4(0.0);
+    }
+    for (int w = 0; w < 2; w++) {
+        highp float off = float(w) * 0.0022;
+        highp float yw = mix(yA, yB, f) - 4.0 * f * (1.0 - f) * 0.007 - off;
+        if (abs(y - yw) < 0.0006) {
+            return vec4(wood * 0.8, 0.9);
+        }
+    }
+    return vec4(0.0);
+}
+
+// a meadow of tall grass and flowers on the near ridge, swaying with the wind
+highp vec4 meadow(highp float a, highp float y, highp float h3, highp float gold, highp float night) {
+    if (featMeadow < 0.5) {
+        return vec4(0.0);
+    }
+    highp float patchK = smoothstep(0.45, 0.55, noise(vec2(a * 3.0, 11.0)));
+    if (patchK <= 0.0) {
+        return vec4(0.0);
+    }
+    highp float nb = nearBase(a);
+    // grass blades poking above the ridge, bending with the wind wave
+    highp float k = a * 900.0;
+    highp float i = floor(k), f = fract(k);
+    highp float bh = (0.0025 + 0.003 * hash2(vec2(i, 51.0))) * patchK;
+    highp float bend = (0.4 + 0.6 * hillWind(a, nb, 9.0)) * 0.6;
+    highp float ty = y - nb;
+    highp float bx = abs(f - 0.5 - ty / max(bh, 1e-4) * bend * 0.5);
+    highp vec3 grass = mix(mix(vec3(0.42, 0.66, 0.28), vec3(0.70, 0.50, 0.30), gold), vec3(0.05, 0.08, 0.14), night);
+    if (ty > 0.0 && ty < bh && bx < 0.18 * (1.0 - ty / bh) + 0.05) {
+        return vec4(grass, 1.0);
+    }
+    // flower dots scattered just below the ridge line
+    if (ty < 0.0 && ty > -0.012) {
+        highp vec2 g = vec2(a * 380.0, y * 600.0);
+        highp vec2 gi = floor(g);
+        highp float h = hash2(gi + 3.0);
+        if (h > 1.0 - 0.16 * patchK && length(fract(g) - 0.5) < 0.38) {
+            highp vec3 fc = h > 0.97 ? vec3(1.0, 0.95, 0.55) : (h > 0.94 ? vec3(1.0, 0.70, 0.78) : vec3(0.98, 0.98, 0.95));
+            return vec4(mix(fc, vec3(0.2, 0.22, 0.35), night * 0.8), 0.9);
+        }
+    }
+    return vec4(0.0);
+}
+
+// a small red torii gate on the near ridge
+const highp float TORII_A = 5.9;
+highp vec4 torii(highp float a, highp float y, highp float gold, highp float night) {
+    if (featTorii < 0.5) {
+        return vec4(0.0);
+    }
+    highp float x = wrapA(a - TORII_A) * 0.5;
+    if (abs(x) > 0.02) {
+        return vec4(0.0);
+    }
+    highp float gb = nearBase(TORII_A) - 0.001;
+    highp float ty = (y - gb) * 0.5;
+    highp vec3 red = mix(mix(vec3(0.85, 0.24, 0.16), vec3(0.95, 0.38, 0.22), gold), vec3(0.10, 0.05, 0.08), night);
+    highp vec3 blk = mix(vec3(0.12, 0.10, 0.12), vec3(0.03, 0.03, 0.06), night);
+    highp float H = 0.016;
+    if (ty < 0.0 || ty > H + 0.004) {
+        return vec4(0.0);
+    }
+    // posts (slightly leaning in)
+    highp float px = abs(x) - (0.0075 - ty * 0.05);
+    if (abs(px) < 0.0011 && ty < H) {
+        return vec4(red, 1.0);
+    }
+    // nuki: lower straight beam
+    if (abs(ty - H * 0.72) < 0.0007 && abs(x) < 0.0095) {
+        return vec4(red, 1.0);
+    }
+    // kasagi: top beam, black cap, ends curving up
+    highp float curve = x * x * 6.0;
+    if (abs(ty - (H + curve)) < 0.0011 && abs(x) < 0.0135) {
+        return vec4(ty > H + curve ? blk : red, 1.0);
+    }
+    if (abs(ty - (H + curve) - 0.0016) < 0.0006 && abs(x) < 0.014) {
+        return vec4(blk, 1.0);
+    }
+    return vec4(0.0);
+}
+
 highp vec3 layerColor(int k, highp float day, highp float gold, highp float night, highp float org, highp float rain) {
     highp vec3 far = mix(vec3(0.12, 0.15, 0.34), vec3(0.47, 0.62, 0.86), day);
     highp vec3 mid = mix(vec3(0.08, 0.12, 0.26), vec3(0.30, 0.58, 0.46), day);
@@ -866,6 +1102,8 @@ highp vec3 farMid(highp vec3 col, highp float a, highp float y, highp float side
         highp vec3 lc = paintLayer(layerColor(1, day, gold, night, org, rain), a, y, h2, 0.008, 4.0, sideK, lightK, gold);
         highp float mist = 0.25 * (1.0 - smoothstep(0.0, h2 * 0.8 + 0.01, y));
         c = mix(col, lc, 0.95 - mist);
+        highp vec4 fo = vec4(0.0); // small mid-hill forests were dropped (they read as dark shrubs from afar)
+        c = mix(c, fo.rgb, fo.a * (0.95 - mist));
         c = mix(c, rainC, rn.x * 0.4);
         c = mix(c, rainL, rn.x * rn.y * 0.3);
     }
@@ -903,12 +1141,27 @@ highp vec3 landLayers(highp vec3 col, highp float a, highp float y, highp vec3 d
         water = mix(water, mix(vec3(0.97, 0.98, 1.0), vec3(0.45, 0.5, 0.65), night), step(yL - 0.0011, y) * 0.8);
         c = water;
     }
+    highp vec4 lt = loneTree(a, y, sideK, gold, night, rain);
+    c = mix(c, lt.rgb, lt.a);
     highp float h3 = landNear(a);
+    highp vec4 tg = torii(a, y, gold, night);
+    c = mix(c, tg.rgb, tg.a);
+    highp vec4 pw = powerPoles(a, y, gold, night);
+    c = mix(c, pw.rgb, pw.a);
     if (y < h3) {
         highp vec3 lc = paintLayer(layerColor(2, day, gold, night, org, rain), a, y, h3, 0.003, 9.0, sideK, lightK, gold);
+        // the tall pines on the ridge: darker blue-green, lit on the sun side
+        if (pineHere(a) > 0.5 && y > nearBase(a) + 0.0015) {
+            highp vec3 pd = mix(mix(vec3(0.10, 0.28, 0.22), vec3(0.30, 0.18, 0.26), gold), vec3(0.03, 0.05, 0.11), night);
+            highp vec3 pl = mix(mix(vec3(0.20, 0.43, 0.30), vec3(0.48, 0.30, 0.30), gold), vec3(0.05, 0.08, 0.16), night);
+            highp float fx = fract(a * 48.0) * 2.0 - 1.0;
+            lc = mix(pd, pl, step(0.0, fx) * (0.3 + 0.7 * sideK) * lightK);
+        }
         highp float mist = 0.12 * (1.0 - smoothstep(0.0, h3 * 0.7 + 0.004, y));
         c = mix(col, lc, 1.0 - mist);
     }
+    highp vec4 md = meadow(a, y, h3, gold, night);
+    c = mix(c, md.rgb, md.a);
     highp vec4 vl = village(a, y, night, gold);
     c = mix(c, vl.rgb, vl.a);
     highp vec4 tr = train(a, y, night, gold);
@@ -923,7 +1176,7 @@ highp vec3 landLayers(highp vec3 col, highp float a, highp float y, highp vec3 d
 highp vec3 horizonLand(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float org, highp float rain) {
     highp float a = atan(dir.z, dir.x);
     highp float y = dir.y;
-    if (y > 0.36) {
+    if (y > 0.5) {
         return col;
     }
     if (y >= 0.0) {
@@ -1290,7 +1543,13 @@ void main() {
     highp float rbCode = floor(rbRaw * 0.5 + 0.001);
     highp float rainbowL = rbRaw - rbCode * 2.0;
     featLake = mod(rbCode, 2.0);
-    highp float showerIdx = floor(rbCode * 0.5 + 0.001);
+    highp float showerIdx = mod(floor(rbCode * 0.5 + 0.001), 64.0);
+    highp float icons = floor(rbCode / 128.0 + 0.001); // pines, lone tree, power poles, meadow, torii
+    featPines = mod(icons, 2.0);
+    featTree = mod(floor(icons / 2.0 + 0.001), 2.0);
+    featPoles = mod(floor(icons / 4.0 + 0.001), 2.0);
+    featMeadow = mod(floor(icons / 8.0 + 0.001), 2.0);
+    featTorii = mod(floor(icons / 16.0 + 0.001), 2.0);
     curtainK = showerIdx > 0.5 ? 1.0 - TextureMat[1].w : 0.0;
     curtainA = (showerIdx - 1.0) / 32.0 * TAU;
     highp float coverAdj = TextureMat[3].y;
