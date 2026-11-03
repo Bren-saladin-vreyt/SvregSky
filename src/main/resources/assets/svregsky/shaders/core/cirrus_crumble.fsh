@@ -220,14 +220,14 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
     if (c <= 0.0 && megaWide <= 0.0) {
         return -1.0;
     }
-    highp float H = (0.06 + 0.16 * c * (0.35 + 0.65 * w.g) + 0.50 * tower * c * c + 0.50 * megaCore * megaCore) * life;
+    highp float H = (0.05 + 0.13 * c * (0.35 + 0.65 * w.g) + 0.30 * tower * c * c + 0.34 * megaCore * megaCore) * life;
     highp float hb = (e + 0.01) / H;
     body = hb >= 0.0 && hb <= 1.0 ? max(0.0, c - 1.3 * hb * sqrt(hb)) : 0.0;
     // the anvil: a slab at the top of the thunderhead's height, flat underneath, slightly domed on top
     // it sits where the column's puffs end (the column's visible top is ~55% of H), so it caps the column
-    highp float Hm = (0.06 + 0.16 * 0.9 + 0.50) * life;
+    highp float Hm = (0.05 + 0.13 * 0.9 + 0.34) * life;
     highp float aBot = 0.50 * Hm, aTop = aBot + (0.05 + 0.03 * c) * life;
-    if (megaWide > 0.0 && megaCore > 0.3 && e > aBot && e < aTop) {
+    if (megaWide > 0.0 && megaCore > 0.6 && e > aBot && e < aTop) {
         highp float s = (e - aBot) / (aTop - aBot);
         highp float slab = (1.0 - pow(abs(2.0 * s - 1.0), 3.0)) * megaWide * (0.7 + 0.3 * c);
         body = max(body, slab);
@@ -438,7 +438,7 @@ void main() {
         t += stepT;
     }
     // nothing overhead in this direction: the horizon bank behind (only from below the cloud layer)
-    if (hitT < 0.0 && bankOn && rd.y < 0.75 && ro.y < 0.0) {
+    if (hitT < 0.0 && bankOn && rd.y < 0.36 && ro.y < 0.0) {
         if (hTop < -1.5) {
             hTop = hillsOn && rd.y < 0.6 ? hillTop(rd) : -1.0;
         }
