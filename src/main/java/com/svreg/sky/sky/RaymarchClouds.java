@@ -128,8 +128,11 @@ public final class RaymarchClouds {
 			RenderTarget target = cloudTarget != null ? cloudTarget : mc.gameRenderer.mainRenderTarget();
 			int scale = Math.max(2, Math.min(8, SkySettings.raymarchScale));
 			// fewer march steps at lower resolutions: the big pixels hide the coarser sampling
-			// (the puff mode skips empty sky in big jumps, so rays rarely need the full count)
-			int steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 72 : scale >= 3 ? 80 : 96;
+			int steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 80 : scale >= 3 ? 90 : 100;
+			if (SkySettings.cloudCrumble()) {
+				// the puff mode jumps over empty space near clouds, so its rays rarely need the full count
+				steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 72 : scale >= 3 ? 80 : 96;
+			}
 			int w = Math.max(1, (target.width + scale - 1) / scale), h = Math.max(1, (target.height + scale - 1) / scale);
 			if (buf == null || buf.getWidth(0) != w || buf.getHeight(0) != h) {
 				if (bufView != null) {
