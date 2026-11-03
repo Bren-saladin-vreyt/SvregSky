@@ -634,16 +634,26 @@ public final class Wind {
 			            if (svSh2.x > -8.0) {
 			                // only a beach right at the water's level gets washed (not a pillar or a wall top next to the water)
 			                float svWt = -100.0;
+			                bool svWx0 = false, svWx1 = false, svWz0 = false, svWz1 = false;
 			                for (int svO = 0; svO < 8; svO++) {
 			                    int svR = svO < 4 ? 1 : 2;
 			                    ivec2 svOff = (svO & 3) == 0 ? ivec2(svR, 0) : ((svO & 3) == 1 ? ivec2(-svR, 0) : ((svO & 3) == 2 ? ivec2(0, svR) : ivec2(0, -svR)));
 			                    vec4 svNt = texelFetch(svregsky_HeightTex, clamp(ivec2(svG0) + svOff, ivec2(0), ivec2(255)), 0);
 			                    if (floor(svNt.a * 255.0 + 0.5) >= 16.0) {
 			                        svWt = max(svWt, floor(svNt.r * 255.0 + 0.5) + floor(svNt.g * 255.0 + 0.5) * 256.0);
+			                        if (svR == 1) {
+			                            int svQd = svO & 3;
+			                            svWx0 = svWx0 || svQd == 0; svWx1 = svWx1 || svQd == 1; svWz0 = svWz0 || svQd == 2; svWz1 = svWz1 || svQd == 3;
+			                        }
 			                    }
 			                }
 			                float svFyR = v_svWater.y + svregsky_Shadow.z;
-			                if (svFyR > svWt + 1.1 || svFyR < svWt - 1.6) {
+			                // this column's own top: a block above this face (a roof, an arch, a slab) means it is not open beach
+			                vec4 svOwn = texelFetch(svregsky_HeightTex, clamp(ivec2(svG0), ivec2(0), ivec2(255)), 0);
+			                float svTopOwn = floor(svOwn.r * 255.0 + 0.5) + floor(svOwn.g * 255.0 + 0.5) * 256.0;
+			                // a single block standing in the water (water on two opposite sides) is not a beach either
+			                bool svIsle = (svWx0 && svWx1) || (svWz0 && svWz1);
+			                if (svFyR > svWt + 1.1 || svFyR < svWt - 1.6 || svTopOwn > svFyR + 0.2 || svIsle) {
 			                    svSh2 = vec2(-9.0, 0.0);
 			                }
 			            }
@@ -725,7 +735,9 @@ public final class Wind {
 			                float svAc = floor(svHc.a * 255.0 + 0.5);
 			                float svTopC = floor(svHc.r * 255.0 + 0.5) + floor(svHc.g * 255.0 + 0.5) * 256.0;
 			                float svUnder = svTopC - (v_svWater.y + svregsky_Shadow.z);
-			                if (svAc >= 16.0 && svUnder > 0.15) {
+			                // only faces inside the water column: not ground far below a raised pool or under a floor of water
+			                float svDepC = floor(svAc / 16.0);
+			                if (svAc >= 16.0 && svUnder > 0.15 && svUnder < svDepC + 0.35) {
 			                    float svTc = svregsky_Wind.x;
 			                    float svC1 = svNoise2(svWg.xz * 1.7 + vec2(svTc * 0.45, svTc * 0.28));
 			                    float svC2 = svNoise2(svWg.xz * 2.3 + vec2(-svTc * 0.36, svTc * 0.40) + 5.2);
