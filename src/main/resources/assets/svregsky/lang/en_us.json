@@ -133,6 +133,7 @@
   "svregsky.options.cloud_merge": "§a● §rMerge Cloud Faces (lighter)",
   "svregsky.options.cloud_steady": "§a● §rSteady Raymarch Clouds (no edge flicker)",
   "svregsky.options.living_clouds": "§a● §rLiving Clouds (grow through the day, churning puffs)",
+  "svregsky.options.horizon_bank": "§a● §rHorizon Clouds (puff towers along the horizon, behind the hills)",
   "svregsky.options.hill_wind": "§a● §rWind Over the Hills",
   "svregsky.options.horizon_train": "§a● §rTrain on the Hills",
   "svregsky.options.horizon_village": "§a● §rLittle Village on the Hills",

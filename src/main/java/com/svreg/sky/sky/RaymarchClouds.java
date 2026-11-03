@@ -37,7 +37,11 @@ public final class RaymarchClouds {
 	/** the cloud layer is this tall (blocks) */
 	public static final float LAYER = 125F;
 
-	private static RenderPipeline marchPipeline, crumblePipeline, compPipeline, temporalPipeline;
+	private static RenderPipeline marchPipeline, crumblePipeline, compPipeline, temporalPipeline, hillPipeline;
+	/** the painted hills' silhouette, one height per compass direction (cirrus_hillmask), and which toggles it was baked for */
+	private static GpuTexture hillTex;
+	private static GpuTextureView hillView;
+	private static int hillKey = -1;
 	private static final com.mojang.blaze3d.pipeline.BindGroupLayout THREE_SAMPLERS = com.mojang.blaze3d.pipeline.BindGroupLayout.builder()
 			.withSampler("Sampler0").withSampler("Sampler1").withSampler("Sampler2").build();
 	private static GpuBuffer quad;
@@ -81,7 +85,8 @@ public final class RaymarchClouds {
 	private static void init() {
 		if (marchPipeline == null) {
 			marchPipeline = pipeline("cirrus_raymarch", ColorTargetState.DEFAULT, Optional.empty(), true);
-			crumblePipeline = pipeline("cirrus_crumble", ColorTargetState.DEFAULT, Optional.empty(), true);
+			crumblePipeline = pipeline("cirrus_crumble", ColorTargetState.DEFAULT, Optional.empty(), BindGroupLayouts.SAMPLER0_SAMPLER1);
+			hillPipeline = pipeline("cirrus_hillmask", ColorTargetState.DEFAULT, Optional.empty(), (com.mojang.blaze3d.pipeline.BindGroupLayout) null);
 			compPipeline = pipeline("cirrus_rmcomp", ColorTargetState.DEFAULT, Optional.of(DepthStencilState.DEFAULT), true);
 			temporalPipeline = pipeline("cirrus_rmtemporal", ColorTargetState.DEFAULT, Optional.empty(), THREE_SAMPLERS);
 		}
@@ -141,6 +146,30 @@ public final class RaymarchClouds {
 			}
 		}
 		return new float[]{1, 1};
+	}
+
+	/** bakes the hill silhouette strip when it is missing or the hill shape toggles changed (lake, pines) */
+	private static void bakeHills(boolean lake, boolean pines, Matrix4f view, com.mojang.blaze3d.textures.TextureFormat format) {
+		int key = (lake ? 1 : 0) | (pines ? 2 : 0);
+		if (hillTex == null) {
+			hillTex = RenderSystem.getDevice().createTexture(() -> "SvregSky hill silhouette", 15, format, 1024, 1, 1, 1);
+			hillView = RenderSystem.getDevice().createTextureView(hillTex);
+			hillKey = -1;
+		}
+		if (key == hillKey) {
+			return;
+		}
+		hillKey = key;
+		var t = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(lake ? 1 : 0, pines ? 1 : 0, 0, 0), new Vector3f(), new Matrix4f());
+		RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
+		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky hill silhouette", hillView, Optional.of(new Vector4f(0, 0, 0, 0)), null, OptionalDouble.empty())) {
+			pass.setPipeline(hillPipeline);
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("DynamicTransforms", t);
+			pass.setVertexBuffer(0, quad.slice());
+			pass.setIndexBuffer(indices.getBuffer(6), indices.type());
+			pass.drawIndexed(6, 1, 0, 0, 0);
+		}
 	}
 
 	public static void render(float bottomY, Vec3 cam) {
@@ -207,13 +236,20 @@ public final class RaymarchClouds {
 			if (SkySettings.on("living_clouds")) {
 				churn = (churn + dt * 0.25) % 64.0;
 			}
-			params.m31(Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
+			// + 10000 x bits: 1 painted hills (clouds hide behind them), 2 lake, 4 pines (hill shape), 8 horizon cloud bank
+			boolean hills = SkySettings.horizonMountains;
+			int bits = (hills ? 1 : 0) | (hills && SkySettings.on("horizon_lake") ? 2 : 0) | (hills && SkySettings.on("horizon_pines") ? 4 : 0)
+					| (SkySettings.on("horizon_bank") ? 8 : 0);
+			params.m31(bits * 10000 + Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
 			Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 			// x: the buffer height (the puff mode sizes its detail by how many blocks one cloud pixel covers)
 			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h, reach, steps, org), camCloud, params);
 			boolean crumble = SkySettings.cloudCrumble();
+			if (crumble) {
+				bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture().getFormat());
+			}
 			// anti-flicker: last frame is usable unless the buffers, the mode or the timing just changed
 			boolean steady = SkySettings.on("cloud_steady");
 			boolean valid = steady && histValid && prevView != null && crumble == lastCrumble && dt > 0 && dt < 0.2;
@@ -230,6 +266,9 @@ public final class RaymarchClouds {
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", marchT);
 				pass.bindTexture("Sampler0", (crumble ? crumbleTex : noiseTex).getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+				if (crumble) {
+					pass.bindTexture("Sampler1", hillView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+				}
 				pass.setVertexBuffer(0, quad.slice());
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);

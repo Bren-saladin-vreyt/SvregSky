@@ -153,6 +153,7 @@ public final class SkySettings {
 		FLAGS.put("cloud_merge", true);
 		FLAGS.put("cloud_steady", true);
 		FLAGS.put("living_clouds", true);
+		FLAGS.put("horizon_bank", true);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);

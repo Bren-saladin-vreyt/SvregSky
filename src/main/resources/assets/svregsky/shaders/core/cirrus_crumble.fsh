@@ -21,6 +21,7 @@ layout(std140) uniform Projection {
     highp mat4 ProjMat;
 };
 
+uniform highp sampler2D Sampler1; // the painted hills' silhouette strip (cirrus_hillmask)
 uniform highp sampler2D Sampler0; // CrumbleNoise atlas: 32 detail slices of 66 x 66 on top, the 258 x 258 weather map below (sharp, then blurred)
 
 in highp vec2 uv;
@@ -80,6 +81,11 @@ const highp float BASE0 = 14.0;
 // set by bodyAt for the march: how far (blocks) the point is from a cloud body -- vertically, above the dome or below
 // the belly of this column (gGapV), or in any direction from cover thick enough to grow a body (gGapH). 0 = near.
 highp float gGapV = 0.0, gGapH = 0.0;
+// with the horizon bank on, the overhead clouds thin out toward their reach, so the horizon belongs to the bank
+// (crisp towers there instead of a hazy band of far small clouds)
+bool gBank = false;
+highp vec2 gCam = vec2(0.0);
+highp float gReach = 1500.0;
 
 // the cloud body, 0..1. No flat base any more: each cloud is an egg standing on its narrow end upside down -- a short
 // rounded belly below its widest point, a tall dome above. Each cloud has its own belly height, and the thin edges
@@ -99,6 +105,9 @@ highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
     highp vec3 wc = w0;
     highp float lo = 0.55 - 0.06 * amount;
     highp float c = smoothstep(lo, 0.80 - 0.06 * amount, wc.r); // wide ramp: cover thickens slowly -> domes
+    if (gBank) {
+        c *= 1.0 - smoothstep(0.45, 0.85, distance(xs, gCam) / gReach);
+    }
     if (c <= 0.0) {
         // the cover can rise at most ~0.02 per block (measured 0.017 in the baked map), and a step moves the lookup by
         // at most 1.12 blocks per block (sideways plus the shear): no body within this distance
@@ -174,19 +183,113 @@ highp float density(highp vec3 p) {
     return p.y > HIGH0 - 1.0 ? highLayer(p) : cumulus(p);
 }
 
+// the painted hills' silhouette, baked by cirrus_hillmask into Sampler1 (1024 x 1, R = top / 0.6)
+highp float hillTop(highp vec3 dir) {
+    return texture(Sampler1, vec2(atan(dir.z, dir.x) / 6.2831853 + 0.5, 0.5)).r * 0.6;
+}
+
+// ---- horizon cloud bank ----
+// A wall of towering puff clouds all around the horizon, behind the painted hills (like the anime skies where the
+// sky overhead is clear and big cumulus stand along the horizon). It is not marched: every direction near the horizon
+// reads a 2D cloud field laid around the camera -- masses from one row of the same weather map, the same puffs, the
+// same toon light and palette -- so it costs a few texture reads per pixel. It drifts with the wind (ro carries it),
+// grows with the living-clouds cycle (layerH, amount) and churns with the puffs.
+// Ring: 7680 blocks around (6 weather tiles, 60 detail tiles: seamless), radius ~1222 blocks.
+const highp float BANK_C = 7680.0, BANK_R = 1222.0, BANK_P = 0.35; // BANK_P: puff scale (bigger puffs far away)
+highp float bankField(highp float u, highp float e, highp float kMb, highp float kSb, out highp float body, out highp vec3 dt) {
+    // u / 3: the weather row wraps exactly (7680 / 3 = 2 tiles), so there is no seam behind the camera
+    highp vec3 w = weather(vec2(u / 3.0, 9000.0));
+    // a second, slower row decides where a tall tower rises out of the bank
+    highp vec3 w2 = weather(vec2(u / 6.0 + 300.0, 9300.0));
+    highp float c = smoothstep(0.32 - 0.05 * amount, 0.60 - 0.05 * amount, w.r);
+    body = 0.0;
+    dt = vec3(0.5);
+    if (c <= 0.0) {
+        return -1.0;
+    }
+    // heights vary: long low banks everywhere, middling heaps, and now and then a tall tower (in view height units),
+    // all growing with the daily cycle
+    highp float tower = smoothstep(0.46, 0.66, w2.r);
+    highp float H = (0.06 + 0.16 * c * (0.35 + 0.65 * w.g) + 0.50 * tower * c * c) * (layerH / 125.0);
+    highp float hb = (e + 0.01) / H;
+    if (hb < 0.0 || hb > 1.0) {
+        return -1.0;
+    }
+    body = max(0.0, c - 1.3 * hb * sqrt(hb));
+    dt = detailTex(vec3(u * BANK_P, (e + 0.01) * BANK_R * BANK_P - churn, 37.0));
+    highp float sk = kSb * smoothstep(0.3, 0.6, body);
+    highp float pz = mix(0.5, dt.r, kMb) * 0.72 + mix(0.5, dt.g, sk) * 0.28;
+    return pz + 1.15 * body - 1.0 - 0.07 * (1.0 - smoothstep(0.25, 0.55, body));
+}
+
+// scene light, set at the start of main() (paint() and the horizon bank read them)
+highp vec3 sunDir, hazeAway, hazeSun;
+highp float day, gold, night, rain, org, afterglow;
+
+// the four flat toon tones for a light value v (day -> golden hour -> night, rain greys, afterglow), then the
+// distance haze (hzK = how much of it)
+highp vec3 paint(highp float v, highp vec3 rd, highp float hzK) {
+    highp float k1 = smoothstep(0.29, 0.31, v), k2 = smoothstep(0.45, 0.47, v), k3 = smoothstep(0.61, 0.63, v);
+    highp vec3 c0 = vec3(0.50, 0.68, 0.94), c1 = vec3(0.66, 0.82, 0.99), c2 = vec3(0.84, 0.93, 1.00), c3 = vec3(1.0);
+    highp vec3 g0 = mix(vec3(0.50, 0.40, 0.62), vec3(0.56, 0.50, 0.72), org);
+    highp vec3 g1 = mix(vec3(0.66, 0.52, 0.68), vec3(0.72, 0.66, 0.84), org);
+    highp vec3 g2 = mix(vec3(0.94, 0.72, 0.58), vec3(0.96, 0.84, 0.84), org);
+    highp vec3 g3 = mix(vec3(1.00, 0.88, 0.62), vec3(1.00, 0.95, 0.84), org);
+    c0 = mix(c0, g0, gold);
+    c1 = mix(c1, g1, gold);
+    c2 = mix(c2, g2, gold);
+    c3 = mix(c3, g3, gold);
+    highp float nk = night * (1.0 - day) * (1.0 - gold);
+    c0 = mix(c0, vec3(0.20, 0.21, 0.31), nk);
+    c1 = mix(c1, vec3(0.28, 0.29, 0.40), nk);
+    c2 = mix(c2, vec3(0.40, 0.41, 0.54), nk);
+    c3 = mix(c3, vec3(0.58, 0.60, 0.72), nk);
+    highp float dim = 0.30 + 0.70 * max(day, gold);
+    c0 = mix(c0, vec3(0.40, 0.43, 0.49) * dim, rain * 0.8);
+    c1 = mix(c1, vec3(0.52, 0.55, 0.61) * dim, rain * 0.8);
+    c2 = mix(c2, vec3(0.62, 0.65, 0.71) * dim, rain * 0.8);
+    c3 = mix(c3, vec3(0.70, 0.73, 0.78) * dim, rain * 0.8);
+    highp vec3 col = mix(mix(mix(c0, c1, k1), c2, k2), c3, k3);
+    highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
+    highp vec2 dxz = rd.xz / (length(rd.xz) + 1e-4);
+    if (afterglow > 0.0) {
+        // afterglow: just after sunset the clouds keep the light -- bright parts glow peach-pink, the shade
+        // turns violet, strongest on the side where the sun went down
+        highp vec3 aHi = vec3(1.00, 0.72, 0.60), aMid = vec3(0.80, 0.50, 0.66), aLo = vec3(0.40, 0.33, 0.60), aDeep = vec3(0.28, 0.25, 0.48);
+        highp vec3 ag = mix(mix(mix(aDeep, aLo, k1), aMid, k2), aHi, k3);
+        highp float sunSide = 0.5 + 0.5 * dot(dxz, sxz);
+        // only the sun side keeps the warm cap; away from it the bright band cools to pink-violet
+        ag = mix(ag, mix(ag, aMid, 0.6), (1.0 - sunSide) * k3);
+        col = mix(col, ag, afterglow * (1.0 - rain) * (0.55 + 0.4 * sunSide));
+    }
+    highp vec3 haze = mix(hazeAway, hazeSun, pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.4));
+    col = mix(col, haze, hzK);
+    return col;
+}
+
 void main() {
-    highp vec3 sunDir = normalize(TextureMat[0].xyz);
+    sunDir = normalize(TextureMat[0].xyz);
     layerH = TextureMat[0].w;
-    highp float day = TextureMat[1].x, gold = TextureMat[1].y, night = TextureMat[1].z, rain = TextureMat[1].w;
-    highp vec3 hazeAway = TextureMat[2].xyz;
+    day = TextureMat[1].x;
+    gold = TextureMat[1].y;
+    night = TextureMat[1].z;
+    rain = TextureMat[1].w;
+    hazeAway = TextureMat[2].xyz;
     amount = TextureMat[2].w;
-    highp vec3 hazeSun = vec3(TextureMat[3].x, TextureMat[3].z, TextureMat[3].w);
-    // TextureMat[3].y packs two values: 100 x afterglow (0..99, the blue hour after sunset) + the puff churn (0..64)
-    highp float afterglow = floor(TextureMat[3].y / 100.0) / 99.0;
-    churn = mod(TextureMat[3].y, 100.0);
+    hazeSun = vec3(TextureMat[3].x, TextureMat[3].z, TextureMat[3].w);
+    // TextureMat[3].y packs: 10000 x bits (1 painted hills, 2 lake, 4 pines, 8 horizon bank) + 100 x afterglow
+    // (0..99, the blue hour after sunset) + the puff churn (0..64)
+    highp float bits = floor(TextureMat[3].y / 10000.0);
+    highp float rest = mod(TextureMat[3].y, 10000.0);
+    afterglow = floor(rest / 100.0) / 99.0;
+    churn = mod(rest, 100.0);
+    bool hillsOn = mod(bits, 2.0) > 0.5;
+    bool bankOn = mod(floor(bits / 8.0), 2.0) > 0.5;
+    gBank = bankOn && ModelOffset.y < 0.0;
     highp float bufH = max(ColorModulator.x, 1.0);
     highp float reach = ColorModulator.y;
-    highp float org = ColorModulator.w;
+    gReach = reach;
+    org = ColorModulator.w;
     // after sunset the moon (opposite the sun) lights the clouds
     highp vec3 lightDir = sunDir.y > -0.08 ? sunDir : -sunDir;
     // blocks covered by one cloud pixel per block of distance
@@ -195,18 +298,28 @@ void main() {
     highp vec3 vd = normalize(vec3((uv * 2.0 - 1.0) / vec2(ProjMat[0][0], ProjMat[1][1]), -1.0));
     highp vec3 rd = normalize(transpose(mat3(ModelViewMat)) * vd);
     highp vec3 ro = ModelOffset;
+    gCam = ro.xz;
 
     fragColor = vec4(0.0);
     if (abs(rd.y) < 1e-4) {
         return;
     }
+    // the painted hills stand in front of every cloud: nothing is drawn below their line
+    // the painted hills stand in front of every cloud: their line is only worked out for pixels that found a cloud
+    highp float hTop = -2.0; // -2 = not computed yet, -1 = no hills here
+    // low rays (where most hills are) check at once and skip the march; higher ones only if they find a cloud
+    if (hillsOn && rd.y < 0.36) {
+        hTop = hillTop(rd);
+        if (rd.y < hTop) {
+            return;
+        }
+    }
     highp float a = (0.0 - ro.y) / rd.y, b = (HIGH1 - ro.y) / rd.y;
     highp float tA = max(min(a, b), 0.0), tB = min(max(a, b), reach);
-    if (tB <= tA) {
-        return;
-    }
     highp float t = tA;
     highp float tPrev = t;
+    // what was hit (light value, haze, distance); hitT < 0 = nothing yet
+    highp float hitV = 0.0, hitHaze = 0.0, hitT = -1.0;
     int maxSteps = int(ColorModulator.z);
     for (int i = 0; i < 110; i++) {
         if (t > tB || i >= maxSteps) {
@@ -221,6 +334,12 @@ void main() {
         blurK = smoothstep(2.5, 7.0, foot);
         highp float d = density(p);
         if (d > 0.04) {
+            if (hTop < -1.5) {
+                hTop = hillsOn && rd.y < 0.6 ? hillTop(rd) : -1.0;
+            }
+            if (rd.y < hTop) {
+                return;
+            }
             highp float t0 = tPrev, t1 = t;
             for (int k = 0; k < 7; k++) {
                 highp float tm = 0.5 * (t0 + t1);
@@ -278,44 +397,10 @@ void main() {
             // far away one pixel spans many puffs: settle on the middle of the pale band (no white/blue flipping)
             v = mix(v, 0.54, 0.85 * smoothstep(9.0, 22.0, t * footK));
 
-            highp float k1 = smoothstep(0.29, 0.31, v), k2 = smoothstep(0.45, 0.47, v), k3 = smoothstep(0.61, 0.63, v);
-            highp vec3 c0 = vec3(0.50, 0.68, 0.94), c1 = vec3(0.66, 0.82, 0.99), c2 = vec3(0.84, 0.93, 1.00), c3 = vec3(1.0);
-            highp vec3 g0 = mix(vec3(0.50, 0.40, 0.62), vec3(0.56, 0.50, 0.72), org);
-            highp vec3 g1 = mix(vec3(0.66, 0.52, 0.68), vec3(0.72, 0.66, 0.84), org);
-            highp vec3 g2 = mix(vec3(0.94, 0.72, 0.58), vec3(0.96, 0.84, 0.84), org);
-            highp vec3 g3 = mix(vec3(1.00, 0.88, 0.62), vec3(1.00, 0.95, 0.84), org);
-            c0 = mix(c0, g0, gold);
-            c1 = mix(c1, g1, gold);
-            c2 = mix(c2, g2, gold);
-            c3 = mix(c3, g3, gold);
-            highp float nk = night * (1.0 - day) * (1.0 - gold);
-            c0 = mix(c0, vec3(0.20, 0.21, 0.31), nk);
-            c1 = mix(c1, vec3(0.28, 0.29, 0.40), nk);
-            c2 = mix(c2, vec3(0.40, 0.41, 0.54), nk);
-            c3 = mix(c3, vec3(0.58, 0.60, 0.72), nk);
-            highp float dim = 0.30 + 0.70 * max(day, gold);
-            c0 = mix(c0, vec3(0.40, 0.43, 0.49) * dim, rain * 0.8);
-            c1 = mix(c1, vec3(0.52, 0.55, 0.61) * dim, rain * 0.8);
-            c2 = mix(c2, vec3(0.62, 0.65, 0.71) * dim, rain * 0.8);
-            c3 = mix(c3, vec3(0.70, 0.73, 0.78) * dim, rain * 0.8);
-            highp vec3 col = mix(mix(mix(c0, c1, k1), c2, k2), c3, k3);
-            highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
-            highp vec2 dxz = rd.xz / (length(rd.xz) + 1e-4);
-            if (afterglow > 0.0) {
-                // afterglow: just after sunset the clouds keep the light -- bright parts glow peach-pink, the shade
-                // turns violet, strongest on the side where the sun went down
-                highp vec3 aHi = vec3(1.00, 0.72, 0.60), aMid = vec3(0.80, 0.50, 0.66), aLo = vec3(0.40, 0.33, 0.60), aDeep = vec3(0.28, 0.25, 0.48);
-                highp vec3 ag = mix(mix(mix(aDeep, aLo, k1), aMid, k2), aHi, k3);
-                highp float sunSide = 0.5 + 0.5 * dot(dxz, sxz);
-                // only the sun side keeps the warm cap; away from it the bright band cools to pink-violet
-                ag = mix(ag, mix(ag, aMid, 0.6), (1.0 - sunSide) * k3);
-                col = mix(col, ag, afterglow * (1.0 - rain) * (0.55 + 0.4 * sunSide));
-            }
-            highp vec3 haze = mix(hazeAway, hazeSun, pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.4));
-            col = mix(col, haze, smoothstep(0.25, 1.0, t / reach) * 0.8);
-            highp float enc = 1.0 - log2(1.0 + t) / log2(1.0 + 4096.0);
-            fragColor = vec4(col, max(2.0 / 255.0, enc));
-            return;
+            hitV = v;
+            hitHaze = smoothstep(0.25, 1.0, t / reach) * 0.8;
+            hitT = t;
+            break;
         }
         tPrev = t;
         highp float stepT = max(2.5, (d < -0.5 ? 16.0 : 3.0) * (1.0 + t / 600.0));
@@ -327,5 +412,53 @@ void main() {
             stepT = clamp(jump, stepT, 16.0 * (1.0 + t / 600.0));
         }
         t += stepT;
+    }
+    // nothing overhead in this direction: the horizon bank behind (only from below the cloud layer)
+    if (hitT < 0.0 && bankOn && rd.y < 0.34 && ro.y < 0.0) {
+        if (hTop < -1.5) {
+            hTop = hillsOn && rd.y < 0.6 ? hillTop(rd) : -1.0;
+        }
+        if (rd.y < hTop) {
+            return;
+        }
+        highp float th = atan(rd.z, rd.x);
+        highp float u = th / 6.2831853 * BANK_C + ro.x * 0.08 + 0.5 * BANK_C;
+        // behind the hills the bank's foot rides up with the ridge line (smoothly, ignoring single spires), so the
+        // towers always stand above the hills instead of hiding behind them; at sea it sits right on the horizon
+        highp float e = rd.y - (hTop > -0.5 ? 0.75 * min(hTop, 0.22) : 0.0);
+        // puff fade by pixel size (one pixel covers footK radians; the puffs are BANK_R * BANK_P blocks per radian)
+        highp float footB = footK * BANK_R * BANK_P;
+        highp float kSb = 1.0 - smoothstep(2.6, 4.6, footB), kMb = 1.0 - smoothstep(6.5, 11.0, footB);
+        highp float body;
+        highp vec3 dt;
+        highp float f0 = bankField(u, e, kMb, kSb, body, dt);
+        if (f0 > 0.04) {
+            // light: the wall's own 2D slope (half-strength puffs, like overhead) turned into a 3D normal that bulges
+            // toward the viewer; the sun lights it by how it sits around the ring
+            highp float bb;
+            highp vec3 dd;
+            highp float du = 6.0 / BANK_P, de = 6.0 / (BANK_R * BANK_P);
+            highp float fu = bankField(u + du, e, kMb, kSb, bb, dd), fe = bankField(u, e + de, kMb, kSb, bb, dd);
+            highp vec2 g = vec2(f0 - fu, f0 - fe);              // points out of the cloud (field falls outward)
+            highp vec2 n2 = g / (length(g) + 0.03);
+            highp float nz = sqrt(max(0.0, 1.0 - dot(n2, n2) * 0.75));
+            highp vec2 dirH = vec2(cos(th), sin(th)), tang = vec2(-sin(th), cos(th));
+            highp vec3 lightDir = sunDir.y > -0.08 ? sunDir : -sunDir;
+            highp float ndl = n2.x * dot(lightDir.xz, tang) + n2.y * lightDir.y - nz * dot(lightDir.xz, dirH);
+            highp float hf = clamp((e + 0.01) / 0.18, 0.0, 1.0) * clamp(body * 1.5, 0.0, 1.0);
+            highp float puff = (dt.r - 0.5) * kMb + (dt.g - 0.5) * 0.5 * kSb;
+            highp float seam = smoothstep(0.36, 0.22, dt.r) * kMb;
+            highp float v = 0.56 + 0.26 * ndl + 0.10 * n2.y + 0.12 * hf + 0.14 * puff - 0.16 * seam;
+            highp float toward = max(0.0, dot(rd, lightDir));
+            v += 0.20 * toward * toward;
+            v += 0.16 * smoothstep(0.75, 0.95, length(n2)) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
+            // a light veil of distance haze: far, but crisp and white like real horizon cumulus
+            hitV = v;
+            hitHaze = 0.30;
+            hitT = 4000.0;
+        }
+    }
+    if (hitT >= 0.0) {
+        fragColor = vec4(paint(hitV, rd, hitHaze), max(2.0 / 255.0, 1.0 - log2(1.0 + hitT) / log2(1.0 + 4096.0)));
     }
 }
