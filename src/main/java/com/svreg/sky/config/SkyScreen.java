@@ -163,6 +163,7 @@ public class SkyScreen extends OptionsSubScreen {
 				}),
 				flag("cloud_merge"),
 				flag("cloud_steady"),
+				flag("living_clouds"),
 				choice("raymarch_scale", List.of("2", "3", "4", "6", "8"), String.valueOf(SkySettings.raymarchScale), v -> SkySettings.raymarchScale = Integer.parseInt(v)),
 				slider("ghibli_amount", 25, 250, Math.round(SkySettings.ghibliAmount * 100), v -> v + "%", v -> SkySettings.ghibliAmount = v / 100F),
 				slider("ghibli_size", 50, 200, Math.round(SkySettings.ghibliSize * 100), v -> v + "%", v -> SkySettings.ghibliSize = v / 100F),

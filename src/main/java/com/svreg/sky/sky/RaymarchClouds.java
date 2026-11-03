@@ -50,7 +50,7 @@ public final class RaymarchClouds {
 	private static Matrix4f prevView;
 	private static Vector3f prevCam;
 	private static boolean broken;
-	private static double windX, windZ;
+	private static double windX, windZ, churn;
 	private static long lastNanos;
 	private static int logs;
 
@@ -122,6 +122,27 @@ public final class RaymarchClouds {
 		}
 	}
 
+	/** time-of-day keyframes (day ticks, amount x, height x): the clouds grow through the day and fade at night */
+	private static final float[][] LIFE = {
+			{0, 0.75F, 0.55F}, {3000, 0.9F, 0.8F}, {6000, 1.0F, 1.0F}, {9000, 1.08F, 1.35F},
+			{11500, 1.0F, 1.15F}, {13000, 0.88F, 0.85F}, {18000, 0.75F, 0.6F}, {24000, 0.75F, 0.55F}};
+
+	/** {amount factor, height factor} for now; {1, 1} when living clouds are off */
+	private static float[] lifeCycle(Minecraft mc) {
+		if (!SkySettings.on("living_clouds") || mc.level == null) {
+			return new float[]{1, 1};
+		}
+		float t = (float) Math.floorMod(mc.level.getOverworldClockTime(), 24000L);
+		for (int i = 0; i + 1 < LIFE.length; i++) {
+			if (t <= LIFE[i + 1][0]) {
+				float k = (t - LIFE[i][0]) / (LIFE[i + 1][0] - LIFE[i][0]);
+				k = k * k * (3 - 2 * k);
+				return new float[]{LIFE[i][1] + (LIFE[i + 1][1] - LIFE[i][1]) * k, LIFE[i][2] + (LIFE[i + 1][2] - LIFE[i][2]) * k};
+			}
+		}
+		return new float[]{1, 1};
+	}
+
 	public static void render(float bottomY, Vec3 cam) {
 		if (broken) {
 			return;
@@ -171,14 +192,22 @@ public final class RaymarchClouds {
 			float[] hzSun = CirrusSky.horizonToward(true);
 			float[] hzAway = CirrusSky.horizonToward(false);
 			Matrix4f params = CirrusSky.skyParams();
-			params.m03(LAYER);
+			// living clouds: small morning puffs, full at noon, towers in the afternoon, thinning into the night
+			float[] life = lifeCycle(mc);
+			params.m03(LAYER * life[1]);
 			params.m20(hzAway[0]);
 			params.m21(hzAway[1]);
 			params.m22(hzAway[2]);
-			params.m23(Math.max(0.25F, Math.min(2.5F, SkySettings.ghibliAmount)));
+			params.m23(Math.max(0.25F, Math.min(2.5F, SkySettings.ghibliAmount * life[0])));
 			params.m30(hzSun[0]);
 			params.m32(hzSun[1]);
 			params.m33(hzSun[2]);
+			// puffs churn slowly upward through the bodies (0..64 blocks, the detail tile height), and the afterglow
+			// just after sunset; packed into one slot: 100 x afterglow (0..99) + churn
+			if (SkySettings.on("living_clouds")) {
+				churn = (churn + dt * 0.25) % 64.0;
+			}
+			params.m31(Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
 			Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrixCopy());

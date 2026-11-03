@@ -50,6 +50,9 @@ highp vec3 weather(highp vec2 xz) {
 }
 
 highp float layerH, amount;
+// living clouds: how far (blocks, 0..64) the puffs have risen through the cloud bodies -- they churn slowly upward
+// like real cumulus. The detail tile is 64 blocks tall, so wrapping at 64 is seamless.
+highp float churn = 0.0;
 // how strongly each puff size is drawn at the current distance (1 near, 0 once it would be under ~3 pixels)
 highp float kM = 1.0, kS = 1.0;
 // 0 near, 1 where one cloud pixel spans many blocks: thin cloud there would be a blinking dot, so it is dropped
@@ -132,7 +135,7 @@ highp float field(highp float bw, highp vec3 d, highp float under, highp float k
 
 // puffs are read stretched along the wind (x) and a little flattened, and drift with the shear like the body
 highp vec3 puffCoord(highp vec3 p) {
-    return vec3((p.x - SHEAR * p.y) * 0.7, p.y * 1.15, p.z * 0.9);
+    return vec3((p.x - SHEAR * p.y) * 0.7, p.y * 1.15 - churn, p.z * 0.9);
 }
 
 highp float cumulus(highp vec3 p) {
@@ -178,6 +181,9 @@ void main() {
     highp vec3 hazeAway = TextureMat[2].xyz;
     amount = TextureMat[2].w;
     highp vec3 hazeSun = vec3(TextureMat[3].x, TextureMat[3].z, TextureMat[3].w);
+    // TextureMat[3].y packs two values: 100 x afterglow (0..99, the blue hour after sunset) + the puff churn (0..64)
+    highp float afterglow = floor(TextureMat[3].y / 100.0) / 99.0;
+    churn = mod(TextureMat[3].y, 100.0);
     highp float bufH = max(ColorModulator.x, 1.0);
     highp float reach = ColorModulator.y;
     highp float org = ColorModulator.w;
@@ -295,6 +301,16 @@ void main() {
             highp vec3 col = mix(mix(mix(c0, c1, k1), c2, k2), c3, k3);
             highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
             highp vec2 dxz = rd.xz / (length(rd.xz) + 1e-4);
+            if (afterglow > 0.0) {
+                // afterglow: just after sunset the clouds keep the light -- bright parts glow peach-pink, the shade
+                // turns violet, strongest on the side where the sun went down
+                highp vec3 aHi = vec3(1.00, 0.72, 0.60), aMid = vec3(0.80, 0.50, 0.66), aLo = vec3(0.40, 0.33, 0.60), aDeep = vec3(0.28, 0.25, 0.48);
+                highp vec3 ag = mix(mix(mix(aDeep, aLo, k1), aMid, k2), aHi, k3);
+                highp float sunSide = 0.5 + 0.5 * dot(dxz, sxz);
+                // only the sun side keeps the warm cap; away from it the bright band cools to pink-violet
+                ag = mix(ag, mix(ag, aMid, 0.6), (1.0 - sunSide) * k3);
+                col = mix(col, ag, afterglow * (1.0 - rain) * (0.55 + 0.4 * sunSide));
+            }
             highp vec3 haze = mix(hazeAway, hazeSun, pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.4));
             col = mix(col, haze, smoothstep(0.25, 1.0, t / reach) * 0.8);
             highp float enc = 1.0 - log2(1.0 + t) / log2(1.0 + 4096.0);
