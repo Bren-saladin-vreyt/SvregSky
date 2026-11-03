@@ -58,37 +58,6 @@ highp float farK = 0.0, blurK = 0.0;
 // the high layer (altocumulus streaks) sits this far above the cloud base
 const highp float HIGH0 = 255.0, HIGH1 = 285.0;
 
-// puffs are read stretched along the wind (x) and a little flattened: wide Ghibli lobes, not round balls
-highp vec3 puffCoord(highp vec3 p) {
-    return vec3(p.x * 0.7, p.y * 1.15, p.z * 0.9);
-}
-
-// the cloud body from the weather map: flat base, dome top (the higher up, the thicker the cover must be). 0..1
-highp float bodyW(highp vec3 p, highp vec3 w, highp float base) {
-    highp float c = smoothstep(0.55 - 0.06 * amount, 0.80 - 0.06 * amount, w.r); // wide ramp: cover thickens slowly -> domes
-    if (c <= 0.0) {
-        return 0.0;
-    }
-    highp float top = 40.0 + (layerH + 60.0) * (0.35 + 0.65 * w.g);
-    highp float hf = (p.y - base) / top;
-    if (hf < 0.0 || hf > 1.0) {
-        return 0.0;
-    }
-    return max(0.0, c - 1.3 * hf * sqrt(hf)) * smoothstep(0.0, 0.05, hf);
-}
-
-// signed cloud field (> 0 inside). The thicker the body, the lower the bar a puff must clear: the core is solid, and
-// toward the edge only puff centres survive, so the outline is a crowd of round lobes (Ghibli cauliflower).
-// The flat bottom ignores the puffs. Faded puff sizes read as their average (0.5), so clouds keep their size far away.
-highp float field(highp float bw, highp vec3 d, highp float bot, highp float ks) {
-    // small puffs only roughen the surface of thick body: on the thin rim they would make loose crumbs that blink
-    highp float sk = ks * smoothstep(0.3, 0.6, bw);
-    highp float pz = mix(0.5, d.r, kM) * 0.72 + mix(0.5, d.g, sk) * 0.28;
-    pz = mix(0.5, pz, bot);
-    // a higher bar on the thin rim: a puff there survives whole or not at all (no one-pixel slivers)
-    return pz + 1.15 * bw - 1.0 - 0.07 * (1.0 - smoothstep(0.25, 0.55, bw));
-}
-
 // far away the pre-blurred weather map is read: clouds too small to cover ~3 pixels melt into their neighbours or
 // vanish smoothly instead of blinking as lone dots. One read near or far, two in between.
 highp vec3 weatherL(highp vec2 xz) {
@@ -100,19 +69,70 @@ highp vec3 weatherL(highp vec2 xz) {
     return blurK >= 1.0 ? wb : mix(weather(xz), wb, blurK);
 }
 
+// clouds lean with the wind: their tops drift this many blocks along +x per block of height (shear)
+const highp float SHEAR = 0.12;
+// lowest cloud base above the layer floor
+const highp float BASE0 = 14.0;
+
+// the cloud body, 0..1. No flat base any more: each cloud is an egg standing on its narrow end upside down -- a short
+// rounded belly below its widest point, a tall dome above. Each cloud has its own belly height, and the thin edges
+// float higher than the core, so seen from below the underside is a curved, lumpy surface.
+// Also gives the weather sample (w, for the stride logic) and how far below the widest point we are (under, 0..1).
+highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
+    under = 0.0;
+    // lean downwind with height (shear)
+    highp vec2 xs = p.xz - vec2(SHEAR * p.y, 0.0);
+    highp vec3 w0 = weatherL(xs);
+    w = w0;
+    if (w0.r < 0.47 - 0.06 * amount) {
+        return 0.0; // open sky well away from any cloud: one read is enough
+    }
+    highp vec3 wc = w0;
+    highp float c = smoothstep(0.55 - 0.06 * amount, 0.80 - 0.06 * amount, wc.r); // wide ramp: cover thickens slowly -> domes
+    if (c <= 0.0) {
+        return 0.0;
+    }
+    highp float top = 40.0 + (layerH + 60.0) * (0.35 + 0.65 * wc.g);
+    highp float belly = 0.24 * top;
+    highp float mid = BASE0 + 40.0 * wc.b + belly + 14.0 * (1.0 - c);
+    if (p.y < mid) {
+        highp float hb = (mid - p.y) / belly;
+        under = clamp(hb, 0.0, 1.0);
+        return max(0.0, c * c - 0.9 * hb * sqrt(hb)); // the belly hangs from the thick core only: pinched, tail-like
+    }
+    highp float ht = (p.y - mid) / (top - belly);
+    return max(0.0, c - 1.3 * ht * sqrt(ht));        // dome
+}
+
+// signed cloud field (> 0 inside). The thicker the body, the lower the bar a puff must clear: the core is solid, and
+// toward the edge only puff centres survive, so the outline is a crowd of round lobes (Ghibli cauliflower) -- on the
+// belly too, a little softer there. Faded puff sizes read as their average (0.5), so clouds keep their size far away.
+highp float field(highp float bw, highp vec3 d, highp float under, highp float ks) {
+    // small puffs only roughen the surface of thick body: on the thin rim they would make loose crumbs that blink
+    highp float sk = ks * smoothstep(0.3, 0.6, bw);
+    highp float pz = mix(0.5, d.r, kM) * 0.72 + mix(0.5, d.g, sk) * 0.28;
+    pz = mix(pz, 0.5, 0.25 * under);
+    // a higher bar on the thin rim: a puff there survives whole or not at all (no one-pixel slivers)
+    return pz + 1.15 * bw - 1.0 - 0.07 * (1.0 - smoothstep(0.25, 0.55, bw));
+}
+
+// puffs are read stretched along the wind (x) and a little flattened, and drift with the shear like the body
+highp vec3 puffCoord(highp vec3 p) {
+    return vec3((p.x - SHEAR * p.y) * 0.7, p.y * 1.15, p.z * 0.9);
+}
+
 highp float cumulus(highp vec3 p) {
-    if (p.y < -2.0 || p.y > 30.0 + layerH + 100.0) {
+    if (p.y < 0.0 || p.y > BASE0 + 60.0 + layerH + 100.0) {
         return -1.0;
     }
-    highp vec3 w = weatherL(p.xz);
-    highp float base = 30.0 * w.b;
-    highp float bw = bodyW(p, w, base);
+    highp vec3 w;
+    highp float under;
+    highp float bw = bodyAt(p, w, under);
     if (bw <= 0.0) {
         // no body: big strides only well away from any cloud, fine steps near one (so thin edge puffs are never skipped)
-        return w.r < 0.52 - 0.06 * amount ? -1.0 : -0.3;
+        return w.r < 0.53 - 0.06 * amount ? -1.0 : -0.3;
     }
-    highp float bot = smoothstep(base, base + 8.0, p.y);
-    return field(bw, detailTex(puffCoord(p)), bot, kS);
+    return field(bw, detailTex(puffCoord(p)), under, kS);
 }
 
 // high thin streaks stretched along the wind, in patches
@@ -196,34 +216,43 @@ void main() {
             if (p.y > HIGH0 - 1.0) {
                 v = 0.62 + 0.18 * max(0.0, lightDir.y) + 0.10 * dot(rd, lightDir);
             } else {
-                highp vec3 w = weather(p.xz);
-                highp float base = 30.0 * w.b;
                 highp vec3 pc = puffCoord(p);
-                // normal of the body plus the medium puffs: every puff gets its own lit cap and curved shadow line.
-                // The step is close to a weather texel (5 blocks) so the normal doesn't jump column by column.
+                highp vec3 w;
+                highp float under, uu;
+                highp float b0 = bodyAt(p, w, under);
+                // normal of the body plus the medium puffs: every puff gets its own lit cap and curved shadow line,
+                // the belly puffs too. The step is close to a weather texel (5 blocks) so it doesn't jump by columns.
                 const highp float e = 6.0;
                 highp vec3 o1 = vec3(e, -e, -e), o2 = vec3(-e, -e, e), o3 = vec3(-e, e, -e), o4 = vec3(e, e, e);
-                highp float bot = smoothstep(base, base + 8.0, p.y);
-                highp float d1 = field(bodyW(p + o1, weather(p.xz + o1.xz), base), detailTex(puffCoord(p + o1)), bot, 0.0);
-                highp float d2 = field(bodyW(p + o2, weather(p.xz + o2.xz), base), detailTex(puffCoord(p + o2)), bot, 0.0);
-                highp float d3 = field(bodyW(p + o3, weather(p.xz + o3.xz), base), detailTex(puffCoord(p + o3)), bot, 0.0);
-                highp float d4 = field(bodyW(p + o4, weather(p.xz + o4.xz), base), detailTex(puffCoord(p + o4)), bot, 0.0);
+                highp vec3 wx;
+                highp float kMs = kM;
+                kM *= 0.5; // the light sees the puffs half as strong: smooth curved bands, not dark ovals
+                highp float d1 = field(bodyAt(p + o1, wx, uu), detailTex(puffCoord(p + o1)), uu, 0.0);
+                highp float d2 = field(bodyAt(p + o2, wx, uu), detailTex(puffCoord(p + o2)), uu, 0.0);
+                highp float d3 = field(bodyAt(p + o3, wx, uu), detailTex(puffCoord(p + o3)), uu, 0.0);
+                highp float d4 = field(bodyAt(p + o4, wx, uu), detailTex(puffCoord(p + o4)), uu, 0.0);
                 highp vec3 n = -normalize(vec3(d1 - d2 - d3 + d4, -d1 - d2 + d3 + d4, -d1 + d2 - d3 + d4) + vec3(0.0, 1e-4, 0.0));
-                // body between this point and the light, and body piled on top: soft blue self-shadow (body only: cheap, smooth)
+                kM = kMs;
+                // body between this point and the light, and body piled on top: soft blue self-shadow (body only)
                 highp float occl = 0.0;
                 for (int k = 1; k <= 3; k++) {
-                    highp vec3 q = p + lightDir * float(k) * 16.0;
-                    occl += bodyW(q, weather(q.xz), base);
+                    occl += bodyAt(p + lightDir * float(k) * 16.0, wx, uu);
                 }
-                highp vec3 qu = p + vec3(0.0, 20.0, 0.0);
-                highp float up = bodyW(qu, w, base);
-                highp float hf = clamp((p.y - base) / (layerH * 0.7), 0.0, 1.0);
+                highp float up = bodyAt(p + vec3(0.0, 20.0, 0.0), wx, uu);
+                // height inside the cloud: the dome gets whiter toward the top
+                highp float hf = clamp(1.0 - under, 0.0, 1.0) * clamp(b0 * 1.5, 0.0, 1.0);
                 // puff centres bright, the creases between puffs a step darker (the painted cauliflower look)
                 highp vec3 dt = detailTex(pc);
                 highp float puff = (dt.r - 0.5) * kM + (dt.g - 0.5) * 0.5 * kS;
+                // the seams where puffs meet: a thin darker line around each puff (the painted outline inside the cloud)
+                highp float seam = smoothstep(0.36, 0.22, dt.r) * kM;
                 highp float ndl = dot(n, lightDir);
-                v = 0.55 + 0.26 * ndl + 0.10 * n.y + 0.16 * hf - 0.18 * occl - 0.08 * up + 0.36 * puff;
-                v -= 0.12 * smoothstep(0.4, 0.9, -n.y); // flat underside: one blue tone
+                v = 0.55 + 0.26 * ndl + 0.08 * n.y + 0.10 * hf - 0.18 * occl - 0.08 * up + 0.14 * puff - 0.16 * seam;
+                // the belly is not left dark: light bounced up from the bright ground and sky keeps it a pale blue,
+                // and each belly puff still shows its own curved line (the puff term above), as in the references
+                highp float down = smoothstep(0.1, 0.8, -n.y);
+                v += 0.20 * down;
+                v = mix(v, max(v, 0.47 + 0.14 * puff - 0.10 * seam), down);
                 highp float toward = max(0.0, dot(rd, lightDir));
                 v += 0.22 * toward * toward;            // looking toward the light the clouds glow pale
                 highp float sideOn = 1.0 - abs(dot(n, rd));
