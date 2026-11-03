@@ -149,10 +149,10 @@ public final class RaymarchClouds {
 	}
 
 	/** bakes the hill silhouette strip when it is missing or the hill shape toggles changed (lake, pines) */
-	private static void bakeHills(boolean lake, boolean pines, Matrix4f view, com.mojang.blaze3d.textures.TextureFormat format) {
+	private static void bakeHills(boolean lake, boolean pines, Matrix4f view, GpuTexture like) {
 		int key = (lake ? 1 : 0) | (pines ? 2 : 0);
 		if (hillTex == null) {
-			hillTex = RenderSystem.getDevice().createTexture(() -> "SvregSky hill silhouette", 15, format, 1024, 1, 1, 1);
+			hillTex = RenderSystem.getDevice().createTexture(() -> "SvregSky hill silhouette", 15, like.getFormat(), 1024, 1, 1, 1);
 			hillView = RenderSystem.getDevice().createTextureView(hillTex);
 			hillKey = -1;
 		}
@@ -248,7 +248,7 @@ public final class RaymarchClouds {
 			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h, reach, steps, org), camCloud, params);
 			boolean crumble = SkySettings.cloudCrumble();
 			if (crumble) {
-				bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture().getFormat());
+				bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture());
 			}
 			// anti-flicker: last frame is usable unless the buffers, the mode or the timing just changed
 			boolean steady = SkySettings.on("cloud_steady");
