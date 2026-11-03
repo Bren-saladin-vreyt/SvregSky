@@ -315,6 +315,12 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 160, -25, "zu5_raymarch_sixth");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 8);
 			shot(context, sp, 6000, 160, -25, "zu6_raymarch_eighth");
+			// raymarched Ghibli puffs (baked noise) at the default 1/4, day, horizon, golden hour, night
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_crumble"; com.svreg.sky.sky.SkySettings.raymarchScale = 4; com.svreg.sky.sky.SkySettings.version++; });
+			shot(context, sp, 6000, 160, -25, "zv_crumble_noon");
+			shot(context, sp, 6000, 40, -8, "zv2_crumble_horizon");
+			shot(context, sp, 12300, 90, -10, "zv3_crumble_golden");
+			shot(context, sp, 18000, 160, -30, "zv4_crumble_night");
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli"; com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliStyle = "anime"; com.svreg.sky.sky.SkySettings.version++; });
 

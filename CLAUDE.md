@@ -31,6 +31,7 @@ Read this first. It replaces re-explaining the project in every chat.
 - `sky/CirrusSky.java` + `shaders/core/cirrus_sky.fsh`: sky, painted clouds, sun/moon, **painted horizon** (hills, village, train, birds, airship, lake, waterfall, far shower, pines, lone tree, power poles, meadow, torii, giant moon). Toggles reach the shader as flag bits and, for later features, packed into the rainbow slot (`horizonCode()` / `rbCode` in the shader).
 - **3D Ghibli voxel clouds**: `sky/GhibliClouds.java` (mesh, LOD "Halus Dekat", greedy face merge `cloud_merge`), generators `sky/CumulusGen.java` (style `anime`, default) and `sky/GhibliGen.java` (older styles), shader `cirrus_ghibli.fsh`.
 - **Raymarch Ghibli (beta)**: `sky/RaymarchClouds.java` (low-res buffer 1/2..1/8, default 1/4, `raymarch_scale`), `sky/RaymarchNoise.java` (baked Worley bubble noise atlas), shaders `cirrus_raymarch.fsh` (march + toon light) and `cirrus_rmcomp.fsh` (sharp upscale + depth write).
+- **Raymarch Ghibli Puffs (beta, `3d_crumble`)**: same renderer, shader `cirrus_crumble.fsh`, atlas `sky/CrumbleNoise.java` (puff detail R/G + wisps B; weather map sharp + pre-blurred). Shape = weather-map dome bodies, puffs must clear a bar that drops as the body thickens (cauliflower outline). Detail sizes fade by pixel footprint (ColorModulator.x = buffer height) so nothing under ~3 cloud pixels is drawn (no blinking crumbs). About 3-4x cheaper than `3d_raymarch` in the offline preview.
 - Terrain effects (wind, water, snow, shadows): `wind/Wind.java`, `wind/HeightShadows.java`. Post look: `look/PostLook.java`.
 
 ## Phone (GLES) gotchas
@@ -43,5 +44,6 @@ Read this first. It replaces re-explaining the project in every chat.
 - Preview shaders offline by rendering a fullscreen quad with Playwright's Chromium (`--use-gl=swiftshader`).
 
 ## Status (Nov 2026)
-- Raymarch clouds: CazToon uses a low-res raymarch too (about 1/4). Latest work: cloud shape built from stacked big bubbles on a flat base (no dome), bubble shading. Waiting for the user's phone screenshots of the cloud **sides** to tune size/whiteness.
+- Raymarch clouds: CazToon uses a low-res raymarch too (about 1/4). The user found the bubble shape (`3d_raymarch`) too tidy and measured 40 FPS on the phone; the new `3d_crumble` mode is the answer (irregular Ghibli puffs, lighter). Toon shading shared by both: smooth-body light (no per-pixel speckle), lavender/gold golden hour, moonlit slate night.
+- Offline preview harness used for this work: a Playwright page that renders the march shader into a 1/4 buffer with the baked atlas, plus flicker metrics (frame diff under tiny camera turns, loose-crumb count). Rebuild it from these notes if needed (render at ~1640x680 so pixel footprint is phone-like).
 - Open ideas: polish airship/lake further, crepuscular rays, cloud shadows on the sky.

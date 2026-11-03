@@ -214,9 +214,14 @@ public final class SkySettings {
 		return "3d_ghibli".equals(cloudMode) || "3d_ghibli_mix".equals(cloudMode);
 	}
 
-	/** 3D Ghibli clouds near, painted cloud layers further out */
+	/** raymarched toon clouds: the bubble shape ("3d_raymarch") or the baked Ghibli puffs ("3d_crumble") */
 	public static boolean cloudRaymarch() {
-		return "3d_raymarch".equals(cloudMode);
+		return "3d_raymarch".equals(cloudMode) || "3d_crumble".equals(cloudMode);
+	}
+
+	/** raymarched Ghibli puffs from baked noise (CrumbleNoise): lighter than the bubble shape */
+	public static boolean cloudCrumble() {
+		return "3d_crumble".equals(cloudMode);
 	}
 
 	public static boolean ghibliMix() {
