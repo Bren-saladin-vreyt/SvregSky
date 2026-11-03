@@ -221,8 +221,16 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
         return -1.0;
     }
     highp float H = (0.05 + 0.13 * c * (0.35 + 0.65 * w.g) + 0.30 * tower * c * c + 0.34 * megaCore * megaCore) * life;
-    highp float hb = (e + 0.01) / H;
-    body = hb >= 0.0 && hb <= 1.0 ? max(0.0, c - 1.3 * hb * sqrt(hb)) : 0.0;
+    highp float hb = e / H;
+    if (hb >= 0.0) {
+        body = hb <= 1.0 ? max(0.0, c - 1.3 * hb * sqrt(hb)) : 0.0;
+    } else {
+        // a round lumpy belly under the base (no flat cut): it sinks behind the hills or the horizon line
+        highp float hd = -hb / 0.16;
+        body = max(0.0, c - 1.1 * hd * hd);
+    }
+    // the very top melts away softly instead of being cut at the bank's ceiling
+    body *= 1.0 - smoothstep(0.40, 0.56, e);
     // the anvil: a slab at the top of the thunderhead's height, flat underneath, slightly domed on top
     // it sits where the column's puffs end (the column's visible top is ~55% of H), so it caps the column
     highp float Hm = (0.05 + 0.13 * 0.9 + 0.34) * life;
@@ -438,7 +446,7 @@ void main() {
         t += stepT;
     }
     // nothing overhead in this direction: the horizon bank behind (only from below the cloud layer)
-    if (hitT < 0.0 && bankOn && rd.y < 0.36 && ro.y < 0.0) {
+    if (hitT < 0.0 && bankOn && rd.y > -0.002 && rd.y < 0.58 && ro.y < 0.0) {
         if (hTop < -1.5) {
             hTop = hillsOn && rd.y < 0.6 ? hillTop(rd) : -1.0;
         }
@@ -449,7 +457,9 @@ void main() {
         highp float u = th / 6.2831853 * BANK_C + ro.x * 0.08 + 0.5 * BANK_C;
         // behind the hills the bank's foot rides up with the ridge line (smoothly, ignoring single spires), so the
         // towers always stand above the hills instead of hiding behind them; at sea it sits right on the horizon
-        highp float e = rd.y - (hTop > -0.5 ? 0.75 * min(hTop, 0.22) : 0.0);
+        // behind hills the base sits a little below the ridge, so the hills cover the foot and only the lumpy
+        // tops show (a base exactly on the ridge looked cut along smooth slopes)
+        highp float e = rd.y - (hTop > -0.5 ? 0.45 * min(hTop, 0.22) : 0.0) + 0.012;
         // puff fade by pixel size (one pixel covers footK radians; the puffs are BANK_R * BANK_P blocks per radian)
         highp float footB = footK * BANK_R * BANK_P;
         highp float kSb = 1.0 - smoothstep(2.6, 4.6, footB), kMb = 1.0 - smoothstep(6.5, 11.0, footB);
