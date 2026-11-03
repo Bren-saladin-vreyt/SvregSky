@@ -74,12 +74,18 @@ const highp float SHEAR = 0.12;
 // lowest cloud base above the layer floor
 const highp float BASE0 = 14.0;
 
+// set by bodyAt for the march: how far (blocks) the point is from a cloud body -- vertically, above the dome or below
+// the belly of this column (gGapV), or in any direction from cover thick enough to grow a body (gGapH). 0 = near.
+highp float gGapV = 0.0, gGapH = 0.0;
+
 // the cloud body, 0..1. No flat base any more: each cloud is an egg standing on its narrow end upside down -- a short
 // rounded belly below its widest point, a tall dome above. Each cloud has its own belly height, and the thin edges
 // float higher than the core, so seen from below the underside is a curved, lumpy surface.
 // Also gives the weather sample (w, for the stride logic) and how far below the widest point we are (under, 0..1).
 highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
     under = 0.0;
+    gGapV = 0.0;
+    gGapH = 0.0;
     // lean downwind with height (shear)
     highp vec2 xs = p.xz - vec2(SHEAR * p.y, 0.0);
     highp vec3 w0 = weatherL(xs);
@@ -88,13 +94,21 @@ highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
         return 0.0; // open sky well away from any cloud: one read is enough
     }
     highp vec3 wc = w0;
-    highp float c = smoothstep(0.55 - 0.06 * amount, 0.80 - 0.06 * amount, wc.r); // wide ramp: cover thickens slowly -> domes
+    highp float lo = 0.55 - 0.06 * amount;
+    highp float c = smoothstep(lo, 0.80 - 0.06 * amount, wc.r); // wide ramp: cover thickens slowly -> domes
     if (c <= 0.0) {
+        // the cover can rise at most ~0.02 per block (measured 0.017 in the baked map), and a step moves the lookup by
+        // at most 1.12 blocks per block (sideways plus the shear): no body within this distance
+        gGapH = (lo - wc.r) * 44.0;
         return 0.0;
     }
     highp float top = 40.0 + (layerH + 60.0) * (0.35 + 0.65 * wc.g);
     highp float belly = 0.24 * top;
     highp float mid = BASE0 + 40.0 * wc.b + belly + 14.0 * (1.0 - c);
+    // this column's body spans [mid - belly * hbMax, mid + (top - belly) * htMax] (where the profile is still > 0)
+    highp float yHi = mid + (top - belly) * exp2(log2(c / 1.3) * 0.6667);
+    highp float yLo = mid - belly * exp2(log2(c * c / 0.9) * 0.6667);
+    gGapV = max(p.y - yHi, yLo - p.y);
     if (p.y < mid) {
         highp float hb = (mid - p.y) / belly;
         under = clamp(hb, 0.0, 1.0);
@@ -220,34 +234,31 @@ void main() {
                 highp vec3 w;
                 highp float under, uu;
                 highp float b0 = bodyAt(p, w, under);
+                highp vec3 dt = detailTex(pc);
                 // normal of the body plus the medium puffs: every puff gets its own lit cap and curved shadow line,
-                // the belly puffs too. The step is close to a weather texel (5 blocks) so it doesn't jump by columns.
+                // the belly puffs too. Three one-sided samples around the hit (the hit itself is the fourth).
+                // The step is close to a weather texel (5 blocks) so it doesn't jump by columns.
                 const highp float e = 6.0;
-                highp vec3 o1 = vec3(e, -e, -e), o2 = vec3(-e, -e, e), o3 = vec3(-e, e, -e), o4 = vec3(e, e, e);
                 highp vec3 wx;
                 highp float kMs = kM;
                 kM *= 0.5; // the light sees the puffs half as strong: smooth curved bands, not dark ovals
-                highp float d1 = field(bodyAt(p + o1, wx, uu), detailTex(puffCoord(p + o1)), uu, 0.0);
-                highp float d2 = field(bodyAt(p + o2, wx, uu), detailTex(puffCoord(p + o2)), uu, 0.0);
-                highp float d3 = field(bodyAt(p + o3, wx, uu), detailTex(puffCoord(p + o3)), uu, 0.0);
-                highp float d4 = field(bodyAt(p + o4, wx, uu), detailTex(puffCoord(p + o4)), uu, 0.0);
-                highp vec3 n = -normalize(vec3(d1 - d2 - d3 + d4, -d1 - d2 + d3 + d4, -d1 + d2 - d3 + d4) + vec3(0.0, 1e-4, 0.0));
+                highp float f0 = field(b0, dt, under, 0.0);
+                highp vec3 ox = vec3(e, 0.0, 0.0), oy = vec3(0.0, e, 0.0), oz = vec3(0.0, 0.0, e);
+                highp float fx = field(bodyAt(p + ox, wx, uu), detailTex(puffCoord(p + ox)), uu, 0.0);
+                highp float fy = field(bodyAt(p + oy, wx, uu), detailTex(puffCoord(p + oy)), uu, 0.0);
+                highp float fz = field(bodyAt(p + oz, wx, uu), detailTex(puffCoord(p + oz)), uu, 0.0);
+                highp vec3 n = -normalize(vec3(fx - f0, fy - f0, fz - f0) + vec3(0.0, 1e-4, 0.0));
                 kM = kMs;
-                // body between this point and the light, and body piled on top: soft blue self-shadow (body only)
-                highp float occl = 0.0;
-                for (int k = 1; k <= 3; k++) {
-                    occl += bodyAt(p + lightDir * float(k) * 16.0, wx, uu);
-                }
-                highp float up = bodyAt(p + vec3(0.0, 20.0, 0.0), wx, uu);
-                // height inside the cloud: the dome gets whiter toward the top
+                // body between this point and the light: soft blue self-shadow (body only, two samples)
+                highp float occl = 1.5 * (bodyAt(p + lightDir * 16.0, wx, uu) + bodyAt(p + lightDir * 36.0, wx, uu)) * 0.6667;
+                // height inside the cloud: the dome gets whiter toward the top (this also stands in for 'cloud piled above')
                 highp float hf = clamp(1.0 - under, 0.0, 1.0) * clamp(b0 * 1.5, 0.0, 1.0);
                 // puff centres bright, the creases between puffs a step darker (the painted cauliflower look)
-                highp vec3 dt = detailTex(pc);
                 highp float puff = (dt.r - 0.5) * kM + (dt.g - 0.5) * 0.5 * kS;
                 // the seams where puffs meet: a thin darker line around each puff (the painted outline inside the cloud)
                 highp float seam = smoothstep(0.36, 0.22, dt.r) * kM;
                 highp float ndl = dot(n, lightDir);
-                v = 0.55 + 0.26 * ndl + 0.08 * n.y + 0.10 * hf - 0.18 * occl - 0.08 * up + 0.14 * puff - 0.16 * seam;
+                v = 0.525 + 0.26 * ndl + 0.08 * n.y + 0.14 * hf - 0.18 * occl + 0.14 * puff - 0.16 * seam;
                 // the belly is not left dark: light bounced up from the bright ground and sky keeps it a pale blue,
                 // and each belly puff still shows its own curved line (the puff term above), as in the references
                 highp float down = smoothstep(0.1, 0.8, -n.y);
@@ -291,6 +302,14 @@ void main() {
             return;
         }
         tPrev = t;
-        t += max(2.5, (d < -0.5 ? 16.0 : 3.0) * (1.0 + t / 600.0));
+        highp float stepT = max(2.5, (d < -0.5 ? 16.0 : 3.0) * (1.0 + t / 600.0));
+        // near a cloud but surely outside its body: jump to where the body could begin (never past the open-sky stride)
+        if (d == -0.3) {
+            // gGapV: above the dome or below the belly of this column -> the ray needs this much travel to get there;
+            // gGapH: cover too thin for a body -> no body within this distance in any direction
+            highp float jump = max(gGapV / max(abs(rd.y), 0.08), gGapH);
+            stepT = clamp(jump, stepT, 16.0 * (1.0 + t / 600.0));
+        }
+        t += stepT;
     }
 }
