@@ -37,11 +37,18 @@ public final class RaymarchClouds {
 	/** the cloud layer is this tall (blocks) */
 	public static final float LAYER = 125F;
 
-	private static RenderPipeline marchPipeline, crumblePipeline, compPipeline;
+	private static RenderPipeline marchPipeline, crumblePipeline, compPipeline, temporalPipeline;
+	private static final com.mojang.blaze3d.pipeline.BindGroupLayout THREE_SAMPLERS = com.mojang.blaze3d.pipeline.BindGroupLayout.builder()
+			.withSampler("Sampler0").withSampler("Sampler1").withSampler("Sampler2").build();
 	private static GpuBuffer quad;
 	private static net.minecraft.client.renderer.texture.DynamicTexture noiseTex, crumbleTex;
-	private static GpuTexture buf;
-	private static GpuTextureView bufView;
+	/** two march buffers and two anti-flicker results, used alternately (this frame / last frame) */
+	private static final GpuTexture[] raw = new GpuTexture[2], hist = new GpuTexture[2];
+	private static final GpuTextureView[] rawView = new GpuTextureView[2], histView = new GpuTextureView[2];
+	private static int frame;
+	private static boolean histValid, lastCrumble;
+	private static Matrix4f prevView;
+	private static Vector3f prevCam;
 	private static boolean broken;
 	private static double windX, windZ;
 	private static long lastNanos;
@@ -51,6 +58,10 @@ public final class RaymarchClouds {
 	}
 
 	private static RenderPipeline pipeline(String name, ColorTargetState color, Optional<DepthStencilState> depth, boolean sampler) {
+		return pipeline(name, color, depth, sampler ? BindGroupLayouts.SAMPLER0 : null);
+	}
+
+	private static RenderPipeline pipeline(String name, ColorTargetState color, Optional<DepthStencilState> depth, com.mojang.blaze3d.pipeline.BindGroupLayout samplers) {
 		Identifier sh = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/" + name);
 		var b = RenderPipeline.builder(RenderPipeline.builder().withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION).buildSnippet())
 				.withLocation(Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "pipeline/" + name))
@@ -61,8 +72,8 @@ public final class RaymarchClouds {
 				.withCull(false)
 				.withDepthStencilState(depth)
 				.withColorTargetState(color);
-		if (sampler) {
-			b = b.withBindGroupLayout(BindGroupLayouts.SAMPLER0);
+		if (samplers != null) {
+			b = b.withBindGroupLayout(samplers);
 		}
 		return b.build();
 	}
@@ -72,6 +83,7 @@ public final class RaymarchClouds {
 			marchPipeline = pipeline("cirrus_raymarch", ColorTargetState.DEFAULT, Optional.empty(), true);
 			crumblePipeline = pipeline("cirrus_crumble", ColorTargetState.DEFAULT, Optional.empty(), true);
 			compPipeline = pipeline("cirrus_rmcomp", ColorTargetState.DEFAULT, Optional.of(DepthStencilState.DEFAULT), true);
+			temporalPipeline = pipeline("cirrus_rmtemporal", ColorTargetState.DEFAULT, Optional.empty(), THREE_SAMPLERS);
 		}
 		if (noiseTex == null) {
 			// the erosion noise is baked once (about a quarter second) and read with bilinear filtering from then on
@@ -134,19 +146,26 @@ public final class RaymarchClouds {
 				steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 72 : scale >= 3 ? 80 : 96;
 			}
 			int w = Math.max(1, (target.width + scale - 1) / scale), h = Math.max(1, (target.height + scale - 1) / scale);
-			if (buf == null || buf.getWidth(0) != w || buf.getHeight(0) != h) {
-				if (bufView != null) {
-					bufView.close();
+			if (raw[0] == null || raw[0].getWidth(0) != w || raw[0].getHeight(0) != h) {
+				for (int i = 0; i < 2; i++) {
+					if (rawView[i] != null) {
+						rawView[i].close();
+						raw[i].close();
+						histView[i].close();
+						hist[i].close();
+					}
+					raw[i] = RenderSystem.getDevice().createTexture(() -> "SvregSky raymarch clouds", 15, target.getColorTexture().getFormat(), w, h, 1, 1);
+					rawView[i] = RenderSystem.getDevice().createTextureView(raw[i]);
+					hist[i] = RenderSystem.getDevice().createTexture(() -> "SvregSky raymarch steady", 15, target.getColorTexture().getFormat(), w, h, 1, 1);
+					histView[i] = RenderSystem.getDevice().createTextureView(hist[i]);
 				}
-				if (buf != null) {
-					buf.close();
-				}
-				buf = RenderSystem.getDevice().createTexture(() -> "SvregSky raymarch clouds", 15, target.getColorTexture().getFormat(), w, h, 1, 1);
-				bufView = RenderSystem.getDevice().createTextureView(buf);
+				histValid = false;
 				if (logs++ < 2) {
 					SvregSky.LOG.info("SvregSky: raymarch clouds buffer {}x{} (1/{})", w, h, scale);
 				}
 			}
+			frame ^= 1;
+			GpuTextureView curRaw = rawView[frame], lastRaw = rawView[frame ^ 1], curHist = histView[frame], lastHist = histView[frame ^ 1];
 
 			float reach = Math.max(600, Math.min(3000, SkySettings.cloud3dDistance * 3 * 4.0F * 1.4F));
 			float[] hzSun = CirrusSky.horizonToward(true);
@@ -166,13 +185,18 @@ public final class RaymarchClouds {
 			// x: the buffer height (the puff mode sizes its detail by how many blocks one cloud pixel covers)
 			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h, reach, steps, org), camCloud, params);
 			boolean crumble = SkySettings.cloudCrumble();
+			// anti-flicker: last frame is usable unless the buffers, the mode or the timing just changed
+			boolean steady = SkySettings.on("cloud_steady");
+			boolean valid = steady && histValid && prevView != null && crumble == lastCrumble && dt > 0 && dt < 0.2;
+			var steadyT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(valid ? 1 : 0, 0, 0, 0),
+					prevCam == null ? new Vector3f() : new Vector3f(camCloud).sub(prevCam), prevView == null ? view : prevView);
 			boolean zeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
 			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(scale, zeroToOne ? 1 : 0, 0, 0), new Vector3f(), new Matrix4f());
 
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer ib = indices.getBuffer(6);
 			IndexType type = indices.type();
-			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch clouds", bufView, Optional.of(new Vector4f(0, 0, 0, 0)), null, OptionalDouble.empty())) {
+			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch clouds", curRaw, Optional.of(new Vector4f(0, 0, 0, 0)), null, OptionalDouble.empty())) {
 				pass.setPipeline(crumble ? crumblePipeline : marchPipeline);
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", marchT);
@@ -181,12 +205,32 @@ public final class RaymarchClouds {
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);
 			}
+			GpuTextureView shown = curRaw;
+			if (steady) {
+				// a cloud pixel only changes once the change shows in two frames in a row (cirrus_rmtemporal)
+				try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch steady", curHist, Optional.of(new Vector4f(0, 0, 0, 0)), null, OptionalDouble.empty())) {
+					pass.setPipeline(temporalPipeline);
+					RenderSystem.bindDefaultUniforms(pass);
+					pass.setUniform("DynamicTransforms", steadyT);
+					pass.bindTexture("Sampler0", curRaw, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+					pass.bindTexture("Sampler1", lastRaw, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+					pass.bindTexture("Sampler2", lastHist, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+					pass.setVertexBuffer(0, quad.slice());
+					pass.setIndexBuffer(ib, type);
+					pass.drawIndexed(6, 1, 0, 0, 0);
+				}
+				shown = curHist;
+			}
+			histValid = steady;
+			lastCrumble = crumble;
+			prevView = view;
+			prevCam = camCloud;
 			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch composite",
 					target.getColorTextureView(), Optional.empty(), target.getDepthTextureView(), OptionalDouble.empty())) {
 				pass.setPipeline(compPipeline);
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", compT);
-				pass.bindTexture("Sampler0", bufView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+				pass.bindTexture("Sampler0", shown, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
 				pass.setVertexBuffer(0, quad.slice());
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);
