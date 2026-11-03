@@ -99,23 +99,35 @@ highp float lobes(highp vec3 p, highp float base) {
     return best;
 }
 
+// each cloud field gets its own base height
+highp float cloudBase(highp vec2 xz) {
+    return 38.0 * n2(xz / 300.0 + 11.0);
+}
+
+// room above the layer for the tallest stacks (a third bubble can reach ~210 blocks above the base)
+const highp float TOPM = 100.0;
+
+// the smooth cloud body: big bubbles cut by the flat base, no small bubbles. Light, normals and self-shadow read only
+// this, so the shading changes slowly over the surface and does not shimmer when the camera or the pixel grid moves.
+highp float body(highp vec3 p, highp float base) {
+    if (p.y > base + layerH + TOPM) {
+        return -1.0;
+    }
+    return min(lobes(p, base), (p.y - base) / 16.0); // continuous flat bottom (no step in the field)
+}
+
 highp float cumulus(highp vec3 p) {
-    highp float base = 38.0 * n2(p.xz / 300.0 + 11.0);              // each cloud field gets its own base height
-    if (p.y < base || p.y > base + layerH + 50.0) {
+    highp float base = cloudBase(p.xz);
+    if (p.y < base - 2.0) {
         return -1.0;
     }
-    // cheap early-out: no cloud cover anywhere near
-    if (coverage(p.xz) <= 0.0 && coverage(p.xz + vec2(40.0, 0.0)) <= 0.0 && coverage(p.xz - vec2(40.0, 0.0)) <= 0.0) {
-        return -1.0;
-    }
-    highp float d = lobes(p, base);
+    highp float d = body(p, base);
     if (d < -0.35) {
-        return -1.0;
+        return d;
     }
-    highp float e = erosionTex(p);
-    // small bubbles on the surface, none on the flat bottom
+    // small bubbles bulge the outline (the cauliflower edge), none on the flat bottom
     highp float bubK = smoothstep(base, base + 6.0, p.y);
-    return d + (e - 0.52) * 0.45 * bubK * lodK - 0.02;
+    return d + (erosionTex(p) - 0.52) * 0.45 * bubK * lodK - 0.02;
 }
 
 // high thin streaks stretched along the wind, in patches
@@ -148,6 +160,8 @@ void main() {
     highp vec3 hazeSun = vec3(TextureMat[3].x, TextureMat[3].z, TextureMat[3].w);
     highp float reach = ColorModulator.y;
     highp float org = ColorModulator.w;
+    // after sunset the moon (opposite the sun) lights the clouds
+    highp vec3 lightDir = sunDir.y > -0.08 ? sunDir : -sunDir;
 
     // view ray for this (big) pixel, turned into the world by the camera rotation
     highp vec3 vd = normalize(vec3((uv * 2.0 - 1.0) / vec2(ProjMat[0][0], ProjMat[1][1]), -1.0));
@@ -163,8 +177,9 @@ void main() {
     if (tB <= tA) {
         return;
     }
+    // no per-pixel jitter: it is tied to the screen, so every camera turn re-rolled it and the clouds sparkled.
+    // The hit is refined by bisection instead, so the step phase barely shows.
     highp float t = tA;
-    highp float jit = h2(gl_FragCoord.xy + 17.0) * 0.25;
     highp float tPrev = t;
     int maxSteps = int(ColorModulator.z);
     for (int i = 0; i < 110; i++) {
@@ -172,13 +187,15 @@ void main() {
             break;
         }
         highp vec3 p = ro + rd * t;
-        lodK = 1.0 - 0.75 * smoothstep(250.0, 1100.0, t);
+        lodK = 1.0 - 0.85 * smoothstep(150.0, 800.0, t);
         highp float d = density(p);
-        if (d > 0.05) { // a little margin: wisps thinner than that are skipped instead of sparkling
+        // a margin that grows with distance: far wisps thinner than a pixel are skipped instead of sparkling
+        highp float hitK = 0.05 + 0.12 * (1.0 - lodK);
+        if (d > hitK) {
             highp float t0 = tPrev, t1 = t;
-            for (int k = 0; k < 6; k++) {
+            for (int k = 0; k < 7; k++) {
                 highp float tm = 0.5 * (t0 + t1);
-                if (density(ro + rd * tm) > 0.05) {
+                if (density(ro + rd * tm) > hitK) {
                     t1 = tm;
                 } else {
                     t0 = tm;
@@ -186,57 +203,80 @@ void main() {
             }
             t = t1;
             p = ro + rd * t;
-            // light: cloud toward the sun and above darkens; open sun-facing surfaces are bright
-            highp float occl = 0.0;
-            // lighting from the smooth cloud body (bubbles off), so it doesn't sparkle pixel to pixel
-            highp float lodSave = lodK;
-            lodK = 0.0;
-            for (int k = 1; k <= 3; k++) {
-                occl += max(0.0, density(p + sunDir * float(k) * 12.0));
+            highp float detail = lodK;
+            // the scallops fade sooner than the outline bubbles: far away they would be single sparkling pixels
+            highp float scalK = 1.0 - smoothstep(140.0, 520.0, t);
+            highp float v;
+            if (p.y > HIGH0 - 1.0) {
+                // high streaks: thin and flat, lit mostly by how much they face the sun
+                v = 0.62 + 0.18 * max(0.0, dot(lightDir, vec3(0.0, 1.0, 0.0))) + 0.10 * dot(rd, lightDir);
+            } else {
+                // --- painted toon light from the smooth body (big bubbles only) ---
+                highp float base = cloudBase(p.xz);
+                lodK = 0.0;
+                // sphere-like normal of the big bubble this pixel sits on: each bubble gets its own bright cap and
+                // its own curved shadow line, like the painted lobes in the references
+                const highp float e = 3.0;
+                highp float d1 = body(p + vec3(e, -e, -e), base), d2 = body(p + vec3(-e, -e, e), base);
+                highp float d3 = body(p + vec3(-e, e, -e), base), d4 = body(p + vec3(e, e, e), base);
+                highp vec3 n = -normalize(vec3(d1 - d2 - d3 + d4, -d1 - d2 + d3 + d4, -d1 + d2 - d3 + d4) + vec3(0.0, 1e-4, 0.0));
+                // cloud between this point and the light, and cloud piled on top: soft blue self-shadow
+                highp float occl = 0.0;
+                for (int k = 1; k <= 3; k++) {
+                    occl += max(0.0, body(p + lightDir * float(k) * 14.0, base));
+                }
+                highp float up = max(0.0, body(p + vec3(0.0, 18.0, 0.0), base));
+                // higher in the cloud = whiter, the flat underside stays blue
+                highp float hf = clamp((p.y - base) / (layerH * 0.7), 0.0, 1.0);
+                // big round scallops along the shadow line (2x the bubble size, so they span several pixels and hold still)
+                highp float scal = erosionTex(p * 0.55 + vec3(31.0, 7.0, 13.0)) - 0.5;
+                highp float ndl = dot(n, lightDir);
+                v = 0.56 + 0.26 * ndl + 0.10 * n.y + 0.16 * hf - 0.24 * occl - 0.12 * up + 0.34 * scal * scalK;
+                // looking toward the light the clouds glow pale (light shining through the thin parts), as in the references
+                highp float toward = max(0.0, dot(rd, lightDir));
+                v += 0.24 * toward * toward;
+                // underside facing straight down: one flat blue tone
+                v -= 0.12 * smoothstep(0.4, 0.9, -n.y);
+                // a thin lighter edge where the outline turns toward the light (the moonlit/sunlit rim in the references)
+                highp float sideOn = 1.0 - abs(dot(n, rd));
+                v += 0.20 * smoothstep(0.6, 0.85, sideOn) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
             }
-            occl *= 1.33;
-            highp float up = max(0.0, density(p + vec3(0.0, 14.0, 0.0))) * 2.0;
-            // soft normal from 4 samples (tetrahedron)
-            const highp float e = 7.0; // wide: bubbles meet in sharp creases, a small step would make the normal flicker
-            highp float d1 = density(p + vec3(e, -e, -e)), d2 = density(p + vec3(-e, -e, e));
-            highp float d3 = density(p + vec3(-e, e, -e)), d4 = density(p + vec3(e, e, e));
-            highp vec3 n = -normalize(vec3(d1 - d2 - d3 + d4, -d1 - d2 + d3 + d4, -d1 + d2 - d3 + d4) + vec3(0.0, 1e-4, 0.0));
-            lodK = lodSave;
-            highp float l = dot(n, sunDir) * 0.5 + 0.5;
-            highp float bub = erosionTex(p);
-            // under the belly of a bubble: the bubble grows upward from here -> a small blue shadow band below each bulge
-            highp float bubUp = erosionTex(p + vec3(0.0, 4.0, 0.0)) - erosionTex(p - vec3(0.0, 4.0, 0.0));
-            highp float belly = smoothstep(0.02, 0.12, bubUp) * lodK;
-            highp float v = 0.42 + 0.28 * l + 0.16 * (n.y * 0.5 + 0.5) - 0.16 * occl - 0.14 * up + (bub - 0.5) * 0.4 * lodK - 0.22 * belly;
-            // a thin bright rim on edges seen side-on that face the sun
-            highp float sideOn = 1.0 - abs(dot(n, rd));
-            v += 0.18 * smoothstep(0.65, 0.9, sideOn) * smoothstep(0.0, 0.4, dot(n, sunDir)) * (1.0 - rain);
-            // tones with soft steps between them (painted, not hard-cut)
-            highp float k1 = smoothstep(0.28, 0.33, v), k2 = smoothstep(0.44, 0.49, v), k3 = smoothstep(0.60, 0.65, v);
-            int band = v > 0.62 ? 3 : (v > 0.46 ? 2 : (v > 0.30 ? 1 : 0));
+            lodK = detail;
+            // far away one cloud pixel spans many bubbles: settle on the middle of the pale band, so neighbouring
+            // pixels don't flip between white and blue (the sparkle over the far cloud field)
+            v = mix(v, 0.54, 0.85 * smoothstep(280.0, 900.0, t));
 
-            // the same four tones as the voxel clouds (day -> golden hour -> night, rain greys)
-            highp vec3 c0 = mix(vec3(0.55, 0.74, 0.95), mix(vec3(0.42, 0.30, 0.52), vec3(0.55, 0.50, 0.72), org), gold);
-            highp vec3 c1 = mix(vec3(0.70, 0.87, 1.00), mix(vec3(0.58, 0.42, 0.62), vec3(0.72, 0.68, 0.86), org), gold);
-            highp vec3 c2 = mix(vec3(0.86, 0.96, 1.00), mix(vec3(0.90, 0.66, 0.60), vec3(0.95, 0.84, 0.84), org), gold);
-            highp vec3 c3 = mix(vec3(1.00, 1.00, 1.00), mix(vec3(1.00, 0.86, 0.64), vec3(1.00, 0.95, 0.84), org), gold);
+            // four flat tones with crisp (1-2 pixel) steps between them
+            highp float k1 = smoothstep(0.29, 0.31, v), k2 = smoothstep(0.45, 0.47, v), k3 = smoothstep(0.61, 0.63, v);
+
+            // day: white caps, pale and mid blue, a deeper blue in the deepest shadow
+            highp vec3 c0 = vec3(0.50, 0.68, 0.94), c1 = vec3(0.66, 0.82, 0.99), c2 = vec3(0.84, 0.93, 1.00), c3 = vec3(1.0);
+            // golden hour: lavender shadows, peach and gold where the low sun hits (warmer when the sky is orange)
+            highp vec3 g0 = mix(vec3(0.50, 0.40, 0.62), vec3(0.56, 0.50, 0.72), org);
+            highp vec3 g1 = mix(vec3(0.66, 0.52, 0.68), vec3(0.72, 0.66, 0.84), org);
+            highp vec3 g2 = mix(vec3(0.94, 0.72, 0.58), vec3(0.96, 0.84, 0.84), org);
+            highp vec3 g3 = mix(vec3(1.00, 0.88, 0.62), vec3(1.00, 0.95, 0.84), org);
+            c0 = mix(c0, g0, gold);
+            c1 = mix(c1, g1, gold);
+            c2 = mix(c2, g2, gold);
+            c3 = mix(c3, g3, gold);
+            // night: slate grey-violet, lighter where the moon catches the edges
             highp float nk = night * (1.0 - day) * (1.0 - gold);
-            c0 = mix(c0, vec3(0.10, 0.11, 0.20), nk);
-            c1 = mix(c1, vec3(0.16, 0.18, 0.30), nk);
-            c2 = mix(c2, vec3(0.24, 0.27, 0.42), nk);
-            c3 = mix(c3, vec3(0.36, 0.40, 0.58), nk);
+            c0 = mix(c0, vec3(0.20, 0.21, 0.31), nk);
+            c1 = mix(c1, vec3(0.28, 0.29, 0.40), nk);
+            c2 = mix(c2, vec3(0.40, 0.41, 0.54), nk);
+            c3 = mix(c3, vec3(0.58, 0.60, 0.72), nk);
             highp float dim = 0.30 + 0.70 * max(day, gold);
             c0 = mix(c0, vec3(0.40, 0.43, 0.49) * dim, rain * 0.8);
             c1 = mix(c1, vec3(0.52, 0.55, 0.61) * dim, rain * 0.8);
             c2 = mix(c2, vec3(0.62, 0.65, 0.71) * dim, rain * 0.8);
             c3 = mix(c3, vec3(0.70, 0.73, 0.78) * dim, rain * 0.8);
             highp vec3 col = mix(mix(mix(c0, c1, k1), c2, k2), c3, k3);
-            col = mix(col, col * 0.6 + hazeAway * 0.4, float(3 - band) / 3.0 * 0.3 * (1.0 - rain));
-            // distance haze into the horizon colour
+            // distance haze into the horizon colour (far clouds fade into the sky like in the references)
             highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
             highp vec2 dxz = rd.xz / (length(rd.xz) + 1e-4);
             highp vec3 haze = mix(hazeAway, hazeSun, pow(clamp(0.5 + 0.5 * dot(dxz, sxz), 0.0, 1.0), 1.4));
-            col = mix(col, haze, smoothstep(0.3, 1.0, t / reach) * 0.85);
+            col = mix(col, haze, smoothstep(0.25, 1.0, t / reach) * 0.8);
             // distance, log-encoded into alpha (always > 0 for a hit)
             highp float enc = 1.0 - log2(1.0 + t) / log2(1.0 + 4096.0);
             fragColor = vec4(col, max(2.0 / 255.0, enc));
@@ -244,6 +284,6 @@ void main() {
         }
         tPrev = t;
         // big strides through empty sky (no coverage), small ones near cloud
-        t += max(2.5, (d < -0.5 ? 16.0 : 3.0) * (1.0 + t / 600.0)) * (0.75 + jit);
+        t += max(2.5, (d < -0.5 ? 16.0 : 3.0) * (1.0 + t / 600.0));
     }
 }
