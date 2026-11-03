@@ -99,6 +99,7 @@ public final class SkyConfig {
 		o.addProperty("cloud_layers", SkySettings.cloudLayers);
 		o.addProperty("cloud_coverage", SkySettings.cloudCoverage);
 		o.addProperty("cloud_speed", SkySettings.cloudSpeed);
+		o.addProperty("aerial_fade", SkySettings.aerialFade);
 		o.addProperty("cloud_3d_distance", SkySettings.cloud3dDistance);
 		o.addProperty("cloud_3d_cell", SkySettings.cloud3dCell);
 		o.addProperty("cloud_3d_levels", SkySettings.cloud3dLevels);

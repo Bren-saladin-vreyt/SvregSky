@@ -53,6 +53,8 @@ public final class SkySettings {
 	public static int cloudLayers = 3;
 	public static float cloudCoverage = 0.0F;
 	public static float cloudSpeed = 1.0F;
+	/** raymarch puff clouds: how strongly far, low clouds melt into the sky (0..2, 1.5 = default) */
+	public static float aerialFade = 1.5F;
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static boolean blockyClouds = false;
 	public static String cloudMode = "painted";
@@ -316,6 +318,7 @@ public final class SkySettings {
 			cloudLayers = Math.max(1, Math.min(3, (int) num(o, "cloud_layers", cloudLayers)));
 			cloudCoverage = Math.max(-0.2F, Math.min(0.2F, num(o, "cloud_coverage", cloudCoverage)));
 			cloudSpeed = num(o, "cloud_speed", cloudSpeed);
+			aerialFade = Math.max(0, Math.min(2, num(o, "aerial_fade", aerialFade)));
 			if (o.has("cloud_texture")) {
 				cloudTexture = Identifier.parse(o.get("cloud_texture").getAsString());
 			}

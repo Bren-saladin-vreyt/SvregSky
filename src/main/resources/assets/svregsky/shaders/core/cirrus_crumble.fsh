@@ -51,6 +51,8 @@ highp vec3 weather(highp vec2 xz) {
 }
 
 highp float layerH, amount;
+// aerial fade strength (0..2, the menu slider), packed as the fraction of ColorModulator.z (steps + strength / 4)
+highp float fadeK = 1.5;
 // living clouds: how far (blocks, 0..64) the puffs have risen through the cloud bodies -- they churn slowly upward
 // like real cumulus. The detail tile is 64 blocks tall, so wrapping at 64 is seamless.
 highp float churn = 0.0;
@@ -204,18 +206,35 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
     highp float c = smoothstep(0.32 - 0.05 * amount, 0.60 - 0.05 * amount, w.r);
     body = 0.0;
     dt = vec3(0.5);
-    if (c <= 0.0) {
-        return -1.0;
-    }
     // heights vary: long low banks everywhere, middling heaps, and now and then a tall tower (in view height units),
     // all growing with the daily cycle
     highp float tower = smoothstep(0.46, 0.66, w2.r);
-    highp float H = (0.06 + 0.16 * c * (0.35 + 0.65 * w.g) + 0.50 * tower * c * c) * (layerH / 125.0);
-    highp float hb = (e + 0.01) / H;
-    if (hb < 0.0 || hb > 1.0) {
+    // rarest of all: a giant thunderhead (the puff-style replacement for the painted mega cumulonimbus): a huge
+    // column whose top spreads into a flat anvil, wider than the column under it
+    highp float w3 = weather(vec2(u / 6.0 + 600.0, 9600.0)).r;
+    // the anvil only overhangs its own column a little (no floating slabs)
+    highp float megaCore = smoothstep(0.63, 0.73, w3), megaWide = smoothstep(0.61, 0.69, w3);
+    highp float life = layerH / 125.0;
+    // the thunderhead column rises from any bank under it (its height does not wait for thick cover)
+    c = max(c, 0.9 * smoothstep(0.0, 0.6, megaCore));
+    if (c <= 0.0 && megaWide <= 0.0) {
         return -1.0;
     }
-    body = max(0.0, c - 1.3 * hb * sqrt(hb));
+    highp float H = (0.06 + 0.16 * c * (0.35 + 0.65 * w.g) + 0.50 * tower * c * c + 0.50 * megaCore * megaCore) * life;
+    highp float hb = (e + 0.01) / H;
+    body = hb >= 0.0 && hb <= 1.0 ? max(0.0, c - 1.3 * hb * sqrt(hb)) : 0.0;
+    // the anvil: a slab at the top of the thunderhead's height, flat underneath, slightly domed on top
+    // it sits where the column's puffs end (the column's visible top is ~55% of H), so it caps the column
+    highp float Hm = (0.06 + 0.16 * 0.9 + 0.50) * life;
+    highp float aBot = 0.50 * Hm, aTop = aBot + (0.05 + 0.03 * c) * life;
+    if (megaWide > 0.0 && megaCore > 0.3 && e > aBot && e < aTop) {
+        highp float s = (e - aBot) / (aTop - aBot);
+        highp float slab = (1.0 - pow(abs(2.0 * s - 1.0), 3.0)) * megaWide * (0.7 + 0.3 * c);
+        body = max(body, slab);
+    }
+    if (body <= 0.0) {
+        return -1.0;
+    }
     dt = detailTex(vec3(u * BANK_P, (e + 0.01) * BANK_R * BANK_P - churn, 37.0));
     highp float sk = kSb * smoothstep(0.3, 0.6, body);
     highp float pz = mix(0.5, dt.r, kMb) * 0.72 + mix(0.5, dt.g, sk) * 0.28;
@@ -321,6 +340,7 @@ void main() {
     // what was hit (light value, haze, distance); hitT < 0 = nothing yet
     highp float hitV = 0.0, hitHaze = 0.0, hitT = -1.0;
     int maxSteps = int(ColorModulator.z);
+    fadeK = fract(ColorModulator.z) * 4.0;
     for (int i = 0; i < 110; i++) {
         if (t > tB || i >= maxSteps) {
             break;
@@ -396,9 +416,13 @@ void main() {
             }
             // far away one pixel spans many puffs: settle on the middle of the pale band (no white/blue flipping)
             v = mix(v, 0.54, 0.85 * smoothstep(9.0, 22.0, t * footK));
+            // aerial perspective: the farther and the lower a cloud, the more air in front of it -- its tones press
+            // together (4 bands near, 1-2 pale ones far) and its colour melts into the horizon
+            highp float aer = min(1.0, fadeK * smoothstep(0.10, 0.95, t / reach) * (0.55 + 0.45 * (1.0 - smoothstep(0.03, 0.40, rd.y))));
+            v = mix(v, 0.57, 0.7 * aer);
 
             hitV = v;
-            hitHaze = smoothstep(0.25, 1.0, t / reach) * 0.8;
+            hitHaze = max(smoothstep(0.25, 1.0, t / reach) * 0.8, 0.75 * aer);
             hitT = t;
             break;
         }
@@ -414,7 +438,7 @@ void main() {
         t += stepT;
     }
     // nothing overhead in this direction: the horizon bank behind (only from below the cloud layer)
-    if (hitT < 0.0 && bankOn && rd.y < 0.34 && ro.y < 0.0) {
+    if (hitT < 0.0 && bankOn && rd.y < 0.75 && ro.y < 0.0) {
         if (hTop < -1.5) {
             hTop = hillsOn && rd.y < 0.6 ? hillTop(rd) : -1.0;
         }
@@ -453,8 +477,9 @@ void main() {
             v += 0.20 * toward * toward;
             v += 0.16 * smoothstep(0.75, 0.95, length(n2)) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
             // a light veil of distance haze: far, but crisp and white like real horizon cumulus
-            hitV = v;
-            hitHaze = 0.30;
+            // the horizon bank is the farthest of all: a lighter version of the same fade, so the towers still read
+            hitV = mix(v, 0.57, min(0.2 * fadeK, 0.6));
+            hitHaze = min(0.22 * fadeK + 0.0, 0.7);
             hitT = 4000.0;
         }
     }

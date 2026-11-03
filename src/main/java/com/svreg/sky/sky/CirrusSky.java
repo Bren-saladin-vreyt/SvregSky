@@ -416,7 +416,12 @@ public final class CirrusSky {
 		}
 		boolean ghibli = SkySettings.cloudGhibli();
 		int f = F_CLOUDS | (SkySettings.cloudGodRays && !ghibli && !SkySettings.cloudRaymarch() ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0);
-		if (megaToday) f |= 1024;
+		// the puff mode's horizon clouds grow their own giant thunderheads: the painted giants would clash with them
+		if (SkySettings.cloudCrumble() && SkySettings.on("horizon_bank")) {
+			f &= ~512;
+		} else if (megaToday) {
+			f |= 1024;
+		}
 		if (SkySettings.on("sun_beams")) f |= 2048;
 		if (SkySettings.on("tower_lightning")) f |= 4096;
 		if (SkySettings.on("cloud_rows")) f |= 8192;

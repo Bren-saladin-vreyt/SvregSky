@@ -4,7 +4,8 @@ precision highp float;
 
 // SvregSky "Raymarch Ghibli": upscales the small cloud buffer with sharp pixels and writes each cloud pixel's depth,
 // so terrain, roofs and trees in front still hide the clouds (hardware depth test, which also works on phones).
-// ColorModulator = buffer scale (screen pixels per cloud pixel), depth zero-to-one (1) or minus-one-to-one (0)
+// ColorModulator = buffer scale (screen pixels per cloud pixel), depth zero-to-one (1) or minus-one-to-one (0),
+// aerial fade strength (z, 0 = off), cloud reach (w): far low clouds are drawn see-through so the sky shows behind them
 
 layout(std140) uniform DynamicTransforms {
     highp mat4 ModelViewMat;
@@ -34,5 +35,13 @@ void main() {
     highp vec4 clip = ProjMat * vec4(vd * t, 1.0);
     highp float ndc = clip.z / clip.w;
     gl_FragDepth = clamp(ColorModulator.y > 0.5 ? ndc : ndc * 0.5 + 0.5, 0.0, 1.0);
-    fragColor = vec4(c.rgb, 1.0);
+    highp float a = 1.0;
+    if (ColorModulator.z > 0.0) {
+        highp vec3 rd = transpose(mat3(ModelViewMat)) * vd;
+        highp float low = 1.0 - smoothstep(0.02, 0.30, rd.y);
+        // the horizon bank (stored at ~4000 blocks) gets a light veil; the clouds overhead fade with distance
+        highp float aerA = (t > 3500.0 ? 0.10 : smoothstep(0.30, 1.0, t / ColorModulator.w) * 0.55) * (0.5 + 0.5 * low);
+        a = 1.0 - min(0.85, aerA * ColorModulator.z);
+    }
+    fragColor = vec4(c.rgb, a);
 }

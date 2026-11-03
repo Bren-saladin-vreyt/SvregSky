@@ -87,7 +87,7 @@ public final class RaymarchClouds {
 			marchPipeline = pipeline("cirrus_raymarch", ColorTargetState.DEFAULT, Optional.empty(), true);
 			crumblePipeline = pipeline("cirrus_crumble", ColorTargetState.DEFAULT, Optional.empty(), BindGroupLayouts.SAMPLER0_SAMPLER1);
 			hillPipeline = pipeline("cirrus_hillmask", ColorTargetState.DEFAULT, Optional.empty(), (com.mojang.blaze3d.pipeline.BindGroupLayout) null);
-			compPipeline = pipeline("cirrus_rmcomp", ColorTargetState.DEFAULT, Optional.of(DepthStencilState.DEFAULT), true);
+			compPipeline = pipeline("cirrus_rmcomp", new ColorTargetState(com.mojang.blaze3d.pipeline.BlendFunction.TRANSLUCENT), Optional.of(DepthStencilState.DEFAULT), true);
 			temporalPipeline = pipeline("cirrus_rmtemporal", ColorTargetState.DEFAULT, Optional.empty(), THREE_SAMPLERS);
 		}
 		if (noiseTex == null) {
@@ -245,7 +245,9 @@ public final class RaymarchClouds {
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
 			Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 			// x: the buffer height (the puff mode sizes its detail by how many blocks one cloud pixel covers)
-			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h, reach, steps, org), camCloud, params);
+			// z: step budget + aerial fade strength / 4 in the fraction (0..2 -> 0..0.5)
+			float fade = Math.max(0, Math.min(2, SkySettings.aerialFade));
+			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h, reach, steps + fade / 4.0F, org), camCloud, params);
 			boolean crumble = SkySettings.cloudCrumble();
 			if (crumble) {
 				bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture());
@@ -256,7 +258,7 @@ public final class RaymarchClouds {
 			var steadyT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(valid ? 1 : 0, 0, 0, 0),
 					prevCam == null ? new Vector3f() : new Vector3f(camCloud).sub(prevCam), prevView == null ? view : prevView);
 			boolean zeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
-			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(scale, zeroToOne ? 1 : 0, 0, 0), new Vector3f(), new Matrix4f());
+			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(scale, zeroToOne ? 1 : 0, SkySettings.cloudCrumble() ? fade : 0, reach), new Vector3f(), new Matrix4f());
 
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer ib = indices.getBuffer(6);
