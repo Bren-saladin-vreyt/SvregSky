@@ -76,20 +76,28 @@ public final class RaymarchClouds {
 		return lastBottomY;
 	}
 
+	private static int lastUntil = -1;
+	private static double untilStill;
+
 	/** follows the weather: the single-player rain timer lets the clouds gather in the last three minutes before the rain */
 	private static void updateStorm(Minecraft mc, double dt) {
-		float target = CirrusSky.rainLevel();
+		float rainNow = CirrusSky.rainLevel();
 		if (mc.level != null) {
-			target = Math.max(target, mc.level.getThunderLevel(1.0F));
+			rainNow = Math.max(rainNow, mc.level.getThunderLevel(1.0F));
 		}
+		float target = rainNow;
 		try {
-			if (mc.getSingleplayerServer() != null) {
+			if (mc.getSingleplayerServer() != null && rainNow < 0.05F) {
 				net.minecraft.server.level.ServerLevel ow = mc.getSingleplayerServer().overworld();
 				net.minecraft.world.level.saveddata.WeatherData w = ow != null ? ow.getWeatherData() : null;
 				int until = w == null ? 0 : (w.getClearWeatherTime() > 0 ? w.getClearWeatherTime() : w.getRainTime());
-				if (w != null && !w.isRaining() && until > 0 && until < 3600) {
+				// only a timer that is really counting down means rain is coming (a stopped weather cycle, a paused
+				// game or a weather command can leave it frozen under three minutes -- that must not hold the clouds)
+				untilStill = until == lastUntil ? untilStill + dt : 0;
+				lastUntil = until;
+				if (w != null && !w.isRaining() && until > 0 && until < 3600 && untilStill < 3.0) {
 					float t = 1 - until / 3600F;
-					target = Math.max(target, 0.75F * t * t * (3 - 2 * t));
+					target = Math.max(target, 0.6F * t * t * (3 - 2 * t));
 				}
 			}
 		} catch (Throwable ignored) {
@@ -98,9 +106,12 @@ public final class RaymarchClouds {
 		if (!SkySettings.on("cloud_weather")) {
 			target = 0;
 		}
-		// gather over ~20 s, break up slowly (~90 s) once the rain is over
-		float rate = target > storm ? 0.05F : 0.011F;
+		// gather over ~20 s; once the rain is over break up over about a minute, and always come back to fair
+		float rate = target > storm ? 0.05F : 0.03F;
 		storm += (target - storm) * (float) Math.min(1, dt * rate * 4);
+		if (target < 0.01F && storm < 0.02F) {
+			storm = 0;
+		}
 		storm = Math.max(0, Math.min(1, storm));
 	}
 
