@@ -22,7 +22,7 @@ public class SkyScreen extends OptionsSubScreen {
 				.append(Component.literal("  (" + net.minecraft.client.Minecraft.getInstance().getFps() + " FPS)").withStyle(net.minecraft.ChatFormatting.GRAY)));
 	}
 
-	private static OptionInstance<Boolean> flag(String key) {
+	private static net.minecraft.client.gui.components.AbstractWidget flag(String key) {
 		return bool(key, SkySettings.chosen(key), v -> SkySettings.FLAGS.put(key, v));
 	}
 
@@ -37,13 +37,38 @@ public class SkyScreen extends OptionsSubScreen {
 		return net.minecraft.locale.Language.getInstance().has(k) ? OptionInstance.cachedConstantTooltip(Component.translatable(k)) : OptionInstance.noTooltip();
 	}
 
-	/** the state comes first ("ON  name"), so it can be read at once even when a long name has to scroll */
-	private static OptionInstance<Boolean> bool(String key, boolean value, OptionInstance.ValueUpdateListener<Boolean> set) {
-		return new OptionInstance<>("svregsky.options." + key, tip(key),
-				(caption, v) -> Component.empty()
-						.append(Component.literal(v ? "ON " : "OFF ").withStyle(v ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD))
-						.append(caption),
-				OptionInstance.BOOLEAN_VALUES, value, set);
+	/** "ON  name" / "OFF  name": the state comes first, so it can be read at once even when a long name has to scroll */
+	private static Component boolText(String key, boolean v) {
+		return Component.empty()
+				.append(Component.literal(v ? "ON " : "OFF ").withStyle(v ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD))
+				.append(Component.translatable("svregsky.options." + key));
+	}
+
+	private static net.minecraft.client.gui.components.AbstractWidget bool(String key, boolean value, Consumer<Boolean> set) {
+		boolean[] state = {value};
+		net.minecraft.client.gui.components.Button b = net.minecraft.client.gui.components.Button.builder(boolText(key, value), btn -> {
+			state[0] = !state[0];
+			set.accept(state[0]);
+			btn.setMessage(boolText(key, state[0]));
+		}).width(150).build();
+		String k = "svregsky.options." + key + ".tooltip";
+		if (net.minecraft.locale.Language.getInstance().has(k)) {
+			b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(k)));
+		}
+		return b;
+	}
+
+	/** adds a row group: switches are our own buttons, sliders and choices come from their OptionInstance */
+	private void small(Object... items) {
+		List<net.minecraft.client.gui.components.AbstractWidget> ws = new ArrayList<>();
+		for (Object o : items) {
+			if (o instanceof OptionInstance<?> oi) {
+				ws.add(oi.createButton(this.options, 0, 0, 150));
+			} else {
+				ws.add((net.minecraft.client.gui.components.AbstractWidget) o);
+			}
+		}
+		this.list.addSmall(ws);
 	}
 
 	private static OptionInstance<Integer> slider(String key, int min, int max, int value, IntFunction<String> label, OptionInstance.ValueUpdateListener<Integer> set) {
@@ -95,7 +120,7 @@ public class SkyScreen extends OptionsSubScreen {
 		}
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.presets"));
-		this.list.addSmall(
+		small(
 				choice("preset", List.of("custom", "light", "balanced", "full"), Presets.current, v -> {
 					Presets.current = v;
 					if (!v.equals("custom")) {
@@ -111,7 +136,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("auto_fps"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.sky"));
-		this.list.addSmall(
+		small(
 				bool("cirrus_sky", SkySettings.cirrusSky, v -> SkySettings.cirrusSky = v),
 				choice("sunset_style", List.of("auto", "orange", "magenta"), SkySettings.sunsetStyle, v -> SkySettings.sunsetStyle = v),
 				bool("sun_rays", SkySettings.sunRays, v -> SkySettings.sunRays = v),
@@ -153,7 +178,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("sky_lanterns"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
-		this.list.addSmall(
+		small(
 				choice("cloud_mode", List.of("3d_crumble", "off"), SkySettings.paintedClouds ? "3d_crumble" : "off", v -> {
 					SkySettings.cloudMode = "3d_crumble";
 					SkySettings.paintedClouds = !v.equals("off");
@@ -172,13 +197,13 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("horizon_bank"),
 				slider("aerial_fade", 0, 200, Math.round(SkySettings.aerialFade * 100), v -> v + "%", v -> SkySettings.aerialFade = v / 100F));
 
-		this.list.addSmall(
+		small(
 				bool("cloud_god_rays", SkySettings.cloudGodRays, v -> SkySettings.cloudGodRays = v),
 				percent("cloud_shadows", 100, SkySettings.cloudShadows, v -> SkySettings.cloudShadows = v),
 				bool("rainbow", SkySettings.rainbow, v -> SkySettings.rainbow = v));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.night"));
-		this.list.addSmall(
+		small(
 				bool("stars", SkySettings.stars, v -> SkySettings.stars = v),
 				bool("shooting_stars", SkySettings.shootingStars, v -> SkySettings.shootingStars = v),
 				bool("fireflies", SkySettings.fireflies, v -> SkySettings.fireflies = v),
@@ -186,7 +211,7 @@ public class SkyScreen extends OptionsSubScreen {
 				percent("aurora", 200, SkySettings.aurora, v -> SkySettings.aurora = v));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.nature"));
-		this.list.addSmall(
+		small(
 				percent("wind_strength", 400, SkySettings.windStrength, v -> SkySettings.windStrength = v),
 				percent("wind_speed", 300, SkySettings.windSpeed, v -> SkySettings.windSpeed = v),
 				flag("living_wind"),
@@ -222,7 +247,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("puddles"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.sound"));
-		this.list.addSmall(
+		small(
 				bool("ambient_sounds", SkySettings.ambientSounds, v -> SkySettings.ambientSounds = v),
 				percent("ambient_volume", 100, SkySettings.ambientVolume, v -> SkySettings.ambientVolume = v),
 				flag("weather_sounds"),
@@ -232,7 +257,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("leaf_rustle"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.look"));
-		this.list.addSmall(
+		small(
 				flag("film_tone"),
 				flag("anime_twos"),
 				flag("colored_shadows"),
@@ -274,7 +299,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("bloom"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.photo"));
-		this.list.addSmall(
+		small(
 				bool("photo_mode", SkySettings.photoMode, v -> SkySettings.photoMode = v),
 				choice("photo_weather", List.of("clear", "rain", "thunder"), SkySettings.photoWeather, v -> SkySettings.photoWeather = v),
 				choice("photo_timelapse", List.of("off", "slow", "fast"), SkySettings.photoTimelapse, v -> SkySettings.photoTimelapse = v),
