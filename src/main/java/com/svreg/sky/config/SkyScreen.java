@@ -34,7 +34,7 @@ public class SkyScreen extends OptionsSubScreen {
 	/** the option's longer explanation (lang key "<option>.tooltip"), shown when the button is hovered or tapped */
 	private static <T> OptionInstance.TooltipSupplier<T> tip(String key) {
 		String k = "svregsky.options." + key + ".tooltip";
-		return net.minecraft.client.resources.language.I18n.exists(k) ? OptionInstance.cachedConstantTooltip(Component.translatable(k)) : OptionInstance.noTooltip();
+		return net.minecraft.locale.Language.getInstance().has(k) ? OptionInstance.cachedConstantTooltip(Component.translatable(k)) : OptionInstance.noTooltip();
 	}
 
 	/** the state comes first ("ON  name"), so it can be read at once even when a long name has to scroll */
