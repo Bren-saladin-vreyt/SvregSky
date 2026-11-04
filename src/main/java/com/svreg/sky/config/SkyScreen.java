@@ -31,14 +31,24 @@ public class SkyScreen extends OptionsSubScreen {
 		return String.format("%02d:%02d", mins / 60, mins % 60);
 	}
 
+	/** the option's longer explanation (lang key "<option>.tooltip"), shown when the button is hovered or tapped */
+	private static <T> OptionInstance.TooltipSupplier<T> tip(String key) {
+		String k = "svregsky.options." + key + ".tooltip";
+		return net.minecraft.client.resources.language.I18n.exists(k) ? OptionInstance.cachedConstantTooltip(Component.translatable(k)) : OptionInstance.noTooltip();
+	}
+
+	/** the state comes first ("ON  name"), so it can be read at once even when a long name has to scroll */
 	private static OptionInstance<Boolean> bool(String key, boolean value, OptionInstance.ValueUpdateListener<Boolean> set) {
-		return new OptionInstance<>("svregsky.options." + key, OptionInstance.noTooltip(), OptionInstance.BOOLEAN_TO_STRING,
+		return new OptionInstance<>("svregsky.options." + key, tip(key),
+				(caption, v) -> Component.empty()
+						.append(Component.literal(v ? "ON " : "OFF ").withStyle(v ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD))
+						.append(caption),
 				OptionInstance.BOOLEAN_VALUES, value, set);
 	}
 
 	private static OptionInstance<Integer> slider(String key, int min, int max, int value, IntFunction<String> label, OptionInstance.ValueUpdateListener<Integer> set) {
-		return new OptionInstance<>("svregsky.options." + key, OptionInstance.noTooltip(),
-				(caption, v) -> Options.genericValueLabel(caption, Component.literal(label.apply(v))),
+		return new OptionInstance<>("svregsky.options." + key, tip(key),
+				(caption, v) -> Component.empty().append(Component.literal(label.apply(v) + " ").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)).append(caption),
 				new OptionInstance.IntRange(min, max, true), Math.max(min, Math.min(max, value)), set);
 	}
 
@@ -47,7 +57,7 @@ public class SkyScreen extends OptionsSubScreen {
 	}
 
 	private static OptionInstance<String> choice(String key, List<String> values, String value, OptionInstance.ValueUpdateListener<String> set) {
-		return new OptionInstance<>("svregsky.options." + key, OptionInstance.noTooltip(),
+		return new OptionInstance<>("svregsky.options." + key, tip(key),
 				(caption, v) -> Component.translatable("svregsky.options." + key + "." + v), // the cycle button adds the caption itself
 				new OptionInstance.Enum<>(values, Codec.STRING), values.contains(value) ? value : values.get(0), set);
 	}
