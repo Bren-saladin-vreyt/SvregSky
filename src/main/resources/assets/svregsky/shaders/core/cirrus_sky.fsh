@@ -388,10 +388,10 @@ highp float ridge(highp float a, highp float freq, highp float seed, highp float
 }
 
 // set in main(): sky time (seconds, wraps every hour) and the menu toggles
-highp float tmLand;
-highp float windWaves, trainOn, featBirds, featVillage;
+highp float tmLand = 0.0;
+highp float windWaves = 0.0, trainOn = 0.0, featBirds = 0.0, featVillage = 0.0;
 const highp float TAU = 6.2831853;
-highp float featAir, featFalls, featLake;
+highp float featAir = 0.0, featFalls = 0.0, featLake = 0.0;
 
 highp float wrapA(highp float x) {
     return atan(sin(x), cos(x));
@@ -473,7 +473,7 @@ highp float spires(highp float a) {
     return hh * pow(max(0.0, 1.0 - abs(f - (hash2(vec2(i, 3.0)) - 0.5) * 0.3) / w), 1.8);
 }
 
-highp float featPines;
+highp float featPines = 0.0;
 
 // tall pointed pine: a tiered triangle (zigzag edges), f = -1..1 across the tree
 highp float pineShape(highp float f, highp float H) {
@@ -829,7 +829,7 @@ highp vec4 waterfall(highp float a, highp float y, highp float h1, highp float h
 }
 
 // a far shower: a toon cumulonimbus base with slanted rain falling onto the hills, on some dry days
-highp float curtainA, curtainK;
+highp float curtainA = 0.0, curtainK = 0.0;
 
 highp vec4 showerCloud(highp float a, highp float y, highp float gold, highp float night) {
     if (curtainK < 0.01) {
@@ -891,7 +891,7 @@ highp float lakeTop(highp float a) {
 
 
 // ---------------------------------------------------------------- stage 4: Ghibli icons
-highp float featTree, featPoles, featMeadow, featTorii;
+highp float featTree = 0.0, featPoles = 0.0, featMeadow = 0.0, featTorii = 0.0;
 const highp float treeScale = 0.6;
 
 // a huge lone camphor-like tree on top of the big round hill: thick trunk, a cloud of round leafy masses, toon lit
@@ -1249,7 +1249,7 @@ const int F_RAYS3D = 65536;
 
 // cloud pass: ModelOffset.x = lightning flash (negative = only the far storm flashes, -2 more while a bolt shows),
 // ModelOffset.y = tower amount + 2 * (storm direction index * 41 + storm amount * 40), ModelOffset.z = tower seed
-highp float gFlash, gStormFlash, gBolt, gStorm, gTower;
+highp float gFlash = 0.0, gStormFlash = 0.0, gBolt = 0.0, gStorm = 0.0, gTower = 0.0;
 highp vec2 gStormDir;
 void decodeCloudPass() {
     highp float x = ModelOffset.x;

@@ -57,7 +57,7 @@ public final class SkySettings {
 	public static float aerialFade = 1.5F;
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static boolean blockyClouds = false;
-	public static String cloudMode = "painted";
+	public static String cloudMode = "3d_crumble";
 	public static int cloud3dDistance = 40;
 	public static int cloud3dCell = 8;
 	public static int cloud3dLevels = 3;
@@ -156,6 +156,7 @@ public final class SkySettings {
 		FLAGS.put("cloud_steady", true);
 		FLAGS.put("living_clouds", true);
 		FLAGS.put("horizon_bank", true);
+		FLAGS.put("cloud_weather", true);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);
@@ -324,6 +325,8 @@ public final class SkySettings {
 			}
 			blockyClouds = bool(o, "blocky_clouds", blockyClouds);
 			cloudMode = o.has("cloud_mode") ? o.get("cloud_mode").getAsString().toLowerCase(java.util.Locale.ROOT) : cloudMode;
+			// only the raymarched puff clouds are left: every older cloud mode now loads as them
+			cloudMode = "3d_crumble";
 			cloud3dDistance = Math.max(8, Math.min(96, (int) num(o, "cloud_3d_distance", cloud3dDistance)));
 			cloud3dCell = Math.max(2, Math.min(24, (int) num(o, "cloud_3d_cell", cloud3dCell)));
 			cloud3dLevels = Math.max(1, Math.min(8, (int) num(o, "cloud_3d_levels", cloud3dLevels)));

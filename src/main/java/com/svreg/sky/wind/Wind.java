@@ -18,9 +18,9 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1, locPuffSh = -1, locPuffTex = -1;
 	private static long skyNanos;
-	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra"};
+	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra", "PuffSh", "PuffTex"};
 	private static final java.util.Map<Integer, int[]> LOCS = new java.util.HashMap<>();
 	private static final java.util.Map<Integer, Long> LAST_UPLOAD = new java.util.HashMap<>();
 	/** test hook: paint the water-detection debug view */
@@ -191,6 +191,8 @@ public final class Wind {
 		locHeightTex = loc[13];
 		locWater = loc[14];
 		locExtra = loc[15];
+		locPuffSh = loc[16];
+		locPuffTex = loc[17];
 		if (locWind >= 0) {
 			float t = windTime();
 			GL20C.glUniform4f(locWind, t, SkySettings.windStrength, SkySettings.windSpeed, SkySettings.farGrassTint);
@@ -263,6 +265,19 @@ public final class Wind {
 				GL20C.glUniform4f(locShadow, 0, 0, 0, 0);
 			}
 		}
+		if (locPuffSh >= 0) {
+			// the puff clouds' own shadows (PuffShadow): uv offset of the camera in the map, cloud height above the camera
+			boolean puff = SkySettings.cloudCrumble() && SkySettings.paintedClouds && com.svreg.sky.sky.PuffShadow.bindTerrain();
+			if (puff) {
+				float cx = (float) (camX - com.svreg.sky.sky.RaymarchClouds.windX()), cz = (float) (camZ - com.svreg.sky.sky.RaymarchClouds.windZ());
+				float span = com.svreg.sky.sky.PuffShadow.N * com.svreg.sky.sky.PuffShadow.CELL;
+				GL20C.glUniform4f(locPuffSh, (cx - com.svreg.sky.sky.PuffShadow.originX()) / span, (cz - com.svreg.sky.sky.PuffShadow.originZ()) / span,
+						(float) (com.svreg.sky.sky.RaymarchClouds.bottomY() + 60.0 - camY), 1);
+				if (locPuffTex >= 0) GL20C.glUniform1i(locPuffTex, com.svreg.sky.sky.PuffShadow.UNIT);
+			} else {
+				GL20C.glUniform4f(locPuffSh, 0, 0, 0, 0);
+			}
+		}
 		if (locExtra >= 0) {
 			float snow = SkySettings.on("snow_cover") && SkySettings.on("seasons") ? com.svreg.sky.sky.Seasons.winter() : 0;
 			GL20C.glUniform4f(locExtra, snow, SkySettings.on("waterfall_foam") ? 1 : 0, com.svreg.sky.sky.CloudSea.packed(), com.svreg.sky.sky.Twilight.blueHour());
@@ -288,6 +303,8 @@ public final class Wind {
 			uniform vec4 svregsky_Wind; // time, strength, speed, far grass tint
 			uniform vec4 svregsky_Cam;  // camera position (x, z wrapped), w = cloud drift time
 			uniform vec4 svregsky_Sun;  // sun direction, cloud shadow strength
+			uniform vec4 svregsky_PuffSh; // puff cloud shadow map: camera uv offset (xy), cloud height above the camera, on
+			uniform sampler2D svregsky_PuffTex; // puff cloud cover seen from above (PuffShadow), 4 blocks per texel
 			uniform vec4 svregsky_Grade; // colour grading strength, morning mist strength, day, golden hour
 			out vec4 v_svMist;          // mist colour + amount, for the fragment shader
 			uniform vec4 svregsky_Player; // player feet relative to the camera, grass bend on/off
@@ -380,6 +397,13 @@ public final class Wind {
 			                      - vec2(0.943, 0.333) * svregsky_Cam.w;
 			            float svN = 0.65 * svNoise(svSp / 96.0) + 0.35 * svNoise(svSp / 41.0 + 7.3);
 			            float svShadow = smoothstep(0.56, 0.68, svN) * svregsky_Sun.w;
+			            if (svregsky_PuffSh.w > 0.5) {
+			                // the raymarched puff clouds cast these instead: their cover map, projected along the sun
+			                vec2 svQp = position.xz + svregsky_Sun.xz / max(svregsky_Sun.y, 0.25) * (svregsky_PuffSh.z - position.y);
+			                vec2 svUpP = svQp / 1024.0 + svregsky_PuffSh.xy;
+			                float svCv = (svUpP.x > 0.0 && svUpP.y > 0.0 && svUpP.x < 1.0 && svUpP.y < 1.0) ? textureLod(svregsky_PuffTex, svUpP, 0.0).r : 0.0;
+			                svShadow = smoothstep(0.15, 0.55, svCv) * svregsky_Sun.w * (1.0 - smoothstep(380.0, 500.0, length(svQp)));
+			            }
 			            _vert_color.rgb *= mix(vec3(1.0), vec3(0.74, 0.80, 0.94), svShadow);
 			        }
 			        if (svregsky_Wind.w > 0.0) {

@@ -14,7 +14,7 @@ public final class Presets {
 		boolean light = name.equals("light"), full = name.equals("full");
 		SkySettings.cirrusSky = true;
 		SkySettings.paintedClouds = true;
-		SkySettings.cloudMode = full ? "3d_ghibli" : "painted";
+		SkySettings.cloudMode = "3d_crumble";
 		SkySettings.cloudLayers = light ? 1 : full ? 3 : 2;
 		SkySettings.windLines = !light;
 		SkySettings.windLineAmount = full ? 1.5F : 1.0F;

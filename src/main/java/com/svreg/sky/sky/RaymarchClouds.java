@@ -55,6 +55,55 @@ public final class RaymarchClouds {
 	private static Vector3f prevCam;
 	private static boolean broken;
 	private static double windX, windZ, churn;
+	/** the puff clouds' weather (0 fair .. 1 storm): gathers before the rain, stays thick through it, breaks up after */
+	private static float storm;
+	private static float lastBottomY;
+
+	/** weather-driven cloud state for other effects */
+	public static float storm() {
+		return storm;
+	}
+
+	public static double windX() {
+		return windX;
+	}
+
+	public static double windZ() {
+		return windZ;
+	}
+
+	public static float bottomY() {
+		return lastBottomY;
+	}
+
+	/** follows the weather: the single-player rain timer lets the clouds gather in the last three minutes before the rain */
+	private static void updateStorm(Minecraft mc, double dt) {
+		float target = CirrusSky.rainLevel();
+		if (mc.level != null) {
+			target = Math.max(target, mc.level.getThunderLevel(1.0F));
+		}
+		try {
+			if (mc.getSingleplayerServer() != null) {
+				net.minecraft.server.level.ServerLevel ow = mc.getSingleplayerServer().overworld();
+				net.minecraft.world.level.saveddata.WeatherData w = ow != null ? ow.getWeatherData() : null;
+				int until = w == null ? 0 : (w.getClearWeatherTime() > 0 ? w.getClearWeatherTime() : w.getRainTime());
+				if (w != null && !w.isRaining() && until > 0 && until < 3600) {
+					float t = 1 - until / 3600F;
+					target = Math.max(target, 0.75F * t * t * (3 - 2 * t));
+				}
+			}
+		} catch (Throwable ignored) {
+			// weather timer not reachable: the clouds just follow the rain itself
+		}
+		if (!SkySettings.on("cloud_weather")) {
+			target = 0;
+		}
+		// gather over ~20 s, break up slowly (~90 s) once the rain is over
+		float rate = target > storm ? 0.05F : 0.011F;
+		storm += (target - storm) * (float) Math.min(1, dt * rate * 4);
+		storm = Math.max(0, Math.min(1, storm));
+	}
+
 	private static long lastNanos;
 	private static int logs;
 
@@ -223,11 +272,16 @@ public final class RaymarchClouds {
 			Matrix4f params = CirrusSky.skyParams();
 			// living clouds: small morning puffs, full at noon, towers in the afternoon, thinning into the night
 			float[] life = lifeCycle(mc);
-			params.m03(LAYER * life[1]);
+			updateStorm(mc, dt);
+			lastBottomY = bottomY;
+			// stormy: more and taller cloud, and the palette greys before the rain starts
+			params.m03(LAYER * life[1] * (1 + 0.25F * storm));
+			params.m13(Math.max(params.m13(), 0.7F * storm));
 			params.m20(hzAway[0]);
 			params.m21(hzAway[1]);
 			params.m22(hzAway[2]);
-			params.m23(Math.max(0.25F, Math.min(2.5F, SkySettings.ghibliAmount * life[0])));
+			float amt = Math.max(0.25F, Math.min(2.5F, SkySettings.ghibliAmount * life[0] * (1 + 1.1F * storm)));
+			params.m23(amt);
 			params.m30(hzSun[0]);
 			params.m32(hzSun[1]);
 			params.m33(hzSun[2]);
@@ -243,6 +297,9 @@ public final class RaymarchClouds {
 			params.m31(bits * 10000 + Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
+			if (SkySettings.cloudCrumble()) {
+				PuffShadow.update(camCloud.x, camCloud.z, amt);
+			}
 			Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 			// x: the buffer height (the puff mode sizes its detail by how many blocks one cloud pixel covers)
 			// z: step budget + aerial fade strength / 4 in the fraction (0..2 -> 0..0.5)

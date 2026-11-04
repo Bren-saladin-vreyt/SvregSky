@@ -114,6 +114,27 @@ public final class CirrusSky {
 
 	/** which grid columns hold 3D Ghibli cloud, as a 256 x 256 texture for the light rays */
 	private static AbstractTexture footprint(AbstractTexture fallback) {
+		if (SkySettings.cloudCrumble() && PuffShadow.ready()) {
+			// the puff clouds: their cover map (cores only), same 256 x 256 layout as the 3D Ghibli footprint
+			int v = -1000 - PuffShadow.version();
+			if (v != footVersion) {
+				byte[] c = PuffShadow.cover();
+				com.mojang.blaze3d.platform.NativeImage img = new com.mojang.blaze3d.platform.NativeImage(PuffShadow.N, PuffShadow.N, false);
+				for (int z = 0; z < PuffShadow.N; z++) {
+					for (int x = 0; x < PuffShadow.N; x++) {
+						img.setPixel(x, z, (c[x + z * PuffShadow.N] & 255) > 110 ? 0xFFFFFFFF : 0xFF000000);
+					}
+				}
+				if (footTex == null) {
+					footTex = new net.minecraft.client.renderer.texture.DynamicTexture(() -> "SvregSky cloud footprint", img);
+				} else {
+					footTex.setPixels(img);
+					footTex.upload();
+				}
+				footVersion = v;
+			}
+			return footTex;
+		}
 		if (!SkySettings.cloudGhibli()) {
 			return footTex != null ? footTex : fallback;
 		}
@@ -433,6 +454,9 @@ public final class CirrusSky {
 			if (!SkySettings.ghibliMix()) f |= 32768; // the 3D clouds replace the painted cumulus (the mix keeps the far painted layers)
 			if (SkySettings.on("light_rays") && GhibliClouds.gridVersion() > 0) f |= 65536;
 		}
+		if (SkySettings.cloudCrumble() && SkySettings.cloudGodRays && PuffShadow.ready()) {
+			f |= 65536; // light shafts through the gaps between the puff clouds
+		}
 		draw(cloudPipeline, f, 1.0F, "SvregSky clouds");
 	}
 
@@ -456,6 +480,12 @@ public final class CirrusSky {
 				rayX = (float) (((eye.x - GhibliClouds.windX()) / GhibliClouds.CELL) % GhibliClouds.NX);
 				rayZ = (float) (((eye.z - GhibliClouds.windZ()) / GhibliClouds.CELL) % GhibliClouds.NZ);
 				slotC = (float) (GhibliClouds.baseY() - eye.y);
+			} else if (mode > 0.5F && SkySettings.cloudCrumble() && PuffShadow.ready() && mc.player != null) {
+				// the puff clouds' cover map: camera in its texels (4 blocks each), cloud base above the camera
+				net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+				rayX = (float) ((eye.x - RaymarchClouds.windX() - PuffShadow.originX()) / PuffShadow.CELL);
+				rayZ = (float) ((eye.z - RaymarchClouds.windZ() - PuffShadow.originZ()) / PuffShadow.CELL);
+				slotC = (float) (RaymarchClouds.bottomY() + 30.0 - eye.y);
 			}
 			Matrix4f params = new Matrix4f(
 					sunDir.x, sunDir.y, sunDir.z, time,

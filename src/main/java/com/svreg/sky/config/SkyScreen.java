@@ -83,7 +83,6 @@ public class SkyScreen extends OptionsSubScreen {
 		if (this.list == null) {
 			return;
 		}
-		String mode = !SkySettings.paintedClouds ? "off" : SkySettings.cloudRaymarch() ? (SkySettings.cloudCrumble() ? "3d_crumble" : "3d_raymarch") : SkySettings.ghibliMix() ? "3d_ghibli_mix" : SkySettings.cloudGhibli() ? "3d_ghibli" : SkySettings.cloud3dFull() ? "3d_full" : SkySettings.cloud3d() ? "3d" : "painted";
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.presets"));
 		this.list.addSmall(
@@ -145,42 +144,23 @@ public class SkyScreen extends OptionsSubScreen {
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.clouds"));
 		this.list.addSmall(
-				choice("cloud_mode", List.of("painted", "3d_ghibli", "3d_ghibli_mix", "3d_raymarch", "3d_crumble", "3d", "3d_full", "off"), mode, v -> {
-					SkySettings.cloudMode = v.equals("off") ? "painted" : v;
+				choice("cloud_mode", List.of("3d_crumble", "off"), SkySettings.paintedClouds ? "3d_crumble" : "off", v -> {
+					SkySettings.cloudMode = "3d_crumble";
 					SkySettings.paintedClouds = !v.equals("off");
 					SkySettings.version++;
 				}),
-				slider("cloud_layers", 1, 3, SkySettings.cloudLayers, v -> String.valueOf(v), v -> SkySettings.cloudLayers = v),
-				slider("cloud_coverage", -20, 20, Math.round(SkySettings.cloudCoverage * 100), v -> (v > 0 ? "+" : "") + v, v -> {
-					SkySettings.cloudCoverage = v / 100F;
-				}),
-				percent("cloud_speed", 300, SkySettings.cloudSpeed, v -> SkySettings.cloudSpeed = v),
-				choice("ghibli_style", List.of("anime", "auto", "fair", "cumulus", "towers", "streets", "sheep", "storm", "castle", "mixed"), SkySettings.ghibliStyle, v -> {
-					SkySettings.ghibliStyle = v;
-				}),
-				choice("ghibli_detail", List.of("4", "lod", "2"), SkySettings.ghibliCell == 0 ? "lod" : String.valueOf(SkySettings.ghibliCell), v -> {
-					SkySettings.ghibliCell = v.equals("lod") ? 0 : Integer.parseInt(v);
-				}),
-				flag("cloud_merge"),
-				flag("cloud_steady"),
-				flag("living_clouds"),
-				flag("horizon_bank"),
-				slider("aerial_fade", 0, 200, Math.round(SkySettings.aerialFade * 100), v -> v + "%", v -> SkySettings.aerialFade = v / 100F),
 				choice("raymarch_scale", List.of("2", "3", "4", "6", "8"), String.valueOf(SkySettings.raymarchScale), v -> SkySettings.raymarchScale = Integer.parseInt(v)),
 				slider("ghibli_amount", 25, 250, Math.round(SkySettings.ghibliAmount * 100), v -> v + "%", v -> SkySettings.ghibliAmount = v / 100F),
-				slider("ghibli_size", 50, 200, Math.round(SkySettings.ghibliSize * 100), v -> v + "%", v -> SkySettings.ghibliSize = v / 100F),
+				percent("cloud_speed", 300, SkySettings.cloudSpeed, v -> SkySettings.cloudSpeed = v),
 				slider("cloud_3d_distance", 8, 96, SkySettings.cloud3dDistance, v -> String.valueOf(v), v -> {
 					SkySettings.cloud3dDistance = v;
 					SkySettings.version++;
 				}),
-				slider("cloud_3d_cell", 3, 16, SkySettings.cloud3dCell, v -> v + "m", v -> {
-					SkySettings.cloud3dCell = v;
-					SkySettings.version++;
-				}),
-				slider("cloud_3d_levels", 1, 6, SkySettings.cloud3dLevels, v -> String.valueOf(v), v -> {
-					SkySettings.cloud3dLevels = v;
-					SkySettings.version++;
-				}));
+				flag("cloud_steady"),
+				flag("living_clouds"),
+				flag("cloud_weather"),
+				flag("horizon_bank"),
+				slider("aerial_fade", 0, 200, Math.round(SkySettings.aerialFade * 100), v -> v + "%", v -> SkySettings.aerialFade = v / 100F));
 
 		this.list.addSmall(
 				bool("cloud_god_rays", SkySettings.cloudGodRays, v -> SkySettings.cloudGodRays = v),
