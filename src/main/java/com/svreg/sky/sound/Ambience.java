@@ -156,8 +156,10 @@ public final class Ambience {
 			frogs = drive(frogs, FROGS, pv * smooth(0.4F, 0.9F, night) * forestNear * (1 - rain) * 0.4F);
 			float high = smooth(110, 150, (float) player.getY());
 			mountain = drive(mountain, MOUNTAIN, pv * open * high * 0.5F);
-			rainSoft = drive(rainSoft, RAIN_SOFT, wv * rain * open * 0.5F);
-			rainRoof = drive(rainRoof, RAIN_ROOF, wv * rain * roofed * 0.55F);
+			// inside a house (cozy home): the rain drums on the roof, and the rain outside is heard softly through the walls
+			float in = com.svreg.sky.look.Cozy.indoor();
+			rainSoft = drive(rainSoft, RAIN_SOFT, wv * rain * Math.max(open, in * 0.22F) * 0.5F);
+			rainRoof = drive(rainRoof, RAIN_ROOF, wv * rain * Math.max(roofed, in) * (0.55F + 0.2F * in));
 			float rv = SkySettings.on("leaf_rustle") ? vol : 0;
 			rustle = drive(rustle, RUSTLE, rv * com.svreg.sky.fx.Nature.leafiness() * Math.min(SkySettings.windStrength, 2) * 0.3F * (outdoors ? 1 : 0.35F));
 

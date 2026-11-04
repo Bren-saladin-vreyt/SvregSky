@@ -221,6 +221,7 @@ public class SkyScreen extends OptionsSubScreen {
 		this.list.addSmall(
 				flag("film_tone"),
 				flag("cartoon_outline"),
+				flag("cozy_home"),
 				flag("warm_lamps"),
 				flag("window_glow"),
 				flag("gentle_bob"),

@@ -173,6 +173,39 @@ void main() {
             }
         }
     }
+    highp float mist = TextureMat[3].w;
+    if (mist > 0.0) {
+        // cozy home in the rain: the edges of the view mist up like a window, with a few drops running down
+        // that clear little trails through the mist
+        highp vec2 q = uv - 0.5;
+        highp float edge = smoothstep(0.28, 0.62, length(q * vec2(1.0, 1.25)));
+        highp vec2 b = gl_FragCoord.xy / 120.0;
+        highp vec2 i = floor(b), f = fract(b);
+        f = f * f * (3.0 - 2.0 * f);
+        highp float h00 = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453), h10 = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5453);
+        highp float h01 = fract(sin(dot(i + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5453), h11 = fract(sin(dot(i + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5453);
+        highp float blot = mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+        highp float ma = mist * edge * (0.38 + 0.25 * blot);
+        // drops: one per 18-pixel column now and then, sliding down; the trail above a drop is clear
+        highp float colI = floor(gl_FragCoord.x / 18.0);
+        highp float hc = fract(sin(colI * 91.7) * 43758.5453);
+        highp float trail = 0.0, drop = 0.0;
+        if (hc > 0.72) {
+            highp float speed = 0.05 + 0.08 * fract(hc * 17.3);
+            highp float yDrop = 1.0 - fract(TextureMat[3].z * speed + hc * 5.0);
+            highp float dx = abs(fract(gl_FragCoord.x / 18.0) - 0.5);
+            highp float above = uv.y - yDrop;
+            trail = step(dx, 0.10) * step(0.0, above) * (1.0 - smoothstep(0.0, 0.25, above));
+            highp float dd = length(vec2(dx * 18.0, (uv.y - yDrop) * 900.0 / 1.5));
+            drop = 1.0 - smoothstep(2.0, 3.5, dd);
+        }
+        ma *= 1.0 - 0.8 * trail;
+        col = mix(col, vec3(0.86, 0.89, 0.93), ma / max(a + ma, 1e-4));
+        a = 1.0 - (1.0 - a) * (1.0 - ma);
+        highp float da = drop * mist * edge * 0.6;
+        col = mix(col, vec3(0.97, 0.98, 1.0), da / max(a + da, 1e-4));
+        a = 1.0 - (1.0 - a) * (1.0 - da);
+    }
     highp float paper = TextureMat[1].w;
     if (paper > 0.0) {
         // watercolour paper: soft fibrous grain and faint blotches that stay put on screen

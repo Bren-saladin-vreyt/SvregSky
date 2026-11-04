@@ -188,7 +188,10 @@ public final class PostLook {
 		float shadowK = SkySettings.on("screen_shadows") && !"world".equals(SkySettings.shadowMethod) && sunW.y > 0.04F ? SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel()) : 0;
 		boolean shDebug = SkySettings.on("screen_shadows") && SkySettings.on("shadow_debug") && "screen".equals(SkySettings.shadowMethod);
 		float rainK = rainOnLens();
-		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0)) {
+		// cozy home: misted window edges while it rains outside, warm indoor light and firelight
+		float mist = Cozy.mist(), cozyIn = Cozy.indoor(), cozyFire = Cozy.fire();
+		boolean cozy = mist > 0.01F || cozyIn > 0.01F || cozyFire > 0.01F;
+		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy)) {
 			return;
 		}
 		try {
@@ -213,6 +216,17 @@ public final class PostLook {
 					a = a + k;
 				}
 			}
+			if (cozy) {
+				// indoors a soft warm grade (stronger at night and in the rain); near a fire a flickering amber glow
+				float warmIn = cozyIn * (0.04F + 0.05F * Math.max(night, CirrusSky.rainLevel()));
+				float warmFire = cozyFire * 0.10F * Cozy.flicker() * (0.5F + 0.5F * Math.max(night, cozyIn));
+				float k = warmIn + warmFire;
+				if (k > 0.001F) {
+					float wr = 1.0F, wg = 0.70F, wb = 0.38F;
+					r = (r * a + wr * k) / (a + k); g = (g * a + wg * k) / (a + k); bl = (bl * a + wb * k) / (a + k);
+					a = a + k;
+				}
+			}
 			// shadow quality: march steps, reach in blocks, step growth
 			float shSteps = 16, shRange = 64, shGrow = 1.25F;
 			switch (SkySettings.shadowQuality) {
@@ -226,7 +240,7 @@ public final class PostLook {
 					r, g, bl, a,
 					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, paper ? 1 : 0,
 					shSteps, shRange, shGrow, shColor,
-					shDebug ? 1 : 0, rainK, (float) ((System.nanoTime() / 1e9) % 3600.0), 0);
+					shDebug ? 1 : 0, rainK, (float) ((System.nanoTime() / 1e9) % 3600.0), mist);
 			// the sun in view space (the model-view here is the camera rotation)
 			Vector3f sunView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).transformDirection(new Vector3f(sunW)).normalize();
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(sunView.x, sunView.y, sunView.z, shadowK), new Vector3f(), params);
@@ -238,7 +252,7 @@ public final class PostLook {
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
 			}
-			if (!tone && !outline && !paper && shadowK <= 0 && !shDebug && rainK <= 0) {
+			if (!tone && !outline && !paper && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy) {
 				return;
 			}
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
