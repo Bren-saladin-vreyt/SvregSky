@@ -55,6 +55,7 @@ public final class RaymarchClouds {
 	private static Vector3f prevCam;
 	private static boolean broken;
 	private static double windX, windZ, churn;
+	private static final com.svreg.sky.look.Twos.Clock TWOS = new com.svreg.sky.look.Twos.Clock();
 	/** the puff clouds' weather (0 fair .. 1 storm): gathers before the rain, stays thick through it, breaks up after */
 	private static float storm;
 	private static float lastBottomY;
@@ -242,6 +243,7 @@ public final class RaymarchClouds {
 			long now = System.nanoTime();
 			double dt = lastNanos == 0 ? 0 : Math.min(0.25, (now - lastNanos) / 1e9);
 			lastNanos = now;
+			dt = TWOS.tick(dt); // on twos: the clouds drift and churn in 12 steps a second
 			double speed = 1.6 * com.svreg.sky.wind.WindState.cloudSpeed(); // the living wind drifts them faster in a gust
 			windX = (windX + dt * speed) % 100000.0;
 			windZ = (windZ + dt * speed * 0.33) % 100000.0;

@@ -30,9 +30,9 @@ import java.util.OptionalDouble;
 /** Screen look over the world: time-of-day film tint, a soft vignette, and (optional) thin cartoon outlines from depth edges. */
 public final class PostLook {
 	private static final Identifier SHADER = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/cirrus_post");
-	private static RenderPipeline pipeline, copyPipeline, glowPipeline, paintPipeline;
+	private static RenderPipeline pipeline, copyPipeline, glowPipeline, paintPipeline, animePipeline;
 	private static GpuBuffer quad;
-	private static boolean broken, glowBroken, paintBroken, logged;
+	private static boolean broken, glowBroken, paintBroken, animeBroken, logged;
 	private static com.mojang.blaze3d.textures.GpuTexture sceneTex;
 	private static com.mojang.blaze3d.textures.GpuTextureView sceneView;
 
@@ -219,6 +219,51 @@ public final class PostLook {
 		}
 	}
 
+	/** anime look over a copy of the scene: coloured shadows, dream glow, colour-edge outline (colour only, phone-safe) */
+	private static void anime(RenderTarget main, AbstractTexture any, boolean shadows, boolean outline, boolean dream) {
+		if (animeBroken) {
+			return;
+		}
+		try {
+			if (animePipeline == null) {
+				animePipeline = simple("cirrus_anime", ColorTargetState.DEFAULT, BindGroupLayouts.SAMPLER0);
+			}
+			// shadow colour by the time of day: sky blue by day, violet at golden hour, deep blue at night
+			float day = CirrusSky.dayLevel(), gold = CirrusSky.goldLevel(), night = CirrusSky.nightLevel();
+			float sum = Math.max(1e-3F, day + gold + night);
+			float tr = (0.80F * day + 0.94F * gold + 0.70F * night) / sum;
+			float tg = (0.88F * day + 0.78F * gold + 0.80F * night) / sum;
+			float tb = (1.18F * day + 1.16F * gold + 1.26F * night) / sum;
+			float[] lc = switch (SkySettings.outlineColor) {
+				case "black" -> new float[]{0.06F, 0.05F, 0.07F};
+				case "brown" -> new float[]{0.24F, 0.15F, 0.10F};
+				case "navy" -> new float[]{0.10F, 0.12F, 0.26F};
+				default -> null;
+			};
+			float time = (float) ((System.nanoTime() / 1e9) % 3600.0);
+			Matrix4f params = new Matrix4f(
+					tr, tg, tb, shadows ? SkySettings.animeShadow : 0,
+					outline ? Math.max(1, Math.min(3, SkySettings.outlineWidth)) : 0, SkySettings.outlineStrength, SkySettings.on("outline_boil") ? 1 : 0, lc != null ? 1 : 0,
+					dream ? SkySettings.dreamGlow : 0, time, 0, 0,
+					lc != null ? lc[0] : 0, lc != null ? lc[1] : 0, lc != null ? lc[2] : 0, 0);
+			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(1, 1, 1, 1), new Vector3f(), params);
+			copyScene(main, any, transforms);
+			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
+			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky anime look", main.getColorTextureView(), Optional.empty(), null, OptionalDouble.empty())) {
+				pass.setPipeline(animePipeline);
+				RenderSystem.bindDefaultUniforms(pass);
+				pass.setUniform("DynamicTransforms", transforms);
+				pass.bindTexture("Sampler0", sceneView, RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR));
+				pass.setVertexBuffer(0, quad.slice());
+				pass.setIndexBuffer(indices.getBuffer(6), indices.type());
+				pass.drawIndexed(6, 1, 0, 0, 0);
+			}
+		} catch (Throwable t) {
+			animeBroken = true;
+			SvregSky.LOG.error("SvregSky: anime look failed, turning it off", t);
+		}
+	}
+
 	/** raindrops on the "lens": out in the rain under open sky, not when looking down at your feet */
 	private static float rainOnLens() {
 		if (!SkySettings.on("rain_drops")) {
@@ -248,7 +293,9 @@ public final class PostLook {
 		float mist = Cozy.mist(), cozyIn = Cozy.indoor(), cozyFire = Cozy.fire();
 		boolean cozy = mist > 0.01F || cozyIn > 0.01F || cozyFire > 0.01F;
 		boolean painterly = SkySettings.on("painterly");
-		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy && !painterly)) {
+		boolean animeSh = SkySettings.on("colored_shadows"), animeOl = SkySettings.on("anime_outline"), dream = SkySettings.on("dream_glow");
+		boolean animeAny = animeSh || animeOl || dream;
+		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy && !painterly && !animeAny)) {
 			return;
 		}
 		try {
@@ -297,7 +344,7 @@ public final class PostLook {
 					r, g, bl, a,
 					tone ? 0.32F : 0, outline ? 0.65F : 0, 0.0012F, paper ? 1 : 0,
 					shSteps, shRange, shGrow, shColor,
-					shDebug ? 1 : 0, rainK, (float) ((System.nanoTime() / 1e9) % 3600.0), mist);
+					shDebug ? 1 : 0, rainK, (float) Twos.step((System.nanoTime() / 1e9) % 3600.0), mist);
 			// the sun in view space (the model-view here is the camera rotation)
 			Vector3f sunView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).transformDirection(new Vector3f(sunW)).normalize();
 			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(sunView.x, sunView.y, sunView.z, shadowK), new Vector3f(), params);
@@ -308,6 +355,9 @@ public final class PostLook {
 			AbstractTexture any = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
 			if (painterly) {
 				paint(main, any, Math.max(0.1F, Math.min(1, SkySettings.painterlyStrength)));
+			}
+			if (animeAny) {
+				anime(main, any, animeSh, animeOl, dream);
 			}
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);

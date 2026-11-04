@@ -228,6 +228,26 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, 10, "zc2_painterly_noon");
 			shot(context, sp, 12300, 90, 8, "zc3_painterly_sunset");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("painterly", false));
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("colored_shadows", true);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("anime_outline", true);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("dream_glow", true);
+			});
+			shot(context, sp, 6000, 0, 10, "zc4_anime_look_noon");
+			shot(context, sp, 12300, 90, 8, "zc5_anime_look_sunset");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("colored_shadows", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("anime_outline", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("dream_glow", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", true);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("painted_grass", true);
+			});
+			shot(context, sp, 6000, 0, 10, "zc6_haze_painted_grass");
+			shot(context, sp, 6000, 0, 40, "zc7_painted_grass_down");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("painted_grass", false);
+			});
 			sp.getServer().runCommand("time add 384000"); // 16 days later: autumn
 			look(context, 0, -5, "zd_autumn");
 			sp.getServer().runCommand("time add 192000"); // winter

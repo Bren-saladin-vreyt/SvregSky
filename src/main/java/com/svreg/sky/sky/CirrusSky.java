@@ -53,6 +53,7 @@ public final class CirrusSky {
 	private static long lastDrawNanos;
 	private static long lastFrameNanos;
 	private static final long START = System.nanoTime();
+	private static final com.svreg.sky.look.Twos.Clock TWOS = new com.svreg.sky.look.Twos.Clock();
 	private static double windX, windZ;
 
 	// last frame's sky factors (also used for the fog colour)
@@ -306,6 +307,7 @@ public final class CirrusSky {
 		long now = System.nanoTime();
 		double dt = lastFrameNanos == 0 ? 0 : Math.min(0.25, (now - lastFrameNanos) / 1e9);
 		lastFrameNanos = now;
+		dt = TWOS.tick(dt);
 		double speed = 0.02 * SkySettings.cloudSpeed;
 		windX = (windX + dt * speed) % 40.0;
 		windZ = (windZ + dt * speed * 0.33) % 40.0;
@@ -313,7 +315,7 @@ public final class CirrusSky {
 
 	/** sky colour parameters for other Cirrus shaders (3D clouds): same layout as the sky shader's TextureMat */
 	public static Matrix4f skyParams() {
-		float time = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
+		float time = (float) com.svreg.sky.look.Twos.step(((System.nanoTime() - START) / 1e9) % 3600.0);
 		return new Matrix4f(
 				sunDir.x, sunDir.y, sunDir.z, time,
 				day, gold, night, rain,
@@ -471,7 +473,7 @@ public final class CirrusSky {
 			}
 			float offX = (float) (((windX + px) % 40.0 + 40.0) % 40.0);
 			float offZ = (float) (((windZ + pz) % 40.0 + 40.0) % 40.0);
-			float time = (float) (((System.nanoTime() - START) / 1e9) % 3600.0);
+			float time = (float) com.svreg.sky.look.Twos.step(((System.nanoTime() - START) / 1e9) % 3600.0);
 
 			float slotC = SkySettings.shootingStarPeriod;
 			float rayX = SkySettings.aurora, rayZ = SkySettings.milkyWay; // the cloud pass carries the light-ray offset in these sky-only slots

@@ -18,9 +18,9 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1, locPuffSh = -1, locPuffTex = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1, locPuffSh = -1, locPuffTex = -1, locAnime = -1;
 	private static long skyNanos;
-	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra", "PuffSh", "PuffTex"};
+	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra", "PuffSh", "PuffTex", "Anime"};
 	private static final java.util.Map<Integer, int[]> LOCS = new java.util.HashMap<>();
 	private static final java.util.Map<Integer, Long> LAST_UPLOAD = new java.util.HashMap<>();
 	/** test hook: paint the water-detection debug view */
@@ -138,17 +138,18 @@ public final class Wind {
 	 * so they all complete whole turns in one period and the wrap is seamless.
 	 */
 	public static float windTime() {
-		return (float) (((System.nanoTime() - START) / 1e9) % 628.3185307179586);
+		return (float) com.svreg.sky.look.Twos.step(((System.nanoTime() - START) / 1e9) % 628.3185307179586);
 	}
 
 	/** the wind phase (time x wind speed), wrapped the same way */
 	public static float windPhase() {
-		windPhaseAcc = (windPhaseAcc + Math.max(0, (System.nanoTime() - lastPhaseNanos) / 1e9) * WindState.speed()) % 628.3185307179586;
+		windPhaseAcc = (windPhaseAcc + PHASE_CLOCK.tick(Math.max(0, (System.nanoTime() - lastPhaseNanos) / 1e9)) * WindState.speed()) % 628.3185307179586;
 		lastPhaseNanos = System.nanoTime();
 		return (float) windPhaseAcc;
 	}
 
 	private static double windPhaseAcc;
+	private static final com.svreg.sky.look.Twos.Clock PHASE_CLOCK = new com.svreg.sky.look.Twos.Clock();
 	private static long lastPhaseNanos = System.nanoTime();
 
 	public static boolean enabled() {
@@ -196,11 +197,12 @@ public final class Wind {
 		locExtra = loc[15];
 		locPuffSh = loc[16];
 		locPuffTex = loc[17];
+		locAnime = loc[18];
 		if (locWind >= 0) {
 			float t = windTime();
 			GL20C.glUniform4f(locWind, t, WindState.strength(), WindState.speed(), SkySettings.farGrassTint);
 		}
-		float drift = (float) (((System.nanoTime() - START) / 1e9 * 1.6 * SkySettings.cloudSpeed) % 4096.0);
+		float drift = (float) ((com.svreg.sky.look.Twos.step((System.nanoTime() - START) / 1e9) * 1.6 * SkySettings.cloudSpeed) % 4096.0);
 		if (locCam >= 0) {
 			GL20C.glUniform4f(locCam, (float) (camX % 4096.0), (float) camY, (float) (camZ % 4096.0), drift);
 		}
@@ -209,6 +211,10 @@ public final class Wind {
 			float k = SkySettings.cloudShadows * Math.min(1, com.svreg.sky.sky.CirrusSky.dayLevel() * 1.5F) * (1 - com.svreg.sky.sky.CirrusSky.rainLevel())
 					* (SkySettings.paintedClouds || SkySettings.cloud3d() ? 1 : 0) * (sun.y > 0.05F ? 1 : 0);
 			GL20C.glUniform4f(locSun, sun.x, sun.y, sun.z, k);
+		}
+		if (locAnime >= 0) {
+			// anime land: layered distance haze strength, painted grass strength, haze layer depth (blocks)
+			GL20C.glUniform4f(locAnime, SkySettings.on("layered_haze") ? SkySettings.layeredHaze : 0, SkySettings.on("painted_grass") ? 0.75F : 0, 56, 0);
 		}
 		if (locPlayer >= 0) {
 			GL20C.glUniform4f(locPlayer, (float) (pX - camX), (float) (pY - camY), (float) (pZ - camZ), SkySettings.on("grass_bend") ? 1 + Math.max(0, Math.min(1, pRun)) : 0);
@@ -515,6 +521,7 @@ public final class Wind {
 			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g; b plants; a = water depth << 4 | shore distance
 			uniform vec4 svregsky_Water;   // anime water, shore waves, column map ready, underwater light patterns
 			uniform vec4 svregsky_Extra;   // winter snow amount, flowing-water foam on/off, cloud sea level (+ amount as fraction), time
+			uniform vec4 svregsky_Anime;   // layered haze strength, painted grass strength, haze layer depth, unused
 			// signed distance to the shoreline (blocks, + in the water) and water depth at a grid position, smoothly interpolated
 			vec2 svShore(vec2 g) {
 			    vec2 gp = g - 0.5;
@@ -541,6 +548,58 @@ public final class Wind {
 			    f = f * f * (3.0 - 2.0 * f);
 			    return mix(mix(svHash(i), svHash(i + vec2(1.0, 0.0)), f.x), mix(svHash(i + vec2(0.0, 1.0)), svHash(i + vec2(1.0, 1.0)), f.x), f.y);
 			}
+			#endif
+			""";
+
+	private static final String FRAG_GRASS = """
+			#ifndef VULKAN
+			    if (svregsky_Anime.y > 0.0 && v_svWater.w < 0.5 && v_svInfo.w < 0.5) {
+			        // painted grass: the noisy grass-top texture becomes flat brush clumps in three greens, with soft
+			        // strokes along the wind and a few little flowers near the player
+			        vec3 svVc = v_Color.rgb;
+			        vec3 svNg = normalize(cross(dFdx(v_svWater.xyz), dFdy(v_svWater.xyz)));
+			        if (abs(svNg.y) > 0.7 && svVc.g > svVc.r * 1.08 && svVc.g > svVc.b * 1.12) {
+			            vec3 svWpG = v_svWater.xyz + svregsky_Cam.xyz;
+			            float svDg = length(v_svWater.xyz);
+			            float svNc = svNoise2(svWpG.xz * 0.45) * 0.6 + svNoise2(svWpG.xz * 1.3 + 5.1) * 0.4;
+			            float svTone = mix(0.86, 1.0, smoothstep(0.38, 0.46, svNc));
+			            svTone = mix(svTone, 1.10, smoothstep(0.60, 0.68, svNc));
+			            vec3 svFlat = svVc * 0.60 * svTone * mix(vec3(1.0), vec3(1.03, 1.04, 0.92), smoothstep(1.0, 1.08, svTone));
+			            float svStroke = svNoise2(vec2(dot(svWpG.xz, vec2(0.943, 0.333)) * 0.7, dot(svWpG.xz, vec2(-0.333, 0.943)) * 5.0));
+			            svFlat *= 0.96 + 0.08 * svStroke;
+			            color.rgb = mix(color.rgb, svFlat, svregsky_Anime.y);
+			            if (svDg < 26.0) {
+			                vec2 svCell = floor(svWpG.xz * 3.0);
+			                float svFh = svHash(svCell + 17.3);
+			                vec2 svFf = fract(svWpG.xz * 3.0) - 0.5;
+			                if (svFh > 0.984 && length(svFf) < 0.22) {
+			                    float svPick = fract(svFh * 61.7);
+			                    vec3 svPetal = svPick < 0.35 ? vec3(1.0, 0.98, 0.92) : (svPick < 0.6 ? vec3(1.0, 0.86, 0.35) : (svPick < 0.82 ? vec3(1.0, 0.70, 0.80) : vec3(0.78, 0.70, 1.0)));
+			                    float svLitP = clamp(dot(svVc, vec3(0.30, 0.59, 0.11)) * 1.9, 0.15, 1.1);
+			                    color.rgb = mix(color.rgb, svPetal * svLitP, (1.0 - smoothstep(18.0, 26.0, svDg)) * 0.9);
+			                }
+			            }
+			        }
+			    }
+			#endif
+			""";
+
+	private static final String FRAG_HAZE = """
+			#ifndef VULKAN
+			    if (svregsky_Anime.x > 0.0) {
+			        // layered distance haze: far land fades toward the sky in a few flat steps, like the stacked
+			        // painted backgrounds of an anime landscape (each layer a bit paler and bluer)
+			        float svDh = length(v_svWater.xyz);
+			        vec3 svWpH = v_svWater.xyz + svregsky_Cam.xyz;
+			        float svTl = max(svDh - 32.0, 0.0) / svregsky_Anime.z + (svNoise2(svWpH.xz * 0.02) - 0.5) * 0.5;
+			        float svSteps = max(floor(svTl) + smoothstep(0.78, 1.0, fract(svTl)), 0.0);
+			        float svAmt = (1.0 - pow(0.78, svSteps)) * svregsky_Anime.x;
+			        vec2 svHd = normalize(v_svWater.xz + 1e-4);
+			        float svToSun = dot(svHd, normalize(svregsky_Sun.xz + 1e-4)) * 0.5 + 0.5;
+			        vec3 svHz = mix(svregsky_SkyB.rgb, svregsky_SkyA.rgb, svToSun * svToSun);
+			        svHz = mix(svHz, svregsky_SkyC.rgb, 0.25);
+			        color.rgb = mix(color.rgb, svHz, clamp(svAmt, 0.0, 0.85));
+			    }
 			#endif
 			""";
 
@@ -869,7 +928,7 @@ public final class Wind {
 			return src;
 		}
 		int end = at + anchor.length();
-		return src.substring(0, main) + FRAG_DECL + src.substring(main, end) + "\n" + FRAG_CODE
+		return src.substring(0, main) + FRAG_DECL + src.substring(main, end) + "\n" + FRAG_GRASS + FRAG_CODE + FRAG_HAZE
 				+ "\n#ifndef VULKAN\n    color.rgb = mix(color.rgb, v_svMist.rgb, v_svMist.a);\n#endif" + src.substring(end);
 	}
 }

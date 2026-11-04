@@ -43,6 +43,7 @@ public final class WindLines {
 	private static boolean broken;
 	private static final Random RNG = new Random();
 	private static final Line[] LINES = new Line[MAX];
+	private static final com.svreg.sky.look.Twos.Clock TWOS = new com.svreg.sky.look.Twos.Clock();
 	private static long lastNanos;
 
 	private static final class Line {
@@ -119,6 +120,7 @@ public final class WindLines {
 		try {
 			long now = System.nanoTime();
 			float dt = lastNanos == 0 ? 0 : (float) Math.min(0.1, (now - lastNanos) / 1e9);
+			dt = (float) TWOS.tick(dt);
 			lastNanos = now;
 			int count = Math.min(MAX, Math.round(3 + 3.5F * WindState.strength() * SkySettings.windLineAmount));
 			float speed = 0.6f + 0.4f * WindState.speed();

@@ -57,6 +57,10 @@ public final class SkySettings {
 	public static float aerialFade = 1.5F;
 	/** painterly filter: how strong the brush look is (0..1) */
 	public static float painterlyStrength = 0.6F;
+	/** anime look: coloured shadow strength, outline width (px) / strength / colour, dream glow strength */
+	public static float animeShadow = 0.7F, outlineStrength = 0.9F, dreamGlow = 0.6F, layeredHaze = 0.7F;
+	public static int outlineWidth = 2;
+	public static String outlineColor = "auto";
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static boolean blockyClouds = false;
 	public static String cloudMode = "3d_crumble";
@@ -165,6 +169,13 @@ public final class SkySettings {
 		FLAGS.put("grass_kick", true);
 		FLAGS.put("startle_birds", true);
 		FLAGS.put("painterly", false);
+		FLAGS.put("anime_twos", false);
+		FLAGS.put("colored_shadows", false);
+		FLAGS.put("anime_outline", false);
+		FLAGS.put("outline_boil", true);
+		FLAGS.put("dream_glow", false);
+		FLAGS.put("layered_haze", false);
+		FLAGS.put("painted_grass", false);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);
@@ -329,6 +340,14 @@ public final class SkySettings {
 			cloudSpeed = num(o, "cloud_speed", cloudSpeed);
 			aerialFade = Math.max(0, Math.min(2, num(o, "aerial_fade", aerialFade)));
 			painterlyStrength = Math.max(0.1F, Math.min(1, num(o, "painterly_strength", painterlyStrength)));
+			animeShadow = Math.max(0.1F, Math.min(1, num(o, "anime_shadow", animeShadow)));
+			outlineStrength = Math.max(0.1F, Math.min(1, num(o, "outline_strength", outlineStrength)));
+			dreamGlow = Math.max(0.1F, Math.min(1, num(o, "dream_glow_strength", dreamGlow)));
+			layeredHaze = Math.max(0.1F, Math.min(1, num(o, "layered_haze_strength", layeredHaze)));
+			outlineWidth = Math.max(1, Math.min(3, Math.round(num(o, "outline_width", outlineWidth))));
+			if (o.has("outline_color")) {
+				outlineColor = o.get("outline_color").getAsString();
+			}
 			if (o.has("cloud_texture")) {
 				cloudTexture = Identifier.parse(o.get("cloud_texture").getAsString());
 			}

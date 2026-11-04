@@ -101,6 +101,12 @@ public final class SkyConfig {
 		o.addProperty("cloud_speed", SkySettings.cloudSpeed);
 		o.addProperty("aerial_fade", SkySettings.aerialFade);
 		o.addProperty("painterly_strength", SkySettings.painterlyStrength);
+		o.addProperty("anime_shadow", SkySettings.animeShadow);
+		o.addProperty("outline_strength", SkySettings.outlineStrength);
+		o.addProperty("dream_glow_strength", SkySettings.dreamGlow);
+		o.addProperty("layered_haze_strength", SkySettings.layeredHaze);
+		o.addProperty("outline_width", SkySettings.outlineWidth);
+		o.addProperty("outline_color", SkySettings.outlineColor);
 		o.addProperty("cloud_3d_distance", SkySettings.cloud3dDistance);
 		o.addProperty("cloud_3d_cell", SkySettings.cloud3dCell);
 		o.addProperty("cloud_3d_levels", SkySettings.cloud3dLevels);

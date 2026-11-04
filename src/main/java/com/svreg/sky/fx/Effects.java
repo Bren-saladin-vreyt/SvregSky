@@ -49,6 +49,7 @@ public final class Effects {
 	private static RenderPipeline pipeline;
 	private static boolean broken;
 	private static long lastNanos;
+	private static final com.svreg.sky.look.Twos.Clock TWOS = new com.svreg.sky.look.Twos.Clock();
 	private static final float WIND_X = 0.943F, WIND_Z = 0.333F;
 
 	private static final class P {
@@ -286,8 +287,9 @@ public final class Effects {
 			ClientLevel level = mc.level;
 			long now = System.nanoTime();
 			float dt = lastNanos == 0 ? 0 : (float) Math.min(0.1, (now - lastNanos) / 1e9);
+			dt = (float) TWOS.tick(dt); // on twos: particles move in 12 steps a second
 			lastNanos = now;
-			float t = (float) ((now / 1e9) % 3600.0);
+			float t = (float) com.svreg.sky.look.Twos.step((now / 1e9) % 3600.0);
 			float night = CirrusSky.nightLevel(), day = CirrusSky.dayLevel(), gold = CirrusSky.goldLevel(), rain = CirrusSky.rainLevel();
 			float wind = com.svreg.sky.wind.WindState.strength();
 			Vector3f sun = CirrusSky.sunDirection();
