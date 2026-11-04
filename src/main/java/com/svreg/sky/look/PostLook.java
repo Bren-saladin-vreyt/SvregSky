@@ -30,9 +30,9 @@ import java.util.OptionalDouble;
 /** Screen look over the world: time-of-day film tint, a soft vignette, and (optional) thin cartoon outlines from depth edges. */
 public final class PostLook {
 	private static final Identifier SHADER = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/cirrus_post");
-	private static RenderPipeline pipeline, copyPipeline, glowPipeline;
+	private static RenderPipeline pipeline, copyPipeline, glowPipeline, paintPipeline;
 	private static GpuBuffer quad;
-	private static boolean broken, glowBroken, logged;
+	private static boolean broken, glowBroken, paintBroken, logged;
 	private static com.mojang.blaze3d.textures.GpuTexture sceneTex;
 	private static com.mojang.blaze3d.textures.GpuTextureView sceneView;
 
@@ -163,6 +163,62 @@ public final class PostLook {
 		}
 	}
 
+	/** the scene colour copied into sceneTex (sized to the main target) */
+	private static void copyScene(RenderTarget main, AbstractTexture any, com.mojang.blaze3d.buffers.GpuBufferSlice transforms) {
+		if (copyPipeline == null) {
+			copyPipeline = simple("cirrus_copy", ColorTargetState.DEFAULT, BindGroupLayouts.SAMPLER0);
+		}
+		int w = main.width, h = main.height;
+		if (sceneTex == null || sceneTex.getWidth(0) != w || sceneTex.getHeight(0) != h) {
+			if (sceneView != null) sceneView.close();
+			if (sceneTex != null) sceneTex.close();
+			sceneTex = RenderSystem.getDevice().createTexture(() -> "SvregSky scene copy", 15, main.getColorTexture().getFormat(), w, h, 1, 1);
+			sceneView = RenderSystem.getDevice().createTextureView(sceneTex);
+		}
+		RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
+		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky scene copy", sceneView, Optional.empty(), null, OptionalDouble.empty())) {
+			pass.setPipeline(copyPipeline);
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("DynamicTransforms", transforms);
+			pass.bindTexture("Sampler0", main.getColorTextureView(), any.getSampler());
+			pass.setVertexBuffer(0, quad.slice());
+			pass.setIndexBuffer(indices.getBuffer(6), indices.type());
+			pass.drawIndexed(6, 1, 0, 0, 0);
+		}
+	}
+
+	/** painterly filter: a soft Kuwahara over a copy of the scene (colour only, so it works on phones) */
+	private static void paint(RenderTarget main, AbstractTexture any, float strength) {
+		if (paintBroken) {
+			return;
+		}
+		try {
+			if (paintPipeline == null) {
+				paintPipeline = simple("cirrus_paint", ColorTargetState.DEFAULT, BindGroupLayouts.SAMPLER0);
+			}
+			Matrix4f params = new Matrix4f(
+					0, 0, 0, 0,
+					0, 0, 0, 0,
+					strength, (float) ((System.nanoTime() / 1e9) % 3600.0), 0, 0,
+					0, 0, 0, 0);
+			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(1, 1, 1, 1), new Vector3f(), params);
+			copyScene(main, any, transforms);
+			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
+			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky painterly", main.getColorTextureView(), Optional.empty(), null, OptionalDouble.empty())) {
+				pass.setPipeline(paintPipeline);
+				RenderSystem.bindDefaultUniforms(pass);
+				pass.setUniform("DynamicTransforms", transforms);
+				pass.bindTexture("Sampler0", sceneView, RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR));
+				pass.setVertexBuffer(0, quad.slice());
+				pass.setIndexBuffer(indices.getBuffer(6), indices.type());
+				pass.drawIndexed(6, 1, 0, 0, 0);
+			}
+		} catch (Throwable t) {
+			paintBroken = true;
+			SvregSky.LOG.error("SvregSky: painterly filter failed, turning it off", t);
+		}
+	}
+
 	/** raindrops on the "lens": out in the rain under open sky, not when looking down at your feet */
 	private static float rainOnLens() {
 		if (!SkySettings.on("rain_drops")) {
@@ -191,7 +247,8 @@ public final class PostLook {
 		// cozy home: misted window edges while it rains outside, warm indoor light and firelight
 		float mist = Cozy.mist(), cozyIn = Cozy.indoor(), cozyFire = Cozy.fire();
 		boolean cozy = mist > 0.01F || cozyIn > 0.01F || cozyFire > 0.01F;
-		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy)) {
+		boolean painterly = SkySettings.on("painterly");
+		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy && !painterly)) {
 			return;
 		}
 		try {
@@ -249,6 +306,9 @@ public final class PostLook {
 				fixDepthFilter(main);
 			}
 			AbstractTexture any = mc.getTextureManager().getTexture(SkySettings.cloudTexture);
+			if (painterly) {
+				paint(main, any, Math.max(0.1F, Math.min(1, SkySettings.painterlyStrength)));
+			}
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
 			}

@@ -55,6 +55,8 @@ public final class SkySettings {
 	public static float cloudSpeed = 1.0F;
 	/** raymarch puff clouds: how strongly far, low clouds melt into the sky (0..2, 1.5 = default) */
 	public static float aerialFade = 1.5F;
+	/** painterly filter: how strong the brush look is (0..1) */
+	public static float painterlyStrength = 0.6F;
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static boolean blockyClouds = false;
 	public static String cloudMode = "3d_crumble";
@@ -159,6 +161,10 @@ public final class SkySettings {
 		FLAGS.put("cloud_weather", true);
 		FLAGS.put("cozy_home", true);
 		FLAGS.put("living_wind", true);
+		FLAGS.put("walk_ripples", true);
+		FLAGS.put("grass_kick", true);
+		FLAGS.put("startle_birds", true);
+		FLAGS.put("painterly", false);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);
@@ -322,6 +328,7 @@ public final class SkySettings {
 			cloudCoverage = Math.max(-0.2F, Math.min(0.2F, num(o, "cloud_coverage", cloudCoverage)));
 			cloudSpeed = num(o, "cloud_speed", cloudSpeed);
 			aerialFade = Math.max(0, Math.min(2, num(o, "aerial_fade", aerialFade)));
+			painterlyStrength = Math.max(0.1F, Math.min(1, num(o, "painterly_strength", painterlyStrength)));
 			if (o.has("cloud_texture")) {
 				cloudTexture = Identifier.parse(o.get("cloud_texture").getAsString());
 			}

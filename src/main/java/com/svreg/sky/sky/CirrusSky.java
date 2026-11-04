@@ -224,7 +224,8 @@ public final class CirrusSky {
 		Minecraft mcw = Minecraft.getInstance();
 		if (mcw.player != null) {
 			com.svreg.sky.wind.Wind.setCamera(mcw.player.getEyePosition()); // fallback when vanilla clouds are off
-			com.svreg.sky.wind.Wind.setPlayer(mcw.player.position());
+			double mvx = mcw.player.getX() - mcw.player.xo, mvz = mcw.player.getZ() - mcw.player.zo;
+			com.svreg.sky.wind.Wind.setPlayer(mcw.player.position(), (float) ((Math.sqrt(mvx * mvx + mvz * mvz) * 20 - 3.0) / 2.6));
 		}
 		overworld = false;
 		float a = skyState.sunAngle;

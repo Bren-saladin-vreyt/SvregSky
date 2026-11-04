@@ -197,6 +197,9 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("underwater_light"),
 				flag("shore_foam"),
 				flag("grass_bend"),
+				flag("grass_kick"),
+				flag("walk_ripples"),
+				flag("startle_birds"),
 				flag("dappled_light"),
 				flag("water_steam"),
 				flag("smoke_wisps"),
@@ -240,6 +243,8 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("shadow_debug"),
 				flag("torch_glow"),
 				flag("paper_texture"),
+				flag("painterly"),
+				slider("painterly_strength", 10, 100, Math.round(SkySettings.painterlyStrength * 100), v -> v + "%", v -> SkySettings.painterlyStrength = v / 100F),
 				flag("bloom"));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.photo"));

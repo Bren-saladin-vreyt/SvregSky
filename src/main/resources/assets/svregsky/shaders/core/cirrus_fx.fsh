@@ -4,7 +4,7 @@ precision highp float;
 
 // SvregSky ambient particles. UV.x selects the shape: [0,1] soft glow, [2,3] leaf / petal, [4,5] sparkle,
 // [6,7] butterfly, [8,9] ripple ring, [10,11] foam blob, [12,13] snowflake, [14] bird, [16] dragonfly,
-// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo, [28] sky lantern
+// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo, [28] sky lantern, [30] sparrow
 
 layout(std140) uniform DynamicTransforms {
     highp mat4 ModelViewMat;
@@ -114,6 +114,48 @@ void main() {
         c.rgb = mix(vec3(0.20, 0.22, 0.26), sky, 0.55 + 0.35 * smoothstep(0.2, -0.6, p.y));
         c.rgb += vec3(0.35) * smoothstep(0.08, 0.0, abs(rr - edge + 0.2)) * step(0.2, p.x - p.y); // a glint along the rim
         c.a *= inside;
+    } else if (kind > 14.5) {
+        // sparrow on the ground, side view: red = peck (head down), green > 0.5 = facing left, blue = daylight
+        highp vec2 q = vec2(c.g > 0.5 ? -p.x : p.x, p.y);
+        highp float peck = c.r;
+        highp float lit = 0.35 + 0.65 * c.b;
+        highp vec2 hc = vec2(0.40 + 0.18 * peck, 0.20 - 0.50 * peck);
+        highp vec2 bq = q - vec2(-0.02, -0.18);
+        highp float bodyD = dot(bq / vec2(0.50, 0.33), bq / vec2(0.50, 0.33));
+        highp float headD = length(q - hc) / 0.21;
+        highp vec2 bk = q - hc - vec2(0.22, -0.02 - 0.10 * peck);
+        highp float beak = step(bk.x, 0.0) * step(-0.12, bk.x) * step(abs(bk.y), 0.05 * (1.0 + bk.x / 0.12) + 0.004);
+        highp vec2 tq = q - vec2(-0.45, -0.05);
+        highp float tail = step(tq.x, 0.0) * step(-0.50, tq.x) * step(abs(tq.y - (-tq.x) * 0.35), 0.06 + 0.10 * (-tq.x));
+        highp float legs = step(abs(abs(q.x - 0.02) - 0.08), 0.022) * step(-0.78, q.y) * step(q.y, -0.42);
+        if (bodyD > 1.0 && headD > 1.0 && beak < 0.5 && tail < 0.5 && legs < 0.5) {
+            discard;
+        }
+        highp vec3 back = vec3(0.55, 0.39, 0.26), belly = vec3(0.86, 0.79, 0.66), wing = vec3(0.40, 0.27, 0.18), cap = vec3(0.47, 0.37, 0.31);
+        highp vec3 col = back;
+        if (bodyD <= 1.0) {
+            col = bq.y < -0.06 ? belly : back;
+            highp vec2 wq = bq - vec2(-0.08, 0.02);
+            if (dot(wq / vec2(0.32, 0.17), wq / vec2(0.32, 0.17)) < 1.0) {
+                col = mix(wing, back, step(0.5, fract((wq.x - wq.y) * 6.0)) * 0.6); // streaked wing
+            }
+        }
+        if (tail > 0.5 && bodyD > 1.0) {
+            col = wing;
+        }
+        if (headD <= 1.0) {
+            col = (q.y - hc.y) > -0.04 ? cap : belly;
+            if (length(q - hc - vec2(0.08, 0.03)) < 0.045) {
+                col = vec3(0.08);
+            }
+        }
+        if (beak > 0.5 && headD > 1.0) {
+            col = vec3(0.32, 0.27, 0.22);
+        }
+        if (legs > 0.5 && bodyD > 1.0) {
+            col = vec3(0.45, 0.36, 0.30);
+        }
+        c.rgb = col * lit;
     } else if (kind > 13.5) {
         // sky lantern: a paper lantern, wider at the top, glowing brighter toward its open bottom
         highp float w = 0.42 + 0.14 * (-p.y);

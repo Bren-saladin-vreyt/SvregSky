@@ -27,11 +27,14 @@ public final class Wind {
 	public static boolean debugWater;
 	private static float[] skyA = new float[4], skyB = new float[4], skyC = new float[4];
 	private static volatile double pX, pY, pZ;
+	private static volatile float pRun;
 
 	private Wind() {
 	}
 
-	public static void setPlayer(Vec3 feet) {
+	/** feet position and how fast the player moves (0 standing .. 1 sprinting): plants part wider for a runner */
+	public static void setPlayer(Vec3 feet, float run) {
+		pRun += (run - pRun) * 0.2F;
 		pX = feet.x;
 		pY = feet.y;
 		pZ = feet.z;
@@ -208,7 +211,7 @@ public final class Wind {
 			GL20C.glUniform4f(locSun, sun.x, sun.y, sun.z, k);
 		}
 		if (locPlayer >= 0) {
-			GL20C.glUniform4f(locPlayer, (float) (pX - camX), (float) (pY - camY), (float) (pZ - camZ), SkySettings.on("grass_bend") ? 1 : 0);
+			GL20C.glUniform4f(locPlayer, (float) (pX - camX), (float) (pY - camY), (float) (pZ - camZ), SkySettings.on("grass_bend") ? 1 + Math.max(0, Math.min(1, pRun)) : 0);
 		}
 		if (locLook >= 0) {
 			org.joml.Vector3f sunV = com.svreg.sky.sky.CirrusSky.sunDirection();
@@ -386,8 +389,9 @@ public final class Wind {
 			                // plants bend away from the player walking through them
 			                vec2 svAway = position.xz - svregsky_Player.xz;
 			                float svD = length(svAway);
-			                float svPush = (1.0 - smoothstep(0.2, 1.3, svD)) * step(abs(position.y - svregsky_Player.y), 2.2) * clamp(svW, 0.0, 1.5);
-			                position.xz += svAway / max(svD, 0.05) * svPush * 0.45;
+			                float svRun = svregsky_Player.w - 1.0; // 0 walking .. 1 sprinting: a runner parts the grass wider
+			                float svPush = (1.0 - smoothstep(0.2, 1.3 + 0.7 * svRun, svD)) * step(abs(position.y - svregsky_Player.y), 2.2) * clamp(svW, 0.0, 1.5);
+			                position.xz += svAway / max(svD, 0.05) * svPush * (0.45 + 0.2 * svRun);
 			                position.y -= svPush * 0.25;
 			            }
 			        }

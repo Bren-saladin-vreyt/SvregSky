@@ -223,7 +223,11 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("bloom", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("paper_texture", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("painterly", true);
 			});
+			shot(context, sp, 6000, 0, 10, "zc2_painterly_noon");
+			shot(context, sp, 12300, 90, 8, "zc3_painterly_sunset");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("painterly", false));
 			sp.getServer().runCommand("time add 384000"); // 16 days later: autumn
 			look(context, 0, -5, "zd_autumn");
 			sp.getServer().runCommand("time add 192000"); // winter
