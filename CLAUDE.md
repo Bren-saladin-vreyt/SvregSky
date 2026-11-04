@@ -49,5 +49,5 @@ Read this first. It replaces re-explaining the project in every chat.
 
 ## Status (Nov 2026)
 - Raymarch clouds: CazToon uses a low-res raymarch too (about 1/4). The user found the bubble shape (`3d_raymarch`) too tidy and measured 40 FPS on the phone; the new `3d_crumble` mode is the answer (irregular Ghibli puffs, lighter). Toon shading shared by both: smooth-body light (no per-pixel speckle), lavender/gold golden hour, moonlit slate night.
-- Offline preview harness used for this work: a Playwright page that renders the march shader into a 1/4 buffer with the baked atlas, plus flicker metrics (frame diff under tiny camera turns, loose-crumb count). Rebuild it from these notes if needed (render at ~1640x680 so pixel footprint is phone-like).
+- Offline cloud preview lives in **`tools/preview/`** (see its README): `bake.sh` bakes the noise atlases from the mod's Java, `render.js` renders a march shader like the mod (timing, speckle, flicker), `render_temporal.js` measures anti-flicker blink, `hills.js` + `composite.py` put clouds over the painted-hill silhouette. Render at 1640x680, scale 3, to match the phone. Send the user a before/after sheet from it before visual pushes.
 - Open ideas: polish airship/lake further, crepuscular rays, cloud shadows on the sky.
