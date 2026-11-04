@@ -120,8 +120,8 @@ public final class WindLines {
 			long now = System.nanoTime();
 			float dt = lastNanos == 0 ? 0 : (float) Math.min(0.1, (now - lastNanos) / 1e9);
 			lastNanos = now;
-			int count = Math.min(MAX, Math.round(3 + 3.5F * SkySettings.windStrength * SkySettings.windLineAmount));
-			float speed = 0.6f + 0.4f * SkySettings.windSpeed;
+			int count = Math.min(MAX, Math.round(3 + 3.5F * WindState.strength() * SkySettings.windLineAmount));
+			float speed = 0.6f + 0.4f * WindState.speed();
 			float rain = CirrusSky.rainLevel();
 
 			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_COLOR.getVertexSize() * 4 * SAMPLES * MAX)) {

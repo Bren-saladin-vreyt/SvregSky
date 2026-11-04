@@ -179,6 +179,7 @@ public class SkyScreen extends OptionsSubScreen {
 		this.list.addSmall(
 				percent("wind_strength", 400, SkySettings.windStrength, v -> SkySettings.windStrength = v),
 				percent("wind_speed", 300, SkySettings.windSpeed, v -> SkySettings.windSpeed = v),
+				flag("living_wind"),
 				bool("wind_lines", SkySettings.windLines, v -> SkySettings.windLines = v),
 				bool("falling_leaves", SkySettings.fallingLeaves, v -> SkySettings.fallingLeaves = v),
 				bool("water_sparkles", SkySettings.waterSparkles, v -> SkySettings.waterSparkles = v),

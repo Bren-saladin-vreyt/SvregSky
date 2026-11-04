@@ -242,7 +242,7 @@ public final class RaymarchClouds {
 			long now = System.nanoTime();
 			double dt = lastNanos == 0 ? 0 : Math.min(0.25, (now - lastNanos) / 1e9);
 			lastNanos = now;
-			double speed = 1.6 * SkySettings.cloudSpeed;
+			double speed = 1.6 * com.svreg.sky.wind.WindState.cloudSpeed(); // the living wind drifts them faster in a gust
 			windX = (windX + dt * speed) % 100000.0;
 			windZ = (windZ + dt * speed * 0.33) % 100000.0;
 

@@ -140,7 +140,7 @@ public final class Wind {
 
 	/** the wind phase (time x wind speed), wrapped the same way */
 	public static float windPhase() {
-		windPhaseAcc = (windPhaseAcc + Math.max(0, (System.nanoTime() - lastPhaseNanos) / 1e9) * SkySettings.windSpeed) % 628.3185307179586;
+		windPhaseAcc = (windPhaseAcc + Math.max(0, (System.nanoTime() - lastPhaseNanos) / 1e9) * WindState.speed()) % 628.3185307179586;
 		lastPhaseNanos = System.nanoTime();
 		return (float) windPhaseAcc;
 	}
@@ -195,7 +195,7 @@ public final class Wind {
 		locPuffTex = loc[17];
 		if (locWind >= 0) {
 			float t = windTime();
-			GL20C.glUniform4f(locWind, t, SkySettings.windStrength, SkySettings.windSpeed, SkySettings.farGrassTint);
+			GL20C.glUniform4f(locWind, t, WindState.strength(), WindState.speed(), SkySettings.farGrassTint);
 		}
 		float drift = (float) (((System.nanoTime() - START) / 1e9 * 1.6 * SkySettings.cloudSpeed) % 4096.0);
 		if (locCam >= 0) {

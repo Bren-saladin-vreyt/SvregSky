@@ -161,7 +161,7 @@ public final class Ambience {
 			rainSoft = drive(rainSoft, RAIN_SOFT, wv * rain * Math.max(open, in * 0.22F) * 0.5F);
 			rainRoof = drive(rainRoof, RAIN_ROOF, wv * rain * Math.max(roofed, in) * (0.55F + 0.2F * in));
 			float rv = SkySettings.on("leaf_rustle") ? vol : 0;
-			rustle = drive(rustle, RUSTLE, rv * com.svreg.sky.fx.Nature.leafiness() * Math.min(SkySettings.windStrength, 2) * 0.3F * (outdoors ? 1 : 0.35F));
+			rustle = drive(rustle, RUSTLE, rv * com.svreg.sky.fx.Nature.leafiness() * Math.min(com.svreg.sky.wind.WindState.strength(), 2) * 0.3F * (outdoors ? 1 : 0.35F));
 
 			// gentle thunder a moment after the lightning glow in the clouds
 			float fl = CirrusSky.flashLevel();
@@ -217,7 +217,7 @@ public final class Ambience {
 			// the wind swells as the gusts that ripple the grass pass over the player
 			float gust = com.svreg.sky.wind.Wind.gustAt(player.getX(), player.getZ());
 			gustSmooth += (gust - gustSmooth) * 0.08F;
-			wind = drive(wind, WIND, vol * open * (0.12F + 0.22F * Math.min(SkySettings.windStrength, 2)) * (0.55F + 0.9F * gustSmooth) * (1 + rain * 0.5F));
+			wind = drive(wind, WIND, vol * open * (0.12F + 0.22F * Math.min(com.svreg.sky.wind.WindState.strength(), 2)) * (0.55F + 0.9F * gustSmooth) * (1 + rain * 0.5F));
 			crickets = drive(crickets, CRICKETS, (SkySettings.on("crickets") ? vol : 0) * open * smooth(0.4F, 0.9F, night) * (1 - rain) * 0.22F);
 			stream = drive(stream, STREAM, vol * waterNear * (underwater ? 0 : 0.5F));
 

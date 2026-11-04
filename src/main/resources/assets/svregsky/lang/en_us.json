@@ -134,6 +134,7 @@
   "svregsky.options.cloud_steady": "§a● §rSteady Raymarch Clouds (no edge flicker)",
   "svregsky.options.living_clouds": "§a● §rLiving Clouds (grow through the day, churning puffs)",
   "svregsky.options.aerial_fade": "§a● §rDistance Fade (far clouds melt into the sky)",
+  "svregsky.options.living_wind": "§a● §rLiving Wind (swells and calms, stronger in storms; grass, leaves and clouds follow it)",
   "svregsky.options.cozy_home": "§a● §rCozy Home (rain on the roof, misty window edges, warm firelight)",
   "svregsky.options.cloud_weather": "§a● §rClouds Follow the Weather (gather before rain, break up after)",
   "svregsky.options.horizon_bank": "§a● §rHorizon Clouds (puff towers along the horizon, behind the hills)",

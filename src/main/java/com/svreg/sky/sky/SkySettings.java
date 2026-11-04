@@ -158,6 +158,7 @@ public final class SkySettings {
 		FLAGS.put("horizon_bank", true);
 		FLAGS.put("cloud_weather", true);
 		FLAGS.put("cozy_home", true);
+		FLAGS.put("living_wind", true);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);

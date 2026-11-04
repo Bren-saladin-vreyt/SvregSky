@@ -289,7 +289,7 @@ public final class Effects {
 			lastNanos = now;
 			float t = (float) ((now / 1e9) % 3600.0);
 			float night = CirrusSky.nightLevel(), day = CirrusSky.dayLevel(), gold = CirrusSky.goldLevel(), rain = CirrusSky.rainLevel();
-			float wind = SkySettings.windStrength;
+			float wind = com.svreg.sky.wind.WindState.strength();
 			Vector3f sun = CirrusSky.sunDirection();
 
 			Matrix4f mv = RenderSystem.getModelViewMatrixCopy();

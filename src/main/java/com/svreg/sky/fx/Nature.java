@@ -181,7 +181,7 @@ public final class Nature {
 		scan(level, cam);
 		int q = 0;
 		float day = CirrusSky.dayLevel(), night = CirrusSky.nightLevel(), gold = CirrusSky.goldLevel(), rain = CirrusSky.rainLevel();
-		float wind = SkySettings.windStrength;
+		float wind = com.svreg.sky.wind.WindState.strength();
 
 		// butterflies: daytime, over flowers
 		boolean bf = SkySettings.on("butterflies") && day > 0.4F && rain < 0.2F;
