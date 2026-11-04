@@ -292,6 +292,9 @@ public final class PostLook {
 		// cozy home: misted window edges while it rains outside, warm indoor light and firelight
 		float mist = Cozy.mist(), cozyIn = Cozy.indoor(), cozyFire = Cozy.fire();
 		boolean cozy = mist > 0.01F || cozyIn > 0.01F || cozyFire > 0.01F;
+		// sleeping: a pale lavender dream haze, then waking into a soft white-gold glow
+		float dreamS = Dream.sleep(), dreamW = Dream.wake();
+		cozy |= dreamS > 0.01F || dreamW > 0.01F;
 		boolean painterly = SkySettings.on("painterly");
 		boolean animeSh = SkySettings.on("colored_shadows"), animeOl = SkySettings.on("anime_outline"), dream = SkySettings.on("dream_glow");
 		boolean animeAny = animeSh || animeOl || dream;
@@ -330,6 +333,17 @@ public final class PostLook {
 					r = (r * a + wr * k) / (a + k); g = (g * a + wg * k) / (a + k); bl = (bl * a + wb * k) / (a + k);
 					a = a + k;
 				}
+			}
+			if (dreamS > 0.01F || dreamW > 0.01F) {
+				float ks = 0.55F * dreamS, kw = 0.9F * dreamW * dreamW;
+				float k = ks + kw;
+				float dr = (0.88F * ks + 1.0F * kw) / k, dg = (0.84F * ks + 0.97F * kw) / k, db = (1.0F * ks + 0.88F * kw) / k;
+				k = Math.min(0.92F, k);
+				// the dream covers whatever tint was there
+				r = r * a * (1 - k) + dr * k; g = g * a * (1 - k) + dg * k; bl = bl * a * (1 - k) + db * k;
+				float na = a * (1 - k) + k;
+				r /= na; g /= na; bl /= na;
+				a = na;
 			}
 			// shadow quality: march steps, reach in blocks, step growth
 			float shSteps = 16, shRange = 64, shGrow = 1.25F;

@@ -100,6 +100,27 @@ public final class CirrusSky {
 		}
 		return code * 2.0F;
 	}
+	/** test hook: show the comet tonight (seed + 1), 0 = by the calendar */
+	public static int forceComet;
+
+	/** a great comet on about one night in twelve: 1 + its seed (where it sits among the stars), 0 = none tonight */
+	private static int cometCode() {
+		if (forceComet > 0) {
+			return forceComet;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		if (!SkySettings.on("rare_comet") || mc.level == null) {
+			return 0;
+		}
+		// the night belongs to the day it started on (the comet doesn't vanish at midnight)
+		long d = Math.floorDiv(mc.level.getOverworldClockTime() - 12000L, 24000L);
+		long h = d * 0xD1B54A32D192ED03L + 0x8CB92BA72F3D8DD7L;
+		h ^= h >>> 31;
+		h *= 0x9E3779B97F4A7C15L;
+		h ^= h >>> 29;
+		return Math.floorMod(h, 12L) == 0 ? 1 + (int) Math.floorMod(h >>> 16, 60L) : 0;
+	}
+
 	private static boolean megaToday;
 	private static int moonPhase;
 	private static boolean rainbowArmed;
@@ -475,7 +496,7 @@ public final class CirrusSky {
 			float offZ = (float) (((windZ + pz) % 40.0 + 40.0) % 40.0);
 			float time = (float) com.svreg.sky.look.Twos.step(((System.nanoTime() - START) / 1e9) % 3600.0);
 
-			float slotC = SkySettings.shootingStarPeriod;
+			float slotC = Math.min(999, SkySettings.shootingStarPeriod) + (mode > 0.5F ? 0 : 1000 * cometCode());
 			float rayX = SkySettings.aurora, rayZ = SkySettings.milkyWay; // the cloud pass carries the light-ray offset in these sky-only slots
 			if (mode > 0.5F && SkySettings.cloudGhibli() && mc.player != null) {
 				// light rays: camera position in footprint texels, cloud base height above the camera

@@ -248,6 +248,10 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("painted_grass", false);
 			});
+			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceComet = 2);
+			shot(context, sp, 18000, -177, -40, "zc8_comet_midnight");
+			shot(context, sp, 21500, -150, -25, "zc9_comet_late");
+			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceComet = 0);
 			sp.getServer().runCommand("time add 384000"); // 16 days later: autumn
 			look(context, 0, -5, "zd_autumn");
 			sp.getServer().runCommand("time add 192000"); // winter

@@ -176,6 +176,9 @@ public final class SkySettings {
 		FLAGS.put("dream_glow", false);
 		FLAGS.put("layered_haze", false);
 		FLAGS.put("painted_grass", false);
+		FLAGS.put("dream_sleep", true);
+		FLAGS.put("window_light", true);
+		FLAGS.put("rare_comet", true);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);

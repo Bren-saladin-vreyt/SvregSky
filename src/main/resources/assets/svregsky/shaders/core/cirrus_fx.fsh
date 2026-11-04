@@ -4,7 +4,7 @@ precision highp float;
 
 // SvregSky ambient particles. UV.x selects the shape: [0,1] soft glow, [2,3] leaf / petal, [4,5] sparkle,
 // [6,7] butterfly, [8,9] ripple ring, [10,11] foam blob, [12,13] snowflake, [14] bird, [16] dragonfly,
-// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo, [28] sky lantern, [30] sparrow
+// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo, [28] sky lantern, [30] sparrow, [32] window light
 
 layout(std140) uniform DynamicTransforms {
     highp mat4 ModelViewMat;
@@ -114,6 +114,13 @@ void main() {
         c.rgb = mix(vec3(0.20, 0.22, 0.26), sky, 0.55 + 0.35 * smoothstep(0.2, -0.6, p.y));
         c.rgb += vec3(0.35) * smoothstep(0.08, 0.0, abs(rr - edge + 0.2)) * step(0.2, p.x - p.y); // a glint along the rim
         c.a *= inside;
+    } else if (kind > 15.5) {
+        // window light: a soft-edged shaft, brightest just inside the window, fading into the room (uv.y = along it)
+        highp float v = uv.y;
+        highp float edge = 1.0 - smoothstep(0.55, 1.0, abs(p.x));
+        highp float fade = smoothstep(0.0, 0.06, v) * pow(1.0 - v, 1.3);
+        highp float streak = 0.85 + 0.15 * sin(p.x * 9.0 + v * 3.0);
+        c.a *= edge * fade * streak;
     } else if (kind > 14.5) {
         // sparrow on the ground, side view: red = peck (head down), green > 0.5 = facing left, blue = daylight
         highp vec2 q = vec2(c.g > 0.5 ? -p.x : p.x, p.y);

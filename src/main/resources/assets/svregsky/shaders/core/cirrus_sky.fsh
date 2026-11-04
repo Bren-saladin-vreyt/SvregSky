@@ -218,6 +218,39 @@ highp vec3 nightSky(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp flo
         }
     }
 
+    // shooting-star slot also carries tonight's rare comet: 1000 x (1 + seed), 0 = no comet
+    highp float cometCode = floor(shootPeriod / 1000.0 + 0.0001);
+    shootPeriod -= cometCode * 1000.0;
+    if (cometCode > 0.5) {
+        // a great comet, like in Kimi no Na wa: it sits among the stars (turning with them through the night), a bright
+        // blue-white head, a long straight blue ion tail and a wider, gently curved gold-white dust tail, both pointing
+        // away from the sun
+        highp float cs1 = cometCode - 1.0;
+        highp float caz = hash2(vec2(cs1, 3.1)) * 6.2831853;
+        highp vec3 head = normalize(vec3(-0.78 - 0.25 * hash2(vec2(cs1, 7.7)), cos(caz) * 0.62, sin(caz) * 0.62));
+        highp vec3 away = vec3(-1.0, 0.0, 0.0);                  // the antisolar side in the celestial frame
+        highp vec3 ct = away - head * dot(away, head);
+        ct = length(ct) > 1e-3 ? normalize(ct) : normalize(cross(head, vec3(0.0, 0.0, 1.0)));
+        highp vec3 cn = cross(head, ct);
+        highp vec3 rel = cel - head;
+        highp float along = dot(rel, ct), across = dot(rel, cn);
+        highp float twinkle = 0.92 + 0.08 * sin(mod(tm * 1.7, 6.2831853));
+        // head: a hard bright core in a soft coma
+        highp float hd2 = dot(rel, rel);
+        highp vec3 cc = vec3(0.85, 0.95, 1.0) * (exp(-hd2 * 60000.0) * 2.2 + exp(-hd2 * 1200.0) * 0.6) * twinkle;
+        if (along > 0.0 && along < 0.9 && cel.x < 0.3) {
+            // ion tail: long, straight, narrow, blue
+            highp float wI = 0.004 + 0.028 * along;
+            highp float ion = exp(-pow(across / wI, 2.0)) * pow(1.0 - along / 0.9, 1.4) * (0.75 + 0.25 * sin(along * 70.0 - mod(tm * 0.6, 6.2831853)));
+            // dust tail: wider, curving to one side, warm white
+            highp float bend = across - 0.35 * along * along - 0.02 * along;
+            highp float wD = 0.008 + 0.09 * along;
+            highp float dust = exp(-pow(bend / wD, 2.0)) * pow(1.0 - min(along / 0.55, 1.0), 1.8);
+            cc += vec3(0.45, 0.78, 1.0) * ion * 0.75 + vec3(1.0, 0.92, 0.80) * dust * 0.55;
+        }
+        col += cc * vis;
+    }
+
     if ((flags & F_SHOOTING) != 0 && shootPeriod > 0.5) {
         highp float tt = tm / shootPeriod;
         highp float sid = floor(tt);
