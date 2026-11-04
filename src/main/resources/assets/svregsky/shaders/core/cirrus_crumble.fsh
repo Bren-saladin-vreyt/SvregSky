@@ -50,7 +50,7 @@ highp vec3 weather(highp vec2 xz) {
     return texture(Sampler0, vec2(q.x / ATLAS_W, (66.0 + q.y) / ATLAS_H)).rgb;
 }
 
-highp float layerH, amount;
+highp float layerH = 125.0, amount = 1.0;
 // aerial fade strength (0..2, the menu slider), packed as the fraction of ColorModulator.z (steps + strength / 4)
 highp float fadeK = 1.5;
 // living clouds: how far (blocks, 0..64) the puffs have risen through the cloud bodies -- they churn slowly upward
@@ -250,8 +250,8 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
 }
 
 // scene light, set at the start of main() (paint() and the horizon bank read them)
-highp vec3 sunDir, hazeAway, hazeSun;
-highp float day, gold, night, rain, org, afterglow;
+highp vec3 sunDir = vec3(0.0, 1.0, 0.0), hazeAway = vec3(0.0), hazeSun = vec3(0.0);
+highp float day = 0.0, gold = 0.0, night = 0.0, rain = 0.0, org = 0.0, afterglow = 0.0;
 
 // the four flat toon tones for a light value v (day -> golden hour -> night, rain greys, afterglow), then the
 // distance haze (hzK = how much of it)

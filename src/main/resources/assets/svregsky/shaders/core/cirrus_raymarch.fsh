@@ -50,7 +50,7 @@ highp float erosionTex(highp vec3 p) {
     return mix(a, b, wy);
 }
 
-highp float layerH, amount;
+highp float layerH = 125.0, amount = 1.0;
 // detail level: far away a cloud pixel covers many blocks, so the bubbles fade toward a smooth average (no sparkling)
 highp float lodK = 1.0;
 
