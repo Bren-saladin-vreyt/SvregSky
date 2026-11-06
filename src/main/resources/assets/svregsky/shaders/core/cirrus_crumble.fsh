@@ -457,10 +457,11 @@ void main() {
             // aerial perspective: the farther and the lower a cloud, the more air in front of it -- its tones press
             // together (4 bands near, 1-2 pale ones far) and its colour melts into the horizon
             highp float aer = min(1.0, fadeK * smoothstep(0.10, 0.95, t / reach) * (0.55 + 0.45 * (1.0 - smoothstep(0.03, 0.40, rd.y))));
-            v = mix(v, 0.57, 0.7 * aer);
+            // stepped clouds keep their tones far away (painted cumulus stays bold at the horizon)
+            v = mix(v, 0.57, (gSteps ? 0.3 : 0.7) * aer);
 
             hitV = v;
-            hitHaze = max(smoothstep(0.25, 1.0, t / reach) * 0.8, 0.75 * aer);
+            hitHaze = max(smoothstep(0.25, 1.0, t / reach) * 0.8, 0.75 * aer) * (gSteps ? 0.55 : 1.0);
             hitT = t;
             break;
         }
@@ -518,8 +519,8 @@ void main() {
             v += 0.16 * smoothstep(0.75, 0.95, length(n2)) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
             // a light veil of distance haze: far, but crisp and white like real horizon cumulus
             // the horizon bank is the farthest of all: a lighter version of the same fade, so the towers still read
-            hitV = mix(v, 0.57, min(0.2 * fadeK, 0.6));
-            hitHaze = min(0.22 * fadeK + 0.0, 0.7);
+            hitV = mix(v, 0.57, gSteps ? min(0.07 * fadeK, 0.2) : min(0.2 * fadeK, 0.6));
+            hitHaze = gSteps ? min(0.10 * fadeK, 0.35) : min(0.22 * fadeK + 0.0, 0.7);
             hitT = 4000.0;
         }
     }

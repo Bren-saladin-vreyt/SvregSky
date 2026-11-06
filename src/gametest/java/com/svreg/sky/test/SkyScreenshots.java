@@ -249,7 +249,7 @@ public class SkyScreenshots implements FabricClientGameTest {
 			});
 			shot(context, sp, 6000, 0, -25, "zc5d_steps_deep_noon");
 			shot(context, sp, 12300, 90, -10, "zc5e_steps_golden");
-			shot(context, sp, 7000, 60, -6, "zc5g_steps_horizon");
+			shot(context, sp, 7000, 160, -18, "zc5g_steps_horizon");
 			shot(context, sp, 7000, 240, -6, "zc5h_steps_horizon_b");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", true));
 			shot(context, sp, 6000, 0, -25, "zc5f_steps_deep_pixel");
