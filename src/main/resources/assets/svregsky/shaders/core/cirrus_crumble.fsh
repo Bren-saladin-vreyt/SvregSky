@@ -62,7 +62,7 @@ highp float kM = 1.0, kS = 1.0;
 highp float farK = 0.0, blurK = 0.0;
 
 // the high layer (altocumulus streaks) sits this far above the cloud base
-const highp float HIGH0 = 255.0, HIGH1 = 285.0;
+const highp float HIGH0 = 400.0, HIGH1 = 430.0; // above the tallest cumulus (afternoon towers reach ~340), so none get a sliced-flat top
 
 // far away the pre-blurred weather map is read: clouds too small to cover ~3 pixels melt into their neighbours or
 // vanish smoothly instead of blinking as lone dots. One read near or far, two in between.
