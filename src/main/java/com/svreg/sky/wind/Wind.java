@@ -722,7 +722,10 @@ public final class Wind {
 			                }
 			                float svLit = (0.25 + 0.75 * max(v_svInfo.y, v_svInfo.z)) * mix(0.5, 1.0, v_svInfo.x);
 			                vec3 svFc = mix(vec3(1.0), vec3(1.0, 0.86, 0.72), v_svInfo.z * 0.6) * svLit;
-			                color.rgb = mix(color.rgb, vec3(0.72, 0.96, 0.96) * svLit, (1.0 - smoothstep(0.0, 0.8, svSh.x)) * 0.35);
+			                // water inside a land column (a waterlogged stair, slab, fence or wall) is not open sea: no surf on it
+			                float svOpen = step(0.05, svSh.x);
+			                svFoam *= svOpen;
+			                color.rgb = mix(color.rgb, vec3(0.72, 0.96, 0.96) * svLit, (1.0 - smoothstep(0.0, 0.8, svSh.x)) * 0.35 * svOpen);
 			                color.rgb = mix(color.rgb, svFc, svFoam * 0.92);
 			                color.a = max(color.a, svFoam * 0.95);
 			                // glowing sea: the breaking surf lights up blue

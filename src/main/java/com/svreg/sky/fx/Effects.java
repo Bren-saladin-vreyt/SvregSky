@@ -178,7 +178,8 @@ public final class Effects {
 			int z = (int) Math.floor(cam.z + Math.sin(a) * r);
 			int y = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
 			BlockPos below = new BlockPos(x, y - 1, z);
-			if (!level.getFluidState(below).is(FluidTags.WATER)) {
+			// open water only: a waterlogged stair, slab or fence also holds water but its top is not a water surface
+			if (!level.getFluidState(below).is(FluidTags.WATER) || !level.getBlockState(below).is(net.minecraft.world.level.block.Blocks.WATER)) {
 				continue;
 			}
 			// glints mostly where the sun reflects toward the camera
