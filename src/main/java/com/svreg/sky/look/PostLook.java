@@ -30,9 +30,9 @@ import java.util.OptionalDouble;
 /** Screen look over the world: time-of-day film tint, a soft vignette, and (optional) thin cartoon outlines from depth edges. */
 public final class PostLook {
 	private static final Identifier SHADER = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "core/cirrus_post");
-	private static RenderPipeline pipeline, copyPipeline, glowPipeline, paintPipeline, animePipeline;
+	private static RenderPipeline pipeline, copyPipeline, glowPipeline, paintPipeline, animePipeline, pixelPipeline;
 	private static GpuBuffer quad;
-	private static boolean broken, glowBroken, paintBroken, animeBroken, logged;
+	private static boolean broken, glowBroken, paintBroken, animeBroken, pixelBroken, logged;
 	private static com.mojang.blaze3d.textures.GpuTexture sceneTex;
 	private static com.mojang.blaze3d.textures.GpuTextureView sceneView;
 
@@ -264,6 +264,39 @@ public final class PostLook {
 		}
 	}
 
+	/** pixel art: big pixels, brightness bands, dithering at the band steps (colour only, phone-safe) */
+	private static void pixel(RenderTarget main, AbstractTexture any) {
+		if (pixelBroken) {
+			return;
+		}
+		try {
+			if (pixelPipeline == null) {
+				pixelPipeline = simple("cirrus_pixel", ColorTargetState.DEFAULT, BindGroupLayouts.SAMPLER0);
+			}
+			float px = Math.max(1, Math.round(SkySettings.pixelSize * Math.max(1, main.height / 720F)));
+			Matrix4f params = new Matrix4f(
+					px, SkySettings.pixelBands, SkySettings.pixelDither, 0,
+					0, 0, 0, 0,
+					0, 0, 0, 0,
+					0, 0, 0, 0);
+			var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(), new Vector4f(1, 1, 1, 1), new Vector3f(), params);
+			copyScene(main, any, transforms);
+			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
+			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky pixel art", main.getColorTextureView(), Optional.empty(), null, OptionalDouble.empty())) {
+				pass.setPipeline(pixelPipeline);
+				RenderSystem.bindDefaultUniforms(pass);
+				pass.setUniform("DynamicTransforms", transforms);
+				pass.bindTexture("Sampler0", sceneView, RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR));
+				pass.setVertexBuffer(0, quad.slice());
+				pass.setIndexBuffer(indices.getBuffer(6), indices.type());
+				pass.drawIndexed(6, 1, 0, 0, 0);
+			}
+		} catch (Throwable t) {
+			pixelBroken = true;
+			SvregSky.LOG.error("SvregSky: pixel art failed, turning it off", t);
+		}
+	}
+
 	/** raindrops on the "lens": out in the rain under open sky, not when looking down at your feet */
 	private static float rainOnLens() {
 		if (!SkySettings.on("rain_drops")) {
@@ -298,7 +331,8 @@ public final class PostLook {
 		boolean painterly = SkySettings.on("painterly");
 		boolean animeSh = SkySettings.on("colored_shadows"), animeOl = SkySettings.on("anime_outline"), dream = SkySettings.on("dream_glow");
 		boolean animeAny = animeSh || animeOl || dream;
-		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy && !painterly && !animeAny)) {
+		boolean pixelArt = SkySettings.on("pixel_art");
+		if (broken || (!tone && !outline && !paper && !bloom && !dof && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy && !painterly && !animeAny && !pixelArt)) {
 			return;
 		}
 		try {
@@ -376,9 +410,7 @@ public final class PostLook {
 			if (bloom || dof) {
 				glow(mc, main, any, bloom ? 0.8F : 0, dof ? 1 : 0);
 			}
-			if (!tone && !outline && !paper && shadowK <= 0 && !shDebug && rainK <= 0 && !cozy) {
-				return;
-			}
+			if (tone || outline || paper || shadowK > 0 || shDebug || rainK > 0 || cozy) {
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer ib = indices.getBuffer(6);
 			IndexType type = indices.type();
@@ -390,6 +422,11 @@ public final class PostLook {
 				pass.setVertexBuffer(0, quad.slice());
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);
+			}
+			}
+			// pixel art goes last, so the whole picture (tint, glow, mist) becomes pixels
+			if (pixelArt) {
+				pixel(main, any);
 			}
 		} catch (Throwable t) {
 			broken = true;

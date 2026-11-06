@@ -107,6 +107,10 @@ public final class SkyConfig {
 		o.addProperty("layered_haze_strength", SkySettings.layeredHaze);
 		o.addProperty("outline_width", SkySettings.outlineWidth);
 		o.addProperty("outline_color", SkySettings.outlineColor);
+		o.addProperty("mod_language", SkySettings.modLanguage);
+		o.addProperty("pixel_size", SkySettings.pixelSize);
+		o.addProperty("pixel_bands", SkySettings.pixelBands);
+		o.addProperty("pixel_dither", SkySettings.pixelDither);
 		o.addProperty("cloud_3d_distance", SkySettings.cloud3dDistance);
 		o.addProperty("cloud_3d_cell", SkySettings.cloud3dCell);
 		o.addProperty("cloud_3d_levels", SkySettings.cloud3dLevels);

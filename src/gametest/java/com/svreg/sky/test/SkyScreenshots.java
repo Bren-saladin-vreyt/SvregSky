@@ -235,6 +235,10 @@ public class SkyScreenshots implements FabricClientGameTest {
 			});
 			shot(context, sp, 6000, 0, 10, "zc4_anime_look_noon");
 			shot(context, sp, 12300, 90, 8, "zc5_anime_look_sunset");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", true));
+			shot(context, sp, 12300, 90, 8, "zc5b_pixel_art_sunset");
+			shot(context, sp, 6000, 0, 10, "zc5c_pixel_art_noon");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", false));
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("colored_shadows", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("anime_outline", false);
@@ -263,20 +267,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false));
 			shot(context, sp, 6000, 15, -6, "zh1_hills_no_haze");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", true));
-			shot(context, sp, 6000, 15, -6, "zh2_hills_haze_now");
-			context.runOnClient(client -> {
-				com.svreg.sky.wind.Wind.hazeStart = 20;
-				com.svreg.sky.wind.Wind.hazeLayer = 26;
-				com.svreg.sky.wind.Wind.hazeKeep = 0.62F;
-				com.svreg.sky.sky.SkySettings.layeredHaze = 1.0F;
-			});
-			shot(context, sp, 6000, 15, -6, "zh3_hills_haze_strong");
+			shot(context, sp, 6000, 15, -6, "zh2_hills_haze_default");
 			shot(context, sp, 12300, 15, -6, "zh4_hills_haze_strong_golden");
 			context.runOnClient(client -> {
-				com.svreg.sky.wind.Wind.hazeStart = 32;
-				com.svreg.sky.wind.Wind.hazeLayer = 56;
-				com.svreg.sky.wind.Wind.hazeKeep = 0.78F;
-				com.svreg.sky.sky.SkySettings.layeredHaze = 0.7F;
 				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false);
 			});
 			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceComet = 2);

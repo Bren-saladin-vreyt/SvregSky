@@ -133,7 +133,15 @@ public class SkyScreen extends OptionsSubScreen {
 					}
 				}),
 				flag("per_world"),
-				flag("auto_fps"));
+				flag("auto_fps"),
+				choice("mod_language", List.of("id_id", "en_us", "auto"), SkySettings.modLanguage, v -> {
+					SkySettings.modLanguage = v;
+					ModLanguage.apply();
+					SkyConfig.save();
+					net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+					Screen back = this.lastScreen;
+					mc.execute(() -> mc.gui.setScreen(new SkyScreen(back, mc.options)));
+				}));
 
 		this.list.addHeader(Component.translatable("svregsky.options.header.sky"));
 		small(
@@ -294,6 +302,10 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("shadow_debug"),
 				flag("torch_glow"),
 				flag("paper_texture"),
+				flag("pixel_art"),
+				slider("pixel_size", 2, 6, SkySettings.pixelSize, v -> v + " px", v -> SkySettings.pixelSize = v),
+				slider("pixel_bands", 4, 16, SkySettings.pixelBands, v -> String.valueOf(v), v -> SkySettings.pixelBands = v),
+				slider("pixel_dither", 0, 100, Math.round(SkySettings.pixelDither * 100), v -> v + "%", v -> SkySettings.pixelDither = v / 100F),
 				flag("painterly"),
 				slider("painterly_strength", 10, 100, Math.round(SkySettings.painterlyStrength * 100), v -> v + "%", v -> SkySettings.painterlyStrength = v / 100F),
 				flag("bloom"));

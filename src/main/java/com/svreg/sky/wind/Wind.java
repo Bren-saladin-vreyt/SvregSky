@@ -29,7 +29,7 @@ public final class Wind {
 	private static volatile double pX, pY, pZ;
 	private static volatile float pRun;
 	/** layered haze shape: where it starts (blocks), how deep each layer is, how much of the land each layer keeps */
-	public static float hazeStart = 32, hazeLayer = 56, hazeKeep = 0.78F;
+	public static float hazeStart = 20, hazeLayer = 26, hazeKeep = 0.62F;
 
 	private Wind() {
 	}
@@ -601,6 +601,13 @@ public final class Wind {
 			        vec3 svHz = mix(svregsky_SkyB.rgb, svregsky_SkyA.rgb, svToSun * svToSun);
 			        svHz = mix(svHz, svregsky_SkyC.rgb, 0.25);
 			        color.rgb = mix(color.rgb, svHz, clamp(svAmt, 0.0, 0.9));
+			        // thin mist lying in the valleys and on water: low land (near sea level, or well below the camera)
+			        // a little way off turns milky, like a lake valley in the morning
+			        float svWyM = svWpH.y;
+			        float svLow = max(1.0 - smoothstep(62.0, 72.0, svWyM), smoothstep(5.0, 22.0, svregsky_Cam.y - svWyM));
+			        float svMist = svLow * smoothstep(8.0, 70.0, svDh) * (v_svWater.w > 0.5 ? 0.55 : 0.40) * svregsky_Anime.x;
+			        svMist *= 0.75 + 0.25 * svNoise2(svWpH.xz * 0.03 + svregsky_Cam.w * 0.02);
+			        color.rgb = mix(color.rgb, mix(svHz, vec3(0.96, 0.97, 1.0), 0.45), clamp(svMist, 0.0, 0.6));
 			    }
 			#endif
 			""";

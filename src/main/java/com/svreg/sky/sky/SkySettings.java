@@ -58,9 +58,14 @@ public final class SkySettings {
 	/** painterly filter: how strong the brush look is (0..1) */
 	public static float painterlyStrength = 0.6F;
 	/** anime look: coloured shadow strength, outline width (px) / strength / colour, dream glow strength */
-	public static float animeShadow = 0.7F, outlineStrength = 0.9F, dreamGlow = 0.6F, layeredHaze = 0.7F;
+	public static float animeShadow = 0.7F, outlineStrength = 0.9F, dreamGlow = 0.6F, layeredHaze = 0.85F;
 	public static int outlineWidth = 2;
+	/** pixel art: pixel size (at 720p), brightness bands, dithering 0..1 */
+	public static int pixelSize = 3, pixelBands = 9;
+	public static float pixelDither = 0.6F;
 	public static String outlineColor = "auto";
+	/** language of the SvregSky menu: id_id, en_us, or auto (the game's language) */
+	public static String modLanguage = "id_id";
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static boolean blockyClouds = false;
 	public static String cloudMode = "3d_crumble";
@@ -174,11 +179,12 @@ public final class SkySettings {
 		FLAGS.put("anime_outline", false);
 		FLAGS.put("outline_boil", true);
 		FLAGS.put("dream_glow", false);
-		FLAGS.put("layered_haze", false);
+		FLAGS.put("layered_haze", true);
 		FLAGS.put("painted_grass", false);
 		FLAGS.put("dream_sleep", true);
 		FLAGS.put("window_light", true);
 		FLAGS.put("rare_comet", true);
+		FLAGS.put("pixel_art", false);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);
@@ -348,6 +354,12 @@ public final class SkySettings {
 			dreamGlow = Math.max(0.1F, Math.min(1, num(o, "dream_glow_strength", dreamGlow)));
 			layeredHaze = Math.max(0.1F, Math.min(1, num(o, "layered_haze_strength", layeredHaze)));
 			outlineWidth = Math.max(1, Math.min(3, Math.round(num(o, "outline_width", outlineWidth))));
+			pixelSize = Math.max(2, Math.min(6, Math.round(num(o, "pixel_size", pixelSize))));
+			pixelBands = Math.max(4, Math.min(16, Math.round(num(o, "pixel_bands", pixelBands))));
+			pixelDither = Math.max(0, Math.min(1, num(o, "pixel_dither", pixelDither)));
+			if (o.has("mod_language")) {
+				modLanguage = o.get("mod_language").getAsString();
+			}
 			if (o.has("outline_color")) {
 				outlineColor = o.get("outline_color").getAsString();
 			}
