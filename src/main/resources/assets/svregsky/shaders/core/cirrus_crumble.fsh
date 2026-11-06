@@ -249,8 +249,10 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
         // toward azimuth 1.10): the same puffs and light as the rest of the bank
         highp float dth = abs(atan(sin(gTh - 1.10), cos(gTh - 1.10)));
         highp float y = e + gEOff;
-        highp float r1 = (1.0 - smoothstep(0.20, 0.46, dth)) - pow((y - 0.25) / 0.055, 2.0);
-        highp float r2 = (1.0 - smoothstep(0.12, 0.32, dth)) - pow((y - 0.37) / 0.038, 2.0);
+        // uneven rings: heaps and thin stretches, rising and dipping around the trunk (not flat platforms)
+        highp float n1 = weather(vec2(u * 0.9, 9900.0)).r, n2 = weather(vec2(u * 1.3 + 50.0, 9950.0)).r;
+        highp float r1 = (1.0 - smoothstep(0.18, 0.46, dth)) - pow((y - 0.25 - 0.05 * (n2 - 0.5)) / (0.03 + 0.07 * n1), 2.0);
+        highp float r2 = (1.0 - smoothstep(0.10, 0.32, dth)) - pow((y - 0.37 - 0.04 * (n1 - 0.5)) / (0.02 + 0.05 * n2), 2.0);
         body = max(body, max(r1, r2) * 0.95);
     }
     if (body <= 0.0) {
