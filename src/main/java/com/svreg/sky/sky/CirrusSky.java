@@ -108,6 +108,9 @@ public final class CirrusSky {
 		if (SkySettings.horizonMountains && Events.festivalTonight()) {
 			code |= 1 << 14;
 		}
+		if (!SkySettings.cloudPalette.equals("normal")) {
+			code |= 1 << 15;
+		}
 		return code * 2.0F;
 	}
 	/** test hook: show the comet tonight (seed + 1), 0 = by the calendar */

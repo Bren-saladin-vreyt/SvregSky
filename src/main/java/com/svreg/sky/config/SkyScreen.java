@@ -205,7 +205,8 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("living_clouds"),
 				flag("cloud_weather"),
 				flag("horizon_bank"),
-				flag("cloud_steps"),
+				choice("cloud_palette", List.of("normal", "mongolia", "mongolia_pixel"), SkySettings.cloudPalette, v -> SkySettings.cloudPalette = v),
+				flag("cloud_smooth_edges"),
 				slider("aerial_fade", 0, 200, Math.round(SkySettings.aerialFade * 100), v -> v + "%", v -> SkySettings.aerialFade = v / 100F));
 
 		small(

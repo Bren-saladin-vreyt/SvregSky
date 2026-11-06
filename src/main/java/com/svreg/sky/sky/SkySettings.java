@@ -66,6 +66,8 @@ public final class SkySettings {
 	public static String outlineColor = "auto";
 	/** language of the SvregSky menu: id_id, en_us, or auto (the game's language) */
 	public static String modLanguage = "id_id";
+	/** puff cloud colours: normal, mongolia (painted-cumulus palette, smooth), mongolia_pixel (flat steps + dots) */
+	public static String cloudPalette = "normal";
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static boolean blockyClouds = false;
 	public static String cloudMode = "3d_crumble";
@@ -185,7 +187,7 @@ public final class SkySettings {
 		FLAGS.put("window_light", true);
 		FLAGS.put("rare_comet", true);
 		FLAGS.put("pixel_art", false);
-		FLAGS.put("cloud_steps", false);
+		FLAGS.put("cloud_smooth_edges", true);
 		FLAGS.put("deep_sky", false);
 		FLAGS.put("giant_tree", true);
 		FLAGS.put("spirit_buddy", true);
@@ -365,6 +367,9 @@ public final class SkySettings {
 			pixelSize = Math.max(2, Math.min(6, Math.round(num(o, "pixel_size", pixelSize))));
 			pixelBands = Math.max(4, Math.min(16, Math.round(num(o, "pixel_bands", pixelBands))));
 			pixelDither = Math.max(0, Math.min(1, num(o, "pixel_dither", pixelDither)));
+			if (o.has("cloud_palette")) {
+				cloudPalette = o.get("cloud_palette").getAsString();
+			}
 			if (o.has("mod_language")) {
 				modLanguage = o.get("mod_language").getAsString();
 			}

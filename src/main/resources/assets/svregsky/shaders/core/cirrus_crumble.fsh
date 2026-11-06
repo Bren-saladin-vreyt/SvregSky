@@ -252,7 +252,7 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
 // scene light, set at the start of main() (paint() and the horizon bank read them)
 highp vec3 sunDir = vec3(0.0, 1.0, 0.0), hazeAway = vec3(0.0), hazeSun = vec3(0.0);
 highp float day = 0.0, gold = 0.0, night = 0.0, rain = 0.0, org = 0.0, afterglow = 0.0;
-bool gSteps = false;
+bool gSteps = false, gPixel = false;
 
 // 4x4 ordered dither (0..1) on the cloud buffer's pixels
 highp float bayer2(highp vec2 a) {
@@ -300,11 +300,21 @@ highp vec3 paint(highp float v, highp vec3 rd, highp float hzK) {
         highp vec3 t4 = mix(mix(c2, c3, 0.6), vec3(0.91, 0.84, 0.73), sun);
         highp vec3 t5 = mix(c3, vec3(0.99, 0.93, 0.83), sun);
         col = t0;
-        col = mix(col, t1, step(0.22 + dd, v));
-        col = mix(col, t2, step(0.31 + dd, v));
-        col = mix(col, t3, step(0.40 + dd, v));
-        col = mix(col, t4, step(0.50 + dd, v));
-        col = mix(col, t5, step(0.62 + dd, v));
+        if (gPixel) {
+            // pixel painting: flat steps, dots only at the borders
+            col = mix(col, t1, step(0.22 + dd, v));
+            col = mix(col, t2, step(0.31 + dd, v));
+            col = mix(col, t3, step(0.40 + dd, v));
+            col = mix(col, t4, step(0.50 + dd, v));
+            col = mix(col, t5, step(0.62 + dd, v));
+        } else {
+            // smooth volume: the same colours blended like the regular puff shading
+            col = mix(col, t1, smoothstep(0.16, 0.28, v));
+            col = mix(col, t2, smoothstep(0.26, 0.38, v));
+            col = mix(col, t3, smoothstep(0.35, 0.47, v));
+            col = mix(col, t4, smoothstep(0.45, 0.57, v));
+            col = mix(col, t5, smoothstep(0.56, 0.70, v));
+        }
     }
     highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
     highp vec2 dxz = rd.xz / (length(rd.xz) + 1e-4);
@@ -333,7 +343,7 @@ void main() {
     hazeAway = TextureMat[2].xyz;
     amount = TextureMat[2].w;
     hazeSun = vec3(TextureMat[3].x, TextureMat[3].z, TextureMat[3].w);
-    // TextureMat[3].y packs: 10000 x bits (1 painted hills, 2 lake, 4 pines, 8 horizon bank, 16 stepped tones) + 100 x afterglow
+    // TextureMat[3].y packs: 10000 x bits (1 painted hills, 2 lake, 4 pines, 8 horizon bank, 16 painted-cumulus palette, 32 pixel steps) + 100 x afterglow
     // (0..99, the blue hour after sunset) + the puff churn (0..64)
     highp float bits = floor(TextureMat[3].y / 10000.0);
     highp float rest = mod(TextureMat[3].y, 10000.0);
@@ -342,6 +352,7 @@ void main() {
     bool hillsOn = mod(bits, 2.0) > 0.5;
     bool bankOn = mod(floor(bits / 8.0), 2.0) > 0.5;
     gSteps = mod(floor(bits / 16.0), 2.0) > 0.5;
+    gPixel = mod(floor(bits / 32.0), 2.0) > 0.5;
     gBank = bankOn && ModelOffset.y < 0.0;
     highp float bufH = max(ColorModulator.x, 1.0);
     highp float reach = ColorModulator.y;

@@ -61,6 +61,11 @@ public final class RaymarchClouds {
 	private static float lastBottomY;
 
 	/** weather-driven cloud state for other effects */
+	/** round, smooth cloud edges when upscaling (off for the pixel looks, which want the sharp cloud pixels) */
+	private static boolean smoothEdges() {
+		return SkySettings.on("cloud_smooth_edges") && !SkySettings.cloudPalette.equals("mongolia_pixel") && !SkySettings.on("pixel_art");
+	}
+
 	public static float storm() {
 		return storm;
 	}
@@ -306,7 +311,7 @@ public final class RaymarchClouds {
 			// + 10000 x bits: 1 painted hills (clouds hide behind them), 2 lake, 4 pines (hill shape), 8 horizon cloud bank
 			boolean hills = SkySettings.horizonMountains;
 			int bits = (hills ? 1 : 0) | (hills && SkySettings.on("horizon_lake") ? 2 : 0) | (hills && SkySettings.on("horizon_pines") ? 4 : 0)
-					| (SkySettings.on("horizon_bank") ? 8 : 0) | (SkySettings.on("cloud_steps") ? 16 : 0);
+					| (SkySettings.on("horizon_bank") ? 8 : 0) | (!SkySettings.cloudPalette.equals("normal") ? 16 : 0) | (SkySettings.cloudPalette.equals("mongolia_pixel") ? 32 : 0);
 			params.m31(bits * 10000 + Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
@@ -328,7 +333,7 @@ public final class RaymarchClouds {
 			var steadyT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(valid ? 1 : 0, 0, 0, 0),
 					prevCam == null ? new Vector3f() : new Vector3f(camCloud).sub(prevCam), prevView == null ? view : prevView);
 			boolean zeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
-			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(scale, zeroToOne ? 1 : 0, SkySettings.cloudCrumble() ? fade : 0, reach), new Vector3f(), new Matrix4f());
+			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(smoothEdges() ? scale : -scale, zeroToOne ? 1 : 0, SkySettings.cloudCrumble() ? fade : 0, reach), new Vector3f(), new Matrix4f());
 
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer ib = indices.getBuffer(6);

@@ -940,7 +940,7 @@ highp float lakeTop(highp float a) {
 
 
 // ---------------------------------------------------------------- stage 4: Ghibli icons
-highp float featTree = 0.0, featPoles = 0.0, featMeadow = 0.0, featTorii = 0.0, featDeep = 0.0, featGiant = 0.0;
+highp float featTree = 0.0, featPoles = 0.0, featMeadow = 0.0, featTorii = 0.0, featDeep = 0.0, featGiant = 0.0, featMongol = 0.0;
 const highp float treeScale = 0.6;
 
 // a huge lone camphor-like tree on top of the big round hill: thick trunk, a cloud of round leafy masses, toon lit
@@ -1331,7 +1331,10 @@ highp vec4 gtCloud2(highp float x, highp float y, highp float cy, highp float se
   if (best <= -0.004 || y < belly) return vec4(0.0);
   highp vec2 d = (vec2(x, y) - bc) / br;
   highp float v = 0.55 + 0.45 * d.y + 0.15 * d.x + (gtF(vec2(x, y) * 70.0 + seed) - 0.5) * 0.25;
-  highp vec3 c0 = vec3(0.66, 0.70, 0.84), c1 = vec3(0.85, 0.88, 0.96), c2 = vec3(1.0, 0.99, 0.96);
+  // the same colours as the puff clouds: blue-white toon tones, or the painted-cumulus palette
+  highp vec3 c0 = featMongol > 0.5 ? vec3(0.47, 0.55, 0.62) : vec3(0.66, 0.70, 0.84);
+  highp vec3 c1 = featMongol > 0.5 ? vec3(0.79, 0.75, 0.69) : vec3(0.85, 0.88, 0.96);
+  highp vec3 c2 = featMongol > 0.5 ? vec3(0.99, 0.93, 0.83) : vec3(1.0, 0.99, 0.96);
   highp vec3 cc = mix(c0, c1, smoothstep(0.38, 0.44, v));
   cc = mix(cc, c2, smoothstep(0.72, 0.78, v));
   cc = mix(cc, c0 * 0.95, smoothstep(0.012, 0.0, y - belly) * 0.6);   // shaded flat belly
@@ -1349,10 +1352,12 @@ highp vec3 giantTree(highp vec3 col, highp float a, highp float yd, highp vec3 s
     highp float tx = x / S, ty = el / S;
     // night-blue / golden tint for the clouds caught on the trunk
     highp vec3 cloudTint = mix(vec3(1.0), vec3(1.0, 0.82, 0.64), gold);
+    highp float rainK = TextureMat[1].w;
     // the back halves of the cloud rings go behind the trunk
     for (int i = 0; i < 2; i++) {
         highp vec4 cb = gtCloud2(tx + 0.03, ty, i == 0 ? 0.20 : 0.31, float(i) * 11.0 + 2.0, tmLand, true);
         highp vec3 bcol = mix(cb.rgb, sky, 0.30) * cloudTint;
+        bcol = mix(bcol, vec3(dot(bcol, vec3(0.3, 0.59, 0.11))) * 0.8, rainK * 0.8);
         bcol = mix(bcol, sky * 1.2, night * 0.75);
         col = mix(col, bcol, cb.a);
     }
@@ -1367,6 +1372,7 @@ highp vec3 giantTree(highp vec3 col, highp float a, highp float yd, highp vec3 s
     for (int i = 0; i < 2; i++) {
         highp vec4 cf = gtCloud2(tx - 0.02 * float(i), ty, i == 0 ? 0.17 : 0.29, float(i) * 7.0 + 30.0, tmLand, false);
         highp vec3 ccol = mix(cf.rgb, sky, 0.22) * cloudTint;
+        ccol = mix(ccol, vec3(dot(ccol, vec3(0.3, 0.59, 0.11))) * 0.8, rainK * 0.8);
         ccol = mix(ccol, sky * 1.3, night * 0.7);
         col = mix(col, ccol, cf.a);
     }
@@ -1803,6 +1809,7 @@ void main() {
     featDeep = mod(floor(icons / 32.0 + 0.001), 2.0);
     featGiant = mod(floor(icons / 64.0 + 0.001), 2.0);
     featFest = mod(floor(icons / 128.0 + 0.001), 2.0);
+    featMongol = mod(floor(icons / 256.0 + 0.001), 2.0);
     curtainK = showerIdx > 0.5 ? 1.0 - TextureMat[1].w : 0.0;
     curtainA = (showerIdx - 1.0) / 32.0 * TAU;
     highp float coverAdj = TextureMat[3].y;

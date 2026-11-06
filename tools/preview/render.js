@@ -12,7 +12,22 @@ const vsh = `#version 300 es
 in vec2 P; out highp vec2 uv; void main(){ gl_Position=vec4(P,0.,1.); uv=P*0.5+0.5; }`;
 const comp = `#version 300 es
 precision highp float; uniform sampler2D C; uniform float S, fade, reach, P00, P11; uniform mat4 MV; uniform vec3 top, hor; in vec2 uv; out vec4 o;
+uniform float SM;
 void main(){ vec4 c=texelFetch(C, ivec2(gl_FragCoord.xy/S),0); vec3 sky=mix(hor, top, pow(uv.y,0.6));
+ float cover = 1.0;
+ if (SM > 0.5) {
+   // smooth edges, same as cirrus_rmcomp.fsh
+   ivec2 sz = textureSize(C, 0); vec2 p = gl_FragCoord.xy / S - 0.5; ivec2 i = ivec2(floor(p)); vec2 f = p - floor(p);
+   vec4 c00 = texelFetch(C, clamp(i, ivec2(0), sz - 1), 0), c10 = texelFetch(C, clamp(i + ivec2(1, 0), ivec2(0), sz - 1), 0);
+   vec4 c01 = texelFetch(C, clamp(i + ivec2(0, 1), ivec2(0), sz - 1), 0), c11 = texelFetch(C, clamp(i + ivec2(1, 1), ivec2(0), sz - 1), 0);
+   float th = 1.0 / 255.0;
+   float w00 = (1.0 - f.x) * (1.0 - f.y) * step(th, c00.a), w10 = f.x * (1.0 - f.y) * step(th, c10.a), w01 = (1.0 - f.x) * f.y * step(th, c01.a), w11 = f.x * f.y * step(th, c11.a);
+   float m = w00 + w10 + w01 + w11;
+   if (m < 0.35) { o = vec4(sky, 1.0); return; }
+   cover = clamp((m - 0.5) / max(fwidth(m), 1e-3) + 0.5, 0.0, 1.0);
+   c.rgb = (c00.rgb * w00 + c10.rgb * w10 + c01.rgb * w01 + c11.rgb * w11) / m;
+   c.a = max(max(c00.a * step(th, c00.a), c10.a * step(th, c10.a)), max(c01.a * step(th, c01.a), c11.a * step(th, c11.a)));
+ }
  if (c.a<=0.5/255.0) { o=vec4(sky,1.0); return; }
  float a = 1.0;
  if (fade > 0.0) {
@@ -23,7 +38,7 @@ void main(){ vec4 c=texelFetch(C, ivec2(gl_FragCoord.xy/S),0); vec3 sky=mix(hor,
    float aerA = min(0.85, ((t > 3500.0 ? 0.10 : smoothstep(0.30, 1.0, t / reach) * 0.55) * (0.5 + 0.5 * low)) * fade);
    a = 1.0 - aerA;
  }
- o=vec4(mix(sky, c.rgb, a),1.0); }`;
+ o=vec4(mix(sky, c.rgb, a * cover),1.0); }`;
 const hmSrc = fs.readFileSync(path.join(path.join(__dirname, "..", "..", "src", "main", "resources", "assets", "svregsky", "shaders", "core"), 'cirrus_hillmask.fsh'), 'utf8').replace('#version 330', '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;');
 const noiseB64 = fs.readFileSync(path.join(__dirname, 'out', o.noise || 'crumble.png')).toString('base64');
 
@@ -109,7 +124,7 @@ const noiseB64 = fs.readFileSync(path.join(__dirname, 'out', o.noise || 'crumble
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, o.w, o.h);
       gl.useProgram(pc); gl.bindTexture(gl.TEXTURE_2D, bt);
       gl.uniform1i(gl.getUniformLocation(pc, 'C'), 0); gl.uniform1f(gl.getUniformLocation(pc, 'S'), o.scale);
-      gl.uniform1f(gl.getUniformLocation(pc, 'fade'), o.fade || 0); gl.uniform1f(gl.getUniformLocation(pc, 'reach'), o.reach);
+      gl.uniform1f(gl.getUniformLocation(pc, 'fade'), o.fade || 0); gl.uniform1f(gl.getUniformLocation(pc, 'SM'), o.smooth ? 1 : 0); gl.uniform1f(gl.getUniformLocation(pc, 'reach'), o.reach);
       gl.uniform1f(gl.getUniformLocation(pc, 'P00'), proj[0]); gl.uniform1f(gl.getUniformLocation(pc, 'P11'), proj[5]); gl.uniformMatrix4fv(gl.getUniformLocation(pc, 'MV'), false, new Float32Array(mv));
       gl.uniform3fv(gl.getUniformLocation(pc, 'top'), o.skyKey ? [1, 0, 1] : sky[0]); gl.uniform3fv(gl.getUniformLocation(pc, 'hor'), o.skyKey ? [1, 0, 1] : sky[1]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

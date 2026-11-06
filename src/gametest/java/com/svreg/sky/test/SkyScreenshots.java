@@ -244,18 +244,27 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, 10, "zc5c_pixel_art_noon");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", false));
 			context.runOnClient(client -> {
-				com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_steps", true);
+				com.svreg.sky.sky.SkySettings.cloudPalette = "mongolia";
 				com.svreg.sky.sky.SkySettings.FLAGS.put("deep_sky", true);
 			});
 			shot(context, sp, 6000, 0, -25, "zc5d_steps_deep_noon");
 			shot(context, sp, 12300, 90, -10, "zc5e_steps_golden");
 			shot(context, sp, 7000, 160, -18, "zc5g_steps_horizon");
 			shot(context, sp, 7000, 240, -6, "zc5h_steps_horizon_b");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", true));
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.cloudPalette = "mongolia_pixel");
+			shot(context, sp, 7000, 160, -18, "zc5i_mongolia_pixel");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.cloudPalette = "normal";
+				com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_smooth_edges", false);
+			});
+			shot(context, sp, 7000, 160, -18, "zc5j_normal_sharp_edges");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_smooth_edges", true));
+			shot(context, sp, 7000, 160, -18, "zc5k_normal_smooth_edges");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudPalette = "mongolia"; com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", true); });
 			shot(context, sp, 6000, 0, -25, "zc5f_steps_deep_pixel");
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", false);
-				com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_steps", false);
+				com.svreg.sky.sky.SkySettings.cloudPalette = "normal";
 				com.svreg.sky.sky.SkySettings.FLAGS.put("deep_sky", false);
 			});
 			context.runOnClient(client -> {
@@ -330,6 +339,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(60);
 			sp.getConnection().waitForChunksRender();
 			shot(context, sp, 6000, -27, -15, "zt1_giant_tree");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.cloudPalette = "mongolia");
+			shot(context, sp, 6000, -27, -15, "zt1b_giant_tree_mongolia");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.cloudPalette = "normal");
 			shot(context, sp, 12300, -27, -15, "zt2_giant_tree_golden");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~30 ~ ~60");
 			context.waitTicks(60);
