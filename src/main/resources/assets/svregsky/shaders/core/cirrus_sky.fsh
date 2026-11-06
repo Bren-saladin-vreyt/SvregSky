@@ -1855,7 +1855,7 @@ void main() {
     if (featDeep > 0.5) {
         // deep sky: a dark, saturated blue overhead that lightens toward the horizon, like a painted summer sky
         highp float up = sstep(0.08, 0.85, max(dir.y, 0.0));
-        highp vec3 deep = vec3(0.06, 0.22, 0.52);
+        highp vec3 deep = vec3(0.04, 0.20, 0.40);
         col = mix(col, deep, up * 0.62 * day * (1.0 - gold) * (1.0 - TextureMat[1].w * 0.7));
         col = mix(col, col * vec3(0.95, 1.0, 1.04), (1.0 - up) * day);
     }

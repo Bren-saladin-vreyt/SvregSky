@@ -288,19 +288,23 @@ highp vec3 paint(highp float v, highp vec3 rd, highp float hzK) {
     c3 = mix(c3, vec3(0.70, 0.73, 0.78) * dim, rain * 0.8);
     highp vec3 col = mix(mix(mix(c0, c1, k1), c2, k2), c3, k3);
     if (gSteps) {
-        // stepped clouds, like a pixel painting: five tones -- blue-grey shade to warm cream light -- and dotted
-        // (dithered) borders between them instead of clean lines
-        highp float dd = (bayer4(gl_FragCoord.xy) - 0.5) * 0.07;
+        // stepped clouds, like a pixel painting (palette taken from painted cumulus): six flat tones from dark
+        // slate under the bellies through grey and beige to warm cream on the sunlit tops, with only a narrow band
+        // of dots (ordered dither) where two tones meet
+        highp float dd = (bayer4(gl_FragCoord.xy) - 0.5) * 0.028;
         highp float sun = day * (1.0 - gold) * (1.0 - rain);
-        highp vec3 s0 = mix(c0, vec3(0.44, 0.52, 0.70), sun * 0.75);
-        highp vec3 s4 = mix(c3, vec3(1.00, 0.95, 0.84), sun * 0.85);
-        highp vec3 s1 = mix(s0, c1, 0.5);
-        highp vec3 s3 = mix(c2, s4, 0.35);
-        col = s0;
-        col = mix(col, s1, step(0.24 + dd, v));
-        col = mix(col, c1, step(0.33 + dd, v));
-        col = mix(col, s3, step(0.46 + dd, v));
-        col = mix(col, s4, step(0.60 + dd, v));
+        highp vec3 t0 = mix(c0, vec3(0.36, 0.47, 0.57), sun);
+        highp vec3 t1 = mix(mix(c0, c1, 0.5), vec3(0.47, 0.55, 0.62), sun);
+        highp vec3 t2 = mix(c1, vec3(0.62, 0.65, 0.67), sun);
+        highp vec3 t3 = mix(c2, vec3(0.79, 0.75, 0.69), sun);
+        highp vec3 t4 = mix(mix(c2, c3, 0.6), vec3(0.91, 0.84, 0.73), sun);
+        highp vec3 t5 = mix(c3, vec3(0.99, 0.93, 0.83), sun);
+        col = t0;
+        col = mix(col, t1, step(0.22 + dd, v));
+        col = mix(col, t2, step(0.31 + dd, v));
+        col = mix(col, t3, step(0.40 + dd, v));
+        col = mix(col, t4, step(0.50 + dd, v));
+        col = mix(col, t5, step(0.62 + dd, v));
     }
     highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
     highp vec2 dxz = rd.xz / (length(rd.xz) + 1e-4);
