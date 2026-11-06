@@ -28,6 +28,8 @@ public final class Wind {
 	private static float[] skyA = new float[4], skyB = new float[4], skyC = new float[4];
 	private static volatile double pX, pY, pZ;
 	private static volatile float pRun;
+	/** layered haze shape: where it starts (blocks), how deep each layer is, how much of the land each layer keeps */
+	public static float hazeStart = 32, hazeLayer = 56, hazeKeep = 0.78F;
 
 	private Wind() {
 	}
@@ -214,7 +216,7 @@ public final class Wind {
 		}
 		if (locAnime >= 0) {
 			// anime land: layered distance haze strength, painted grass strength, haze layer depth (blocks)
-			GL20C.glUniform4f(locAnime, SkySettings.on("layered_haze") ? SkySettings.layeredHaze : 0, SkySettings.on("painted_grass") ? 0.75F : 0, 56, 0);
+			GL20C.glUniform4f(locAnime, SkySettings.on("layered_haze") ? SkySettings.layeredHaze : 0, SkySettings.on("painted_grass") ? 0.75F : 0, hazeLayer, hazeStart + hazeKeep);
 		}
 		if (locPlayer >= 0) {
 			GL20C.glUniform4f(locPlayer, (float) (pX - camX), (float) (pY - camY), (float) (pZ - camZ), SkySettings.on("grass_bend") ? 1 + Math.max(0, Math.min(1, pRun)) : 0);
@@ -521,7 +523,7 @@ public final class Wind {
 			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g; b plants; a = water depth << 4 | shore distance
 			uniform vec4 svregsky_Water;   // anime water, shore waves, column map ready, underwater light patterns
 			uniform vec4 svregsky_Extra;   // winter snow amount, flowing-water foam on/off, cloud sea level (+ amount as fraction), time
-			uniform vec4 svregsky_Anime;   // layered haze strength, painted grass strength, haze layer depth, unused
+			uniform vec4 svregsky_Anime;   // layered haze strength, painted grass strength, haze layer depth, haze start (int part) + share kept per layer (fraction)
 			// signed distance to the shoreline (blocks, + in the water) and water depth at a grid position, smoothly interpolated
 			vec2 svShore(vec2 g) {
 			    vec2 gp = g - 0.5;
@@ -591,9 +593,9 @@ public final class Wind {
 			        // painted backgrounds of an anime landscape (each layer a bit paler and bluer)
 			        float svDh = length(v_svWater.xyz);
 			        vec3 svWpH = v_svWater.xyz + svregsky_Cam.xyz;
-			        float svTl = max(svDh - 32.0, 0.0) / svregsky_Anime.z + (svNoise2(svWpH.xz * 0.02) - 0.5) * 0.5;
+			        float svTl = max(svDh - floor(svregsky_Anime.w), 0.0) / svregsky_Anime.z + (svNoise2(svWpH.xz * 0.02) - 0.5) * 0.5;
 			        float svSteps = max(floor(svTl) + smoothstep(0.78, 1.0, fract(svTl)), 0.0);
-			        float svAmt = (1.0 - pow(0.78, svSteps)) * svregsky_Anime.x;
+			        float svAmt = (1.0 - pow(fract(svregsky_Anime.w), svSteps)) * svregsky_Anime.x;
 			        vec2 svHd = normalize(v_svWater.xz + 1e-4);
 			        float svToSun = dot(svHd, normalize(svregsky_Sun.xz + 1e-4)) * 0.5 + 0.5;
 			        vec3 svHz = mix(svregsky_SkyB.rgb, svregsky_SkyA.rgb, svToSun * svToSun);

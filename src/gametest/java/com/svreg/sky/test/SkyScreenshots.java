@@ -248,6 +248,37 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("painted_grass", false);
 			});
+			// distant hills for the layered haze (real terrain at 45 / 80 / 120 blocks, toward +z)
+			int[][] hl = {{0, 45, 22, 14}, {-30, 80, 34, 24}, {35, 120, 46, 34}};
+			for (int[] h : hl) {
+				for (int k = 0; k < h[3]; k += 2) {
+					int r = h[2] - k * h[2] / h[3];
+					String blk = k + 2 >= h[3] ? "grass_block" : "stone";
+					sp.getServer().runCommand("execute as @p at @p run fill ~" + (h[0] - r) + " ~" + (k - 1) + " ~" + (h[1] - r) + " ~" + (h[0] + r) + " ~" + k + " ~" + (h[1] + r) + " " + blk);
+					sp.getServer().runCommand("execute as @p at @p run fill ~" + (h[0] - r) + " ~" + k + " ~" + (h[1] - r) + " ~" + (h[0] + r) + " ~" + k + " ~" + (h[1] + r) + " grass_block replace stone");
+				}
+			}
+			context.waitTicks(40);
+			sp.getConnection().waitForChunksRender();
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false));
+			shot(context, sp, 6000, 0, -4, "zh1_hills_no_haze");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", true));
+			shot(context, sp, 6000, 0, -4, "zh2_hills_haze_now");
+			context.runOnClient(client -> {
+				com.svreg.sky.wind.Wind.hazeStart = 14;
+				com.svreg.sky.wind.Wind.hazeLayer = 34;
+				com.svreg.sky.wind.Wind.hazeKeep = 0.66F;
+				com.svreg.sky.sky.SkySettings.layeredHaze = 1.0F;
+			});
+			shot(context, sp, 6000, 0, -4, "zh3_hills_haze_strong");
+			shot(context, sp, 12300, 0, -4, "zh4_hills_haze_strong_golden");
+			context.runOnClient(client -> {
+				com.svreg.sky.wind.Wind.hazeStart = 32;
+				com.svreg.sky.wind.Wind.hazeLayer = 56;
+				com.svreg.sky.wind.Wind.hazeKeep = 0.78F;
+				com.svreg.sky.sky.SkySettings.layeredHaze = 0.7F;
+				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false);
+			});
 			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceComet = 2);
 			shot(context, sp, 18000, -177, -40, "zc8_comet_midnight");
 			shot(context, sp, 21500, -150, -25, "zc9_comet_late");
