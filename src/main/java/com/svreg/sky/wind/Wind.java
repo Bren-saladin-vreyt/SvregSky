@@ -600,7 +600,7 @@ public final class Wind {
 			        float svToSun = dot(svHd, normalize(svregsky_Sun.xz + 1e-4)) * 0.5 + 0.5;
 			        vec3 svHz = mix(svregsky_SkyB.rgb, svregsky_SkyA.rgb, svToSun * svToSun);
 			        svHz = mix(svHz, svregsky_SkyC.rgb, 0.25);
-			        color.rgb = mix(color.rgb, svHz, clamp(svAmt, 0.0, 0.85));
+			        color.rgb = mix(color.rgb, svHz, clamp(svAmt, 0.0, 0.9));
 			    }
 			#endif
 			""";

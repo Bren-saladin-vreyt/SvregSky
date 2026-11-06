@@ -248,8 +248,8 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("painted_grass", false);
 			});
-			// distant hills for the layered haze (real terrain at 45 / 80 / 120 blocks, toward +z)
-			int[][] hl = {{0, 45, 22, 14}, {-30, 80, 34, 24}, {35, 120, 46, 34}};
+			// distant hills for the layered haze (real terrain at about 55 / 80 / 135 blocks, toward +z, side by side)
+			int[][] hl = {{-38, 40, 16, 10}, {8, 80, 30, 26}, {58, 125, 44, 44}};
 			for (int[] h : hl) {
 				for (int k = 0; k < h[3]; k += 2) {
 					int r = h[2] - k * h[2] / h[3];
@@ -261,17 +261,17 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(40);
 			sp.getConnection().waitForChunksRender();
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false));
-			shot(context, sp, 6000, 0, -4, "zh1_hills_no_haze");
+			shot(context, sp, 6000, 15, -6, "zh1_hills_no_haze");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", true));
-			shot(context, sp, 6000, 0, -4, "zh2_hills_haze_now");
+			shot(context, sp, 6000, 15, -6, "zh2_hills_haze_now");
 			context.runOnClient(client -> {
-				com.svreg.sky.wind.Wind.hazeStart = 14;
-				com.svreg.sky.wind.Wind.hazeLayer = 34;
-				com.svreg.sky.wind.Wind.hazeKeep = 0.66F;
+				com.svreg.sky.wind.Wind.hazeStart = 20;
+				com.svreg.sky.wind.Wind.hazeLayer = 26;
+				com.svreg.sky.wind.Wind.hazeKeep = 0.62F;
 				com.svreg.sky.sky.SkySettings.layeredHaze = 1.0F;
 			});
-			shot(context, sp, 6000, 0, -4, "zh3_hills_haze_strong");
-			shot(context, sp, 12300, 0, -4, "zh4_hills_haze_strong_golden");
+			shot(context, sp, 6000, 15, -6, "zh3_hills_haze_strong");
+			shot(context, sp, 12300, 15, -6, "zh4_hills_haze_strong_golden");
 			context.runOnClient(client -> {
 				com.svreg.sky.wind.Wind.hazeStart = 32;
 				com.svreg.sky.wind.Wind.hazeLayer = 56;
