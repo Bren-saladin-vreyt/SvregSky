@@ -44,7 +44,7 @@ public final class Events {
 		return Math.max(0, CirrusSky.nightLevel() - 0.2F) / 0.8F * (1 - 0.6F * CirrusSky.rainLevel());
 	}
 
-	/** today has a fox rain: a short sunny shower in the afternoon (about one day in five) */
+	/** today has a fox rain: a short sunny shower late in the afternoon (about one day in five) */
 	public static boolean foxRainToday() {
 		return forceFoxRain || (SkySettings.on("fox_rain") && Math.floorMod(dayHash(day(false), 0xF0C5L), 5L) == 0);
 	}
@@ -59,8 +59,8 @@ public final class Events {
 		if (forceFoxRain) {
 			return 1;
 		}
-		// 6800..8600 ticks (about 1.5 minutes), easing in and out
-		float a = (tod - 6800) / 300F, b = (8600 - tod) / 300F;
+		// late afternoon, 9300..11100 ticks (about 1.5 minutes), easing in and out: the sun is low enough for a rainbow
+		float a = (tod - 9300) / 300F, b = (11100 - tod) / 300F;
 		return Math.max(0, Math.min(1, Math.min(a, b)));
 	}
 

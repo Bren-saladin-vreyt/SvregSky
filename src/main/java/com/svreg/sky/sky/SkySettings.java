@@ -187,7 +187,7 @@ public final class SkySettings {
 		FLAGS.put("pixel_art", false);
 		FLAGS.put("cloud_steps", false);
 		FLAGS.put("deep_sky", false);
-		FLAGS.put("giant_tree", false);
+		FLAGS.put("giant_tree", true);
 		FLAGS.put("spirit_buddy", true);
 		FLAGS.put("kites", true);
 		FLAGS.put("glow_sea", true);

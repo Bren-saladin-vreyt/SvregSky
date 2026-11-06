@@ -422,7 +422,7 @@ highp float ridge(highp float a, highp float freq, highp float seed, highp float
 
 // set in main(): sky time (seconds, wraps every hour) and the menu toggles
 highp float tmLand = 0.0;
-highp float windWaves = 0.0, trainOn = 0.0, featBirds = 0.0, featVillage = 0.0;
+highp float windWaves = 0.0, trainOn = 0.0, featBirds = 0.0, featVillage = 0.0, featFest = 0.0;
 const highp float TAU = 6.2831853;
 highp float featAir = 0.0, featFalls = 0.0, featLake = 0.0;
 
@@ -662,6 +662,22 @@ highp vec4 village(highp float a, highp float y0, highp float night, highp float
     y = yb + (y - yb) / 1.6;
     highp vec3 wall = mix(vec3(0.95, 0.92, 0.84), vec3(1.0, 0.82, 0.66), gold);
     wall = mix(wall, vec3(0.10, 0.11, 0.20), night);
+    if (featFest > 0.5 && night > 0.3) {
+        // festival: strings of paper lanterns swagged between the houses
+        highp float py0 = y - yb;
+        highp float sx = (d + 0.036) / 0.0145;              // which gap between houses
+        highp float f = fract(sx);
+        if (sx > 0.0 && sx < 5.0) {
+            highp float sag = 0.0105 - 0.0035 * sin(3.14159 * f);
+            highp float lx = fract(d / 0.0024) - 0.5;
+            if (abs(py0 - sag) < 0.0011 && abs(lx) < 0.28) {
+                highp float pick = hash2(vec2(floor(d / 0.0024), 5.0));
+                highp vec3 lc = pick < 0.4 ? vec3(1.0, 0.35, 0.25) : (pick < 0.75 ? vec3(1.0, 0.70, 0.30) : vec3(1.0, 0.92, 0.55));
+                highp float fl = 0.85 + 0.15 * sin(mod(tmLand * 3.0 + pick * 20.0, 6.2831853));
+                return vec4(lc * fl * 1.3, 1.0);
+            }
+        }
+    }
     for (int i = 0; i < 6; i++) {
         highp float fi = float(i);
         highp float cx = (fi - 2.5) * 0.0145 + (hash2(vec2(fi, 4.0)) - 0.5) * 0.004;
@@ -1206,9 +1222,147 @@ highp vec3 landLayers(highp vec3 col, highp float a, highp float y, highp vec3 d
     return c;
 }
 
+// ---------------------------------------------------------------- giant tree far beyond the hills (giant_tree)
+// angle space: x = azimuth offset from the tree, y = elevation (radians); returns colour + coverage
+highp float gtF(highp vec2 p) {
+    return noise(p) * 0.55 + noise(p * 2.1 + 3.1) * 0.28 + noise(p * 4.3 + 7.7) * 0.17;
+}
+highp vec4 gtTree(highp float x, highp float y, highp float sunSide, highp float gold) {
+    highp vec4 c = vec4(0.0);
+    highp float xt = x - 0.035 * y * y;
+    highp float w = 0.040 - 0.014 * smoothstep(0.0, 0.40, y) + 0.035 * exp(-max(y, 0.0) * 18.0) + (gtF(vec2(y * 30.0, 1.0)) - 0.5) * 0.004;
+    if (abs(xt) < w && y < 0.47) {
+        highp float lit = clamp(0.5 + 0.6 * (xt / w) * sunSide, 0.0, 1.0);
+        highp float bark = gtF(vec2(xt * 300.0, y * 18.0));
+        c = vec4(mix(vec3(0.24, 0.21, 0.30), vec3(0.42, 0.36, 0.40), smoothstep(0.45, 0.55, lit + (bark - 0.5) * 0.3)), 1.0);
+    }
+    for (int i = 0; i < 4; i++) {
+        highp float fi = float(i);
+        highp float sgn = mod(fi, 2.0) < 0.5 ? -1.0 : 1.0;
+        highp float len = 0.16 + 0.04 * fi;
+        highp float t = clamp(sgn * xt / len, 0.0, 1.0);
+        highp float by = 0.30 + fi * 0.025 + 0.10 * t + 0.03 * sin(t * 3.0 + fi);
+        if (sgn * xt > 0.0 && sgn * xt < len && abs(y - by) < 0.010 * (1.0 - t) + 0.002) c = vec4(0.28, 0.24, 0.32, 1.0);
+    }
+    highp float best = -1.0;
+    highp vec2 bc = vec2(0.0);
+    highp float br = 1.0;
+    for (int i = 0; i < 7; i++) {
+        highp float fi = float(i);
+        highp vec2 cc = vec2(i == 0 ? -0.21 : i == 1 ? -0.11 : i == 2 ? 0.0 : i == 3 ? 0.12 : i == 4 ? 0.22 : i == 5 ? -0.05 : 0.08,
+                             i == 0 ? 0.45 : i == 1 ? 0.53 : i == 2 ? 0.57 : i == 3 ? 0.53 : i == 4 ? 0.46 : i == 5 ? 0.45 : 0.44);
+        highp float rr = i == 2 ? 0.11 : (i == 1 || i == 3) ? 0.10 : (i == 5 || i == 6) ? 0.09 : i == 0 ? 0.085 : 0.08;
+        highp vec2 d = (vec2(x, y) - cc) / vec2(1.0, 0.78);
+        highp float lump = (gtF(vec2(atan(d.y, d.x) * 3.0 + fi * 5.0, 2.0)) - 0.5) * 0.035 + (gtF(vec2(x, y) * 60.0) - 0.5) * 0.012;
+        highp float e = rr + lump - length(d);
+        if (e > best) {
+            best = e;
+            bc = cc;
+            br = rr;
+        }
+    }
+    if (best > 0.0) {
+        highp vec2 d = (vec2(x, y) - bc) / br;
+        highp float shade = 0.55 + 0.45 * d.y + 0.35 * d.x * sunSide + (gtF(vec2(x, y) * 40.0) - 0.5) * 0.4;
+        highp vec3 fc = mix(mix(vec3(0.16, 0.27, 0.30), vec3(0.26, 0.42, 0.38), smoothstep(0.38, 0.46, shade)), vec3(0.45, 0.60, 0.44), smoothstep(0.78, 0.86, shade));
+        fc = mix(fc, fc * vec3(1.25, 0.95, 0.75), gold * smoothstep(0.6, 0.9, shade));
+        fc += vec3(1.0, 0.9, 0.7) * smoothstep(0.012, 0.0, best) * step(0.0, d.x * sunSide + d.y * 0.5) * 0.35;
+        c = vec4(fc, 1.0);
+    }
+    return c;
+}
+// puffy clouds wrapped around the trunk: round tops, flat bellies
+highp vec4 gtCloud(highp float x, highp float y, highp float seed) {
+    highp float cy = 0.21;
+    if (y < cy - 0.004) return vec4(0.0);
+    highp float best = -1.0;
+    highp vec2 bc = vec2(0.0);
+    highp float br = 1.0;
+    for (int i = 0; i < 11; i++) {
+        highp float fi = float(i);
+        highp vec2 c = vec2(-0.30 + fi * 0.06 + 0.01 * sin(tmLand * 0.05 + fi + seed), cy + 0.012 * sin(fi * 1.7 + seed));
+        highp float r = 0.028 + 0.022 * hash2(vec2(fi, 4.0 + seed)) + 0.02 * (1.0 - abs(fi - 5.0) / 5.0);
+        highp float e = r - length((vec2(x, y) - c) / vec2(1.0, 0.85));
+        if (e > best) {
+            best = e;
+            bc = c;
+            br = r;
+        }
+    }
+    if (best <= 0.0) return vec4(0.0);
+    highp vec2 d = (vec2(x, y) - bc) / br;
+    highp vec3 cc = mix(vec3(0.70, 0.74, 0.88), vec3(1.0, 0.99, 0.96), smoothstep(0.40, 0.50, 0.5 + 0.5 * d.y + 0.25 * d.x));
+    return vec4(cc, 1.0);
+}
+highp vec3 giantTree(highp vec3 col, highp float a, highp float yd, highp vec3 sunDir, highp float day, highp float gold, highp float night) {
+    highp float x = wrapA(a - 1.10);
+    if (abs(x) > 0.55 || yd < -0.01) return col;
+    highp float el = asin(clamp(yd, -1.0, 1.0));
+    const highp float S = 1.30;
+    highp float sunSide = sign(sunDir.x + 1e-4);
+    highp vec4 tr = gtTree(x / S, el / S, sunSide, gold);
+    if (tr.a > 0.0) {
+        // very far away: deep in the haze, paler toward the foot; a dark silhouette by night
+        highp vec3 tc = mix(tr.rgb, col, 0.52 + 0.28 * (1.0 - smoothstep(0.0, 0.30, el)));
+        tc = mix(tc, col * 0.55 + vec3(0.01, 0.015, 0.04), night * 0.85);
+        col = mix(col, tc, tr.a);
+    }
+    highp vec4 cr = gtCloud(x / S, el / S, 0.0);
+    highp vec4 cr2 = gtCloud(x / S * 0.9 + 0.12, el / S - 0.08, 40.0);
+    if (cr2.a > cr.a) cr = cr2;
+    highp vec4 cr3 = gtCloud(x / S * 1.4 - 0.10, el / S + 0.07, 80.0);
+    if (cr3.a > cr.a) cr = cr3;
+    if (cr.a > 0.0) {
+        highp vec3 cc = mix(cr.rgb, col, 0.25);
+        cc = mix(cc, cc * mix(vec3(1.0), vec3(1.0, 0.80, 0.62), 0.6), gold);
+        cc = mix(cc, col * 0.8 + vec3(0.02, 0.02, 0.05), night * 0.8);
+        col = mix(col, cc, cr.a);
+    }
+    return col;
+}
+
+// ---------------------------------------------------------------- festival night: fireworks over the far village
+highp vec3 fireworks(highp float a, highp float y, highp float night) {
+    highp vec3 add = vec3(0.0);
+    highp float d = wrapA(a - 3.4);
+    if (abs(d) > 0.45 || y < 0.0 || y > 0.45 || night < 0.05) return add;
+    for (int i = 0; i < 4; i++) {
+        highp float fi = float(i);
+        highp float period = 3.2 + fi * 0.7;
+        highp float cyc = floor(tmLand / period + fi * 0.37);
+        highp float t = fract(tmLand / period + fi * 0.37) * period;   // seconds into this burst's cycle
+        highp vec2 c = vec2((hash2(vec2(cyc, fi)) - 0.5) * 0.5, 0.10 + 0.14 * hash2(vec2(cyc, fi + 9.0)));
+        highp vec3 hueC = 0.55 + 0.45 * cos(6.2831853 * (hash2(vec2(cyc, fi + 3.0)) + vec3(0.0, 0.33, 0.67)));
+        highp vec2 q = vec2(d, y) - c;
+        if (t < 0.9) {
+            // the rocket rising: a faint spark trail
+            highp float ry = c.y - (0.9 - t) * 0.10;
+            if (abs(q.x) < 0.0012 && y < ry && y > ry - 0.02) add += vec3(1.0, 0.85, 0.6) * 0.5 * (1.0 - (ry - y) / 0.02);
+        } else {
+            highp float bt = t - 0.9;
+            highp float r = 0.055 * (1.0 - exp(-bt * 3.0));
+            highp float fade = exp(-bt * 1.4);
+            for (int k = 0; k < 16; k++) {
+                highp float ang = float(k) * 0.3927 + hash2(vec2(cyc, fi)) * 3.0;
+                highp vec2 sp = vec2(cos(ang), sin(ang)) * r - vec2(0.0, bt * bt * 0.008);
+                highp float dd = length(q - sp);
+                add += hueC * (smoothstep(0.0025, 0.0, dd) * 1.2 + smoothstep(0.008, 0.0, dd) * 0.25) * fade;
+            }
+            add += hueC * smoothstep(0.03, 0.0, length(q)) * 0.25 * exp(-bt * 6.0);
+        }
+    }
+    return add * night;
+}
+
 highp vec3 horizonLand(highp vec3 col, highp vec3 dir, highp vec3 sunDir, highp float day, highp float gold, highp float night, highp float org, highp float rain) {
     highp float a = atan(dir.z, dir.x);
     highp float y = dir.y;
+    if (featGiant > 0.5) {
+        col = giantTree(col, a, y, sunDir, day, gold, night);
+    }
+    if (featFest > 0.5) {
+        col += fireworks(a, y, night);
+    }
     if (y > 0.5) {
         return col;
     }
@@ -1585,6 +1739,7 @@ void main() {
     featTorii = mod(floor(icons / 16.0 + 0.001), 2.0);
     featDeep = mod(floor(icons / 32.0 + 0.001), 2.0);
     featGiant = mod(floor(icons / 64.0 + 0.001), 2.0);
+    featFest = mod(floor(icons / 128.0 + 0.001), 2.0);
     curtainK = showerIdx > 0.5 ? 1.0 - TextureMat[1].w : 0.0;
     curtainA = (showerIdx - 1.0) / 32.0 * TAU;
     highp float coverAdj = TextureMat[3].y;

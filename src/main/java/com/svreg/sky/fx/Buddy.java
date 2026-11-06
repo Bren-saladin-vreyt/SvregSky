@@ -59,13 +59,14 @@ final class Buddy {
 		double sx = -fz, sz = fx;                                // to the right
 		double tx, ty, tz;
 		if (asleep) {
-			tx = pl.getX() + sx * 0.9 + fx * 0.8;
-			tz = pl.getZ() + sz * 0.9 + fz * 0.8;
+			tx = pl.getX() - sx * 0.9 + fx * 1.0;
+			tz = pl.getZ() - sz * 0.9 + fz * 1.0;
 			ty = pl.getY() + 0.28;
 		} else {
 			double bob = Math.sin(t * 2.2) * 0.09 + Math.sin(t * 0.7) * 0.05;
-			tx = pl.getX() + sx * 0.85 + fx * 0.9;
-			tz = pl.getZ() + sz * 0.85 + fz * 0.9;
+			// on the left of the view: the right side is where the held item is
+			tx = pl.getX() - sx * 0.75 + fx * 1.2;
+			tz = pl.getZ() - sz * 0.75 + fz * 1.2;
 			ty = pl.getEyeY() - 0.15 + bob;
 		}
 		if (Double.isNaN(x) || Math.abs(x - tx) + Math.abs(z - tz) + Math.abs(y - ty) > 24) {

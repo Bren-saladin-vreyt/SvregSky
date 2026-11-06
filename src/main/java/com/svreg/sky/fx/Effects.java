@@ -205,7 +205,8 @@ public final class Effects {
 		if (forceLanterns) {
 			return true;
 		}
-		return SkySettings.on("sky_lanterns") && night > 0.6F && rain < 0.3F && CirrusSky.moonPhase() == 0;
+		// full-moon nights, and festival nights too
+		return SkySettings.on("sky_lanterns") && night > 0.6F && rain < 0.3F && (CirrusSky.moonPhase() == 0 || com.svreg.sky.sky.Events.festivalTonight());
 	}
 
 	private static void spawnLantern(P p, ClientLevel level, Vec3 cam) {

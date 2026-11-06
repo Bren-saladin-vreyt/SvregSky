@@ -105,6 +105,9 @@ public final class CirrusSky {
 		if (SkySettings.horizonMountains && SkySettings.on("giant_tree")) {
 			code |= 1 << 13;
 		}
+		if (SkySettings.horizonMountains && Events.festivalTonight()) {
+			code |= 1 << 14;
+		}
 		return code * 2.0F;
 	}
 	/** test hook: show the comet tonight (seed + 1), 0 = by the calendar */

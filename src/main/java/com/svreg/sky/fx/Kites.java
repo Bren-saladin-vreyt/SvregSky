@@ -55,8 +55,15 @@ final class Kites {
 		float day = Math.max(CirrusSky.dayLevel(), CirrusSky.goldLevel());
 		boolean windy = anyOn() && wind > 1.05F && day > 0.4F && CirrusSky.rainLevel() < 0.2F;
 		spawnT -= dt;
+		boolean none = true;
+		for (Kite k : kites) {
+			none &= !k.alive;
+		}
+		if (windy && none) {
+			spawnT = Math.min(spawnT, 1);
+		}
 		if (windy && spawnT <= 0) {
-			spawnT = 6 + RNG.nextFloat() * 10;
+			spawnT = 4 + RNG.nextFloat() * 8;
 			for (Kite k : kites) {
 				if (!k.alive) {
 					double a = RNG.nextDouble() * Math.PI * 2, r = 30 + RNG.nextDouble() * 45;
@@ -84,7 +91,7 @@ final class Kites {
 			if (!k.alive) {
 				continue;
 			}
-			k.rise += ((windy ? 1 : 0) - k.rise) * Math.min(1, dt * (windy ? 0.25F : 0.4F));
+			k.rise += ((windy ? 1 : 0) - k.rise) * Math.min(1, dt * (windy ? 0.5F : 0.4F));
 			if (!windy && k.rise < 0.02F) {
 				k.alive = false;
 				continue;

@@ -299,21 +299,29 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("spirit_buddy", false);
 				com.svreg.sky.wind.WindState.force = 1.8F;
 			});
-			context.waitTicks(200);
+			context.waitTicks(500);
 			shot(context, sp, 6000, 200, -20, "zb4_kites");
+			shot(context, sp, 6000, 20, -20, "zb4b_kites");
 			context.runOnClient(client -> {
 				com.svreg.sky.wind.WindState.force = 0;
 				com.svreg.sky.sky.Events.forceGlowSea = true;
 			});
-			shot(context, sp, 18000, 200, 35, "zb5_glow_sea");
+			shot(context, sp, 18000, 0, 30, "zb5_glow_sea");
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.Events.forceGlowSea = false;
 				com.svreg.sky.sky.Events.forceFoxRain = true;
 			});
 			context.waitTicks(60);
-			shot(context, sp, 7000, 270, -10, "zb6_fox_rain");
-			shot(context, sp, 7000, 90, -10, "zb7_fox_rain_sun");
+			shot(context, sp, 10200, 90, -15, "zb6_fox_rain");
+			shot(context, sp, 10200, 270, -10, "zb7_fox_rain_sun");
 			context.runOnClient(client -> com.svreg.sky.sky.Events.forceFoxRain = false);
+			shot(context, sp, 6000, -27, -15, "zt1_giant_tree");
+			shot(context, sp, 12300, -27, -15, "zt2_giant_tree_golden");
+			context.runOnClient(client -> com.svreg.sky.sky.Events.forceFestival = true);
+			shot(context, sp, 18000, 105, -4, "zf1_festival");
+			context.waitTicks(25);
+			context.takeScreenshot("zf2_festival_b");
+			context.runOnClient(client -> com.svreg.sky.sky.Events.forceFestival = false);
 			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceComet = 2);
 			shot(context, sp, 18000, -177, -40, "zc8_comet_midnight");
 			shot(context, sp, 21500, -150, -25, "zc9_comet_late");

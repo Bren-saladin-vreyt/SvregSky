@@ -61,13 +61,13 @@ final class FoxRain {
 			float x = dx[i], y = dy[i], z = dz[i];
 			float glint = (float) Math.max(0, Math.sin(t * 7 + i * 1.7)) ;
 			glint = glint > 0.97F ? 1 : 0.0F;
-			int a = Math.round(255 * Math.min(1, k * (0.45F + 0.55F * glint)));
+			int a = Math.round(255 * Math.min(1, k * (0.7F + 0.3F * glint)));
 			int col = glint > 0 ? 0xFFFBEA : 0xFFE6A8;
 			// a thin streak along the fall, facing the camera
 			float cx = -z, cz = x;
 			float cl = (float) Math.sqrt(cx * cx + cz * cz) + 1e-4F;
-			float w = 0.012F;
-			Effects.billboard(b, x, y, z, 1, cx / cl * w, 0, cz / cl * w, 0, 0.35F, 0, 38, a << 24 | col);
+			float w = 0.02F;
+			Effects.billboard(b, x, y, z, 1, cx / cl * w, 0, cz / cl * w, 0, 0.5F, 0, 38, a << 24 | col);
 			q++;
 		}
 		return q;

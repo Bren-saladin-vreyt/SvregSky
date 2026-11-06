@@ -162,6 +162,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("power_poles"),
 				flag("hill_meadow"),
 				flag("hill_torii"),
+				flag("giant_tree"),
 				flag("big_moon"),
 				percent("color_grading", 100, SkySettings.colorGrading, v -> SkySettings.colorGrading = v),
 				percent("morning_mist", 100, SkySettings.morningMist, v -> SkySettings.morningMist = v),
