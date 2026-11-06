@@ -226,6 +226,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("paper_texture", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("painterly", true);
 			});
+			// the user's clouds from here on: the raymarched puffs at 1/3
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_crumble"; com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
+			context.waitTicks(20);
 			shot(context, sp, 6000, 0, 10, "zc2_painterly_noon");
 			shot(context, sp, 12300, 90, 8, "zc3_painterly_sunset");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("painterly", false));
@@ -296,6 +299,11 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(100);
 			shot(context, sp, 6000, 200, 0, "zb3_buddy_rain");
 			sp.getServer().runCommand("weather clear");
+			context.runOnClient(client -> com.svreg.sky.fx.Buddy.forceSleep = true);
+			context.waitTicks(100);
+			shot(context, sp, 6000, 200, 35, "zb3b_buddy_asleep");
+			context.runOnClient(client -> com.svreg.sky.fx.Buddy.forceSleep = false);
+			sp.getServer().runCommand("weather clear");
 			context.waitTicks(100);
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("spirit_buddy", false);
@@ -314,8 +322,8 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.Events.forceFoxRain = true;
 			});
 			context.waitTicks(240);
-			shot(context, sp, 10200, 90, -15, "zb6_fox_rain");
-			shot(context, sp, 10200, 270, -10, "zb7_fox_rain_sun");
+			shot(context, sp, 11200, 90, -15, "zb6_fox_rain");
+			shot(context, sp, 11200, 270, -18, "zb7_fox_rain_bow");
 			context.runOnClient(client -> com.svreg.sky.sky.Events.forceFoxRain = false);
 			// the giant tree stands toward yaw -27; step back from the test buildings to see it
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~-30 ~ ~-60");

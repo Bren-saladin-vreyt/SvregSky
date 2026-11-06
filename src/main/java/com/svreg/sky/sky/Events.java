@@ -59,8 +59,9 @@ public final class Events {
 		if (forceFoxRain) {
 			return 1;
 		}
-		// late afternoon, 9300..11100 ticks (about 1.5 minutes), easing in and out: the sun is low enough for a rainbow
-		float a = (tod - 9300) / 300F, b = (11100 - tod) / 300F;
+		// late afternoon, 10300..11900 ticks (about 1.3 minutes), easing in and out: with the sun this low the rainbow
+		// stands high enough to clear the cloud bank on the horizon
+		float a = (tod - 10300) / 300F, b = (11900 - tod) / 300F;
 		return Math.max(0, Math.min(1, Math.min(a, b)));
 	}
 

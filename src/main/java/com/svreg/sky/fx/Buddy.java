@@ -16,13 +16,15 @@ import java.util.Random;
  * player. It bobs along, hurries after you when you run, dozes off on the ground when you stand still for a while,
  * holds its sprout up as a leaf umbrella in the rain and glows softly at night. Drawn in the Effects particle draw.
  */
-final class Buddy {
+public final class Buddy {
 	static final int MAX_QUADS = 2;
 	private static final Random RNG = new Random();
 	private static double x = Double.NaN, y, z;
 	private static float idle, blinkT = 2, blink, lean, fade;
 	private static boolean left;
 	private static double lastPX, lastPZ;
+	/** test hook: fall asleep at once */
+	public static boolean forceSleep;
 
 	private Buddy() {
 	}
@@ -48,7 +50,7 @@ final class Buddy {
 		lastPX = pl.getX();
 		lastPZ = pl.getZ();
 		idle = mv > 0.02 || mc.options.keyAttack.isDown() || mc.options.keyUse.isDown() ? 0 : idle + dt;
-		boolean asleep = idle > 25;
+		boolean asleep = idle > 25 || forceSleep;
 		float rain = CirrusSky.rainLevel();
 		boolean umbrella = !asleep && rain > 0.25F && level.canSeeSky(BlockPos.containing(pl.getEyePosition()));
 		float day = Math.max(CirrusSky.dayLevel(), CirrusSky.goldLevel());
