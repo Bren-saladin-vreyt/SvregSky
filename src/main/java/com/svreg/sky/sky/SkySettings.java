@@ -185,6 +185,14 @@ public final class SkySettings {
 		FLAGS.put("window_light", true);
 		FLAGS.put("rare_comet", true);
 		FLAGS.put("pixel_art", false);
+		FLAGS.put("cloud_steps", false);
+		FLAGS.put("deep_sky", false);
+		FLAGS.put("giant_tree", false);
+		FLAGS.put("spirit_buddy", true);
+		FLAGS.put("kites", true);
+		FLAGS.put("glow_sea", true);
+		FLAGS.put("fox_rain", true);
+		FLAGS.put("festival_night", true);
 		FLAGS.put("hill_wind", true);
 		FLAGS.put("horizon_train", true);
 		FLAGS.put("horizon_village", true);

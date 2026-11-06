@@ -18,9 +18,9 @@ import org.lwjgl.opengl.GL20C;
 public final class Wind {
 	private static final long START = System.nanoTime();
 	private static volatile double camX, camY, camZ;
-	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1, locPuffSh = -1, locPuffTex = -1, locAnime = -1;
+	private static int lastProgram = -1, locWind = -1, locCam = -1, locSun = -1, locGrade = -1, locPlayer = -1, locLook = -1, locSeason = -1, locSkyA = -1, locSkyB = -1, locSkyC = -1, locLook2 = -1, locShadow = -1, locShadow2 = -1, locHeightTex = -1, locWater = -1, locExtra = -1, locPuffSh = -1, locPuffTex = -1, locAnime = -1, locGlow = -1;
 	private static long skyNanos;
-	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra", "PuffSh", "PuffTex", "Anime"};
+	private static final String[] NAMES = {"Wind", "Cam", "Sun", "Grade", "Player", "Look", "Season", "SkyA", "SkyB", "SkyC", "Look2", "Shadow", "Shadow2", "HeightTex", "Water", "Extra", "PuffSh", "PuffTex", "Anime", "Glow"};
 	private static final java.util.Map<Integer, int[]> LOCS = new java.util.HashMap<>();
 	private static final java.util.Map<Integer, Long> LAST_UPLOAD = new java.util.HashMap<>();
 	/** test hook: paint the water-detection debug view */
@@ -200,6 +200,7 @@ public final class Wind {
 		locPuffSh = loc[16];
 		locPuffTex = loc[17];
 		locAnime = loc[18];
+		locGlow = loc[19];
 		if (locWind >= 0) {
 			float t = windTime();
 			GL20C.glUniform4f(locWind, t, WindState.strength(), WindState.speed(), SkySettings.farGrassTint);
@@ -213,6 +214,10 @@ public final class Wind {
 			float k = SkySettings.cloudShadows * Math.min(1, com.svreg.sky.sky.CirrusSky.dayLevel() * 1.5F) * (1 - com.svreg.sky.sky.CirrusSky.rainLevel())
 					* (SkySettings.paintedClouds || SkySettings.cloud3d() ? 1 : 0) * (sun.y > 0.05F ? 1 : 0);
 			GL20C.glUniform4f(locSun, sun.x, sun.y, sun.z, k);
+		}
+		if (locGlow >= 0) {
+			// glowing sea tonight (0..1)
+			GL20C.glUniform4f(locGlow, com.svreg.sky.sky.Events.glowSea(), 0, 0, 0);
 		}
 		if (locAnime >= 0) {
 			// anime land: layered distance haze strength, painted grass strength, haze layer depth (blocks)
@@ -523,6 +528,7 @@ public final class Wind {
 			uniform sampler2D svregsky_HeightTex; // tallest solid block per column, 16 bits in r + g; b plants; a = water depth << 4 | shore distance
 			uniform vec4 svregsky_Water;   // anime water, shore waves, column map ready, underwater light patterns
 			uniform vec4 svregsky_Extra;   // winter snow amount, flowing-water foam on/off, cloud sea level (+ amount as fraction), time
+			uniform vec4 svregsky_Glow;    // glowing sea (0..1), unused
 			uniform vec4 svregsky_Anime;   // layered haze strength, painted grass strength, haze layer depth, haze start (int part) + share kept per layer (fraction)
 			// signed distance to the shoreline (blocks, + in the water) and water depth at a grid position, smoothly interpolated
 			vec2 svShore(vec2 g) {
@@ -719,6 +725,15 @@ public final class Wind {
 			                color.rgb = mix(color.rgb, vec3(0.72, 0.96, 0.96) * svLit, (1.0 - smoothstep(0.0, 0.8, svSh.x)) * 0.35);
 			                color.rgb = mix(color.rgb, svFc, svFoam * 0.92);
 			                color.a = max(color.a, svFoam * 0.95);
+			                // glowing sea: the breaking surf lights up blue
+			                color.rgb += vec3(0.20, 0.80, 1.0) * svFoam * 1.3 * svregsky_Glow.x;
+			            }
+			            if (svregsky_Glow.x > 0.0) {
+			                // glowing sea: tiny blue sparks twinkle on the water, and the wave lines glow faintly
+			                vec2 svBg = floor(svWp.xz * 2.0);
+			                float svBh = svHash(svBg + 3.7);
+			                float svBs = step(0.982, svHash(svBg + floor(svT * 1.2 + svBh * 4.0) * 0.71)) * (0.5 + 0.5 * sin(svT * 3.0 + svBh * 6.28));
+			                color.rgb += vec3(0.20, 0.80, 1.0) * (svBs * 0.9 + svLines * 0.45) * svregsky_Glow.x;
 			            }
 			        } else if (svregsky_Water.y > 0.5 && svN.y > 0.7 && v_svWater.w < 0.5 && v_svInfo.x > 0.5
 			                   && color.r > color.b + 0.08 && color.g > color.b + 0.04 && color.r > color.g * 0.85) {
@@ -764,6 +779,8 @@ public final class Wind {
 			                    vec3 svWash = mix(vec3(0.55, 0.88, 0.90), vec3(0.82, 0.95, 0.96), svUp / max(svEdge, 0.01)) * svLit2;
 			                    color.rgb = mix(color.rgb, svWash, 0.75);
 			                    color.rgb = mix(color.rgb, vec3(1.0) * svLit2, smoothstep(svEdge - 0.12, svEdge, svUp) * 0.85);
+			                    // glowing sea: the edge of the wash glows blue as it slides up the sand
+			                    color.rgb += vec3(0.20, 0.80, 1.0) * smoothstep(svEdge - 0.2, svEdge, svUp) * 1.1 * svregsky_Glow.x;
 			                } else {
 			                    color.rgb *= mix(vec3(0.80, 0.78, 0.84), vec3(1.0), smoothstep(svEdge, 1.6, svUp));
 			                }

@@ -178,6 +178,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("sun_beams"),
 				flag("cloud_rows"),
 				flag("cirrus_layer"),
+				flag("deep_sky"),
 				flag("light_rays"),
 				flag("valley_fog"),
 				flag("cloud_sea"),
@@ -203,6 +204,7 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("living_clouds"),
 				flag("cloud_weather"),
 				flag("horizon_bank"),
+				flag("cloud_steps"),
 				slider("aerial_fade", 0, 200, Math.round(SkySettings.aerialFade * 100), v -> v + "%", v -> SkySettings.aerialFade = v / 100F));
 
 		small(
@@ -243,6 +245,11 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("grass_kick"),
 				flag("walk_ripples"),
 				flag("startle_birds"),
+				flag("spirit_buddy"),
+				flag("kites"),
+				flag("glow_sea"),
+				flag("fox_rain"),
+				flag("festival_night"),
 				flag("dappled_light"),
 				flag("water_steam"),
 				flag("smoke_wisps"),

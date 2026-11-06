@@ -11,6 +11,7 @@ public class SkyScreenshots implements FabricClientGameTest {
 	public void runTest(ClientGameTestContext context) {
 		try (TestSingleplayerContext sp = context.worldBuilder().create()) {
 			sp.getServer().runCommand("weather clear");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("spirit_buddy", false));
 			// the test framework turns clouds off for deterministic screenshots; we want to see them
 			context.runOnClient(client -> client.options.cloudStatus().set(CloudStatus.FANCY));
 			sp.getConnection().waitForChunksRender();
@@ -240,6 +241,19 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, 10, "zc5c_pixel_art_noon");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", false));
 			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_steps", true);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("deep_sky", true);
+			});
+			shot(context, sp, 6000, 0, -25, "zc5d_steps_deep_noon");
+			shot(context, sp, 12300, 90, -10, "zc5e_steps_golden");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", true));
+			shot(context, sp, 6000, 0, -25, "zc5f_steps_deep_pixel");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("pixel_art", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_steps", false);
+				com.svreg.sky.sky.SkySettings.FLAGS.put("deep_sky", false);
+			});
+			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("colored_shadows", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("anime_outline", false);
 				com.svreg.sky.sky.SkySettings.FLAGS.put("dream_glow", false);
@@ -272,6 +286,34 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.FLAGS.put("layered_haze", false);
 			});
+			// spirit friend, kites, glowing sea, fox rain
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("spirit_buddy", true));
+			shot(context, sp, 6000, 200, 0, "zb1_buddy_day");
+			shot(context, sp, 18000, 200, 0, "zb2_buddy_night");
+			sp.getServer().runCommand("weather rain");
+			context.waitTicks(100);
+			shot(context, sp, 6000, 200, 0, "zb3_buddy_rain");
+			sp.getServer().runCommand("weather clear");
+			context.waitTicks(100);
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.SkySettings.FLAGS.put("spirit_buddy", false);
+				com.svreg.sky.wind.WindState.force = 1.8F;
+			});
+			context.waitTicks(200);
+			shot(context, sp, 6000, 200, -20, "zb4_kites");
+			context.runOnClient(client -> {
+				com.svreg.sky.wind.WindState.force = 0;
+				com.svreg.sky.sky.Events.forceGlowSea = true;
+			});
+			shot(context, sp, 18000, 200, 35, "zb5_glow_sea");
+			context.runOnClient(client -> {
+				com.svreg.sky.sky.Events.forceGlowSea = false;
+				com.svreg.sky.sky.Events.forceFoxRain = true;
+			});
+			context.waitTicks(60);
+			shot(context, sp, 7000, 270, -10, "zb6_fox_rain");
+			shot(context, sp, 7000, 90, -10, "zb7_fox_rain_sun");
+			context.runOnClient(client -> com.svreg.sky.sky.Events.forceFoxRain = false);
 			context.runOnClient(client -> com.svreg.sky.sky.CirrusSky.forceComet = 2);
 			shot(context, sp, 18000, -177, -40, "zc8_comet_midnight");
 			shot(context, sp, 21500, -150, -25, "zc9_comet_late");

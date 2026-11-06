@@ -122,7 +122,7 @@ public final class Ambience {
 			BlockPos eye = BlockPos.containing(player.getEyePosition());
 			boolean outdoors = mc.level.canSeeSky(eye);
 			boolean underwater = mc.level.getFluidState(eye).is(FluidTags.WATER);
-			float day = CirrusSky.dayLevel(), night = CirrusSky.nightLevel(), rain = CirrusSky.rainLevel();
+			float day = CirrusSky.dayLevel(), night = CirrusSky.nightLevel(), rain = Math.max(CirrusSky.rainLevel(), com.svreg.sky.sky.Events.foxRain() * 0.55F);
 			float open = outdoors && !underwater ? 1 : 0;
 
 			// water nearby: sample around the player twice a second

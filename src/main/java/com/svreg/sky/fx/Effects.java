@@ -280,7 +280,7 @@ public final class Effects {
 		boolean ff = SkySettings.fireflies, lv = SkySettings.fallingLeaves, sp = SkySettings.waterSparkles;
 		Minecraft mc = Minecraft.getInstance();
 		boolean lanternsOn = SkySettings.on("sky_lanterns") || forceLanterns, mistOn = SkySettings.on("waterfall_foam");
-		if (broken || (!ff && !lv && !sp && !lanternsOn && !mistOn && !Nature.anyOn() && !Reactive.anyOn() && !WindowLight.anyOn()) || mc.level == null) {
+		if (broken || (!ff && !lv && !sp && !lanternsOn && !mistOn && !Nature.anyOn() && !Reactive.anyOn() && !WindowLight.anyOn() && !Buddy.anyOn() && !Kites.anyOn() && !FoxRain.anyOn()) || mc.level == null) {
 			return;
 		}
 		try {
@@ -297,7 +297,7 @@ public final class Effects {
 			Matrix4f mv = RenderSystem.getModelViewMatrixCopy();
 			float rx = mv.m00(), ry = mv.m10(), rz = mv.m20(), ux = mv.m01(), uy = mv.m11(), uz = mv.m21();
 
-			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize() * 4 * (FIREFLIES + LEAVES + SPARKLES + LANTERNS * 2 + MIST + Nature.MAX_QUADS + Reactive.MAX_QUADS + WindowLight.MAX_QUADS))) {
+			try (ByteBufferBuilder bytes = new ByteBufferBuilder(DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize() * 4 * (FIREFLIES + LEAVES + SPARKLES + LANTERNS * 2 + MIST + Nature.MAX_QUADS + Reactive.MAX_QUADS + WindowLight.MAX_QUADS + Buddy.MAX_QUADS + Kites.MAX_QUADS + FoxRain.MAX_QUADS))) {
 				BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 				int quads = 0;
 
@@ -462,6 +462,9 @@ public final class Effects {
 				quads += Nature.emit(b, level, cam, dt, t, rx, ry, rz, ux, uy, uz);
 				quads += Reactive.emit(b, level, cam, dt, t, rx, ry, rz, ux, uy, uz);
 				quads += WindowLight.emit(b, level, cam, dt, t, rx, ry, rz, ux, uy, uz);
+				quads += Kites.emit(b, level, cam, dt, t, rx, ry, rz, ux, uy, uz);
+				quads += FoxRain.emit(b, level, cam, dt, t, rx, ry, rz, ux, uy, uz);
+				quads += Buddy.emit(b, level, cam, dt, t, rx, ry, rz, ux, uy, uz);
 				if (quads == 0) {
 					return;
 				}

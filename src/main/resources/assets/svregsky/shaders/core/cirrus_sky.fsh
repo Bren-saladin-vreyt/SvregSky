@@ -924,7 +924,7 @@ highp float lakeTop(highp float a) {
 
 
 // ---------------------------------------------------------------- stage 4: Ghibli icons
-highp float featTree = 0.0, featPoles = 0.0, featMeadow = 0.0, featTorii = 0.0;
+highp float featTree = 0.0, featPoles = 0.0, featMeadow = 0.0, featTorii = 0.0, featDeep = 0.0, featGiant = 0.0;
 const highp float treeScale = 0.6;
 
 // a huge lone camphor-like tree on top of the big round hill: thick trunk, a cloud of round leafy masses, toon lit
@@ -1529,7 +1529,7 @@ highp vec4 cirrus(highp vec3 d, highp float day, highp float gold, highp float n
     highp float a = smoothstep(0.6, 0.8, streak) * smoothstep(0.55, 0.75, field) * smoothstep(0.03, 0.15, d.y);
     highp vec3 c = mix(vec3(1.0), mix(vec3(1.0, 0.80, 0.82), vec3(1.0, 0.86, 0.62), org), gold);
     c = mix(c, vec3(0.30, 0.33, 0.50), night * (1.0 - day));
-    return vec4(c, a * 0.45 * max(max(day, gold), 0.35));
+    return vec4(c, a * (featDeep > 0.5 ? 0.7 : 0.45) * max(max(day, gold), 0.35));
 }
 
 // crepuscular rays under the 3D Ghibli clouds: Sampler2 = cloud footprint (which columns hold cloud)
@@ -1583,6 +1583,8 @@ void main() {
     featPoles = mod(floor(icons / 4.0 + 0.001), 2.0);
     featMeadow = mod(floor(icons / 8.0 + 0.001), 2.0);
     featTorii = mod(floor(icons / 16.0 + 0.001), 2.0);
+    featDeep = mod(floor(icons / 32.0 + 0.001), 2.0);
+    featGiant = mod(floor(icons / 64.0 + 0.001), 2.0);
     curtainK = showerIdx > 0.5 ? 1.0 - TextureMat[1].w : 0.0;
     curtainA = (showerIdx - 1.0) / 32.0 * TAU;
     highp float coverAdj = TextureMat[3].y;
@@ -1695,6 +1697,13 @@ void main() {
     }
 
     highp vec3 col = mix(skyNight(dir.y), skyDay(dir.y), day);
+    if (featDeep > 0.5) {
+        // deep sky: a dark, saturated blue overhead that lightens toward the horizon, like a painted summer sky
+        highp float up = sstep(0.08, 0.85, max(dir.y, 0.0));
+        highp vec3 deep = vec3(0.06, 0.22, 0.52);
+        col = mix(col, deep, up * 0.62 * day * (1.0 - gold) * (1.0 - TextureMat[1].w * 0.7));
+        col = mix(col, col * vec3(0.95, 1.0, 1.04), (1.0 - up) * day);
+    }
     // golden hour creeps down from... up from the horizon: the low sky turns first, the zenith last.
     // where blue and the warm colours meet, lift toward cream so the mix never turns grey/khaki
     highp float wv = gold >= 0.999 ? 1.0 : sstep(0.0, 1.0, gold * 2.0 - max(dir.y, 0.0));

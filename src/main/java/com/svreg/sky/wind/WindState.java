@@ -11,6 +11,8 @@ public final class WindState {
 	private static final long START = System.nanoTime();
 	private static float level = 1;
 	private static long lastNanos;
+	/** test hook: a fixed wind multiplier (0 = off) */
+	public static float force;
 
 	private WindState() {
 	}
@@ -21,6 +23,9 @@ public final class WindState {
 
 	/** multiplier on the menu's wind settings (about 0.4 calm .. 2.2 stormy); 1 when the living wind is off */
 	public static float factor() {
+		if (force > 0) {
+			return force;
+		}
 		if (!on()) {
 			return 1;
 		}

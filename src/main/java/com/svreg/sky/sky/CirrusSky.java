@@ -59,6 +59,7 @@ public final class CirrusSky {
 	// last frame's sky factors (also used for the fog colour)
 	private static final Vector3f sunDir = new Vector3f(0, 1, 0);
 	private static float day = 1, gold, night, rain, rise, org;
+	private static float foxRbow;
 	private static float rainbowLevel, flash, dailyCoverage, towerAmt, towerSeed, wet;
 	private static long wetNanos;
 	private static final Identifier TOWERS = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/towers.png");
@@ -97,6 +98,12 @@ public final class CirrusSky {
 					code |= 1 << (7 + k);
 				}
 			}
+		}
+		if (SkySettings.on("deep_sky")) {
+			code |= 1 << 12;
+		}
+		if (SkySettings.horizonMountains && SkySettings.on("giant_tree")) {
+			code |= 1 << 13;
 		}
 		return code * 2.0F;
 	}
@@ -318,6 +325,11 @@ public final class CirrusSky {
 		float rbT = rainbowStart == 0 ? -1 : (nowMs - rainbowStart) / 1000F;
 		rainbowLevel = !SkySettings.rainbow || rbT < 0 || rbT > 120 ? 0
 				: Math.min(1, rbT / 10F) * Math.min(1, (120 - rbT) / 35F) * smooth(0.05F, 0.3F, sunDir.y);
+		// fox rain: the rainbow stands in the sunny shower itself
+		foxRbow += (Events.foxRain() - foxRbow) * (float) Math.min(1, wdt * 0.3);
+		if (SkySettings.rainbow) {
+			rainbowLevel = Math.max(rainbowLevel, foxRbow * smooth(0.05F, 0.3F, sunDir.y));
+		}
 		rise = smooth(-0.2F, 0.2F, sunDir.x);
 		org = switch (SkySettings.sunsetStyle) {
 			case "orange" -> 1.0F;

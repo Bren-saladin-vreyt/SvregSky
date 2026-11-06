@@ -199,6 +199,12 @@ final class Reactive {
 			}
 		}
 		int ringCol = Math.round(232 * light) << 16 | Math.round(244 * light) << 8 | Math.min(255, Math.round(255 * light + 20));
+		float glow = com.svreg.sky.sky.Events.glowSea();
+		if (glow > 0.05F) {
+			// glowing sea: every ring and splash lights up blue
+			int gr = Math.round(232 * light + (60 - 232 * light) * glow), gg = Math.round(244 * light + (215 - 244 * light) * glow), gb = Math.min(255, Math.round(255 * light + 20 + (255 - 255 * light - 20) * glow));
+			ringCol = gr << 16 | gg << 8 | gb;
+		}
 		for (P p : rings) {
 			if (!p.alive) {
 				continue;

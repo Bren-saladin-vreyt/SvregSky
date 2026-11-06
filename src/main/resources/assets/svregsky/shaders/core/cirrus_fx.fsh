@@ -4,7 +4,7 @@ precision highp float;
 
 // SvregSky ambient particles. UV.x selects the shape: [0,1] soft glow, [2,3] leaf / petal, [4,5] sparkle,
 // [6,7] butterfly, [8,9] ripple ring, [10,11] foam blob, [12,13] snowflake, [14] bird, [16] dragonfly,
-// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo, [28] sky lantern, [30] sparrow, [32] window light
+// [18] dandelion seed, [20] fish, [22] puddle, [24] light streak on water, [26] lamp halo, [28] sky lantern, [30] sparrow, [32] window light, [34] spirit companion, [36] kite, [38] kite string
 
 layout(std140) uniform DynamicTransforms {
     highp mat4 ModelViewMat;
@@ -114,6 +114,98 @@ void main() {
         c.rgb = mix(vec3(0.20, 0.22, 0.26), sky, 0.55 + 0.35 * smoothstep(0.2, -0.6, p.y));
         c.rgb += vec3(0.35) * smoothstep(0.08, 0.0, abs(rr - edge + 0.2)) * step(0.2, p.x - p.y); // a glint along the rim
         c.a *= inside;
+    } else if (kind > 18.5) {
+        // kite string: a thin soft line (the quad runs along the string)
+        c.a *= 1.0 - smoothstep(0.2, 1.0, abs(p.x));
+    } else if (kind > 17.5) {
+        // kite: a diamond in two colours with crossed sticks, and a ribbon tail with little bows
+        highp vec2 q = p;
+        highp float dia = abs(q.x) / 0.62 + abs(q.y - 0.25) / (q.y > 0.25 ? 0.72 : 0.62);
+        highp float tailX = 0.08 * sin(q.y * 9.0 + c.a * 0.0);
+        bool tail = q.y < -0.30 && abs(q.x - tailX) < 0.025;
+        highp vec2 bq = vec2(q.x - tailX, fract(q.y * 3.2) - 0.5);
+        bool bow = q.y < -0.40 && abs(bq.y) < 0.12 && abs(bq.x) < 0.11 * (1.0 - abs(bq.y) / 0.12) + 0.02;
+        if (dia > 1.0 && !tail && !bow) {
+            discard;
+        }
+        highp vec3 col = c.rgb;
+        if (dia <= 1.0) {
+            col = (q.x * (q.y - 0.25) > 0.0) ? c.rgb : mix(c.rgb, vec3(1.0, 0.97, 0.90), 0.75);
+            if (abs(q.x) < 0.025 || abs(q.y - 0.25) < 0.025) col = vec3(0.35, 0.25, 0.18);
+            col *= 0.85 + 0.15 * step(0.0, q.x + q.y);
+        } else {
+            col = bow ? mix(c.rgb, vec3(1.0), 0.3) : vec3(0.95, 0.92, 0.85);
+        }
+        c.rgb = col;
+    } else if (kind > 16.5) {
+        // the little spirit (roh kapuk): red = pose (0 floating, 1 asleep, 2 leaf umbrella), green = blink (>= 128)
+        // + facing left (+64), blue = daylight (night makes it glow softly)
+        highp float pose = floor(c.r * 3.0 + 0.5);
+        highp float gi = floor(c.g * 255.0 + 0.5);
+        bool blink = gi >= 127.5;
+        bool left = mod(gi, 128.0) >= 63.5;
+        highp float dayL = c.b;
+        highp vec2 q = vec2(left ? -p.x : p.x, p.y) * 1.15;
+        highp vec4 b = vec4(0.0);
+        if (pose > 1.5) {
+            // big leaf held up as an umbrella
+            highp vec2 lq = (q - vec2(0.05, 0.62)) / vec2(0.78, 0.36);
+            if (lq.y > -0.15 && length(lq) < 1.0) {
+                highp vec3 lc = mix(vec3(0.30, 0.62, 0.30), vec3(0.50, 0.80, 0.40), smoothstep(-0.2, 0.6, lq.y));
+                lc = mix(lc, vec3(0.22, 0.45, 0.22), smoothstep(0.85, 1.0, length(lq)) * 0.6);
+                b = vec4(mix(lc, vec3(0.70, 0.88, 0.55), smoothstep(0.03, 0.0, abs(lq.x))), 1.0);
+            }
+            if (abs(q.x - 0.05) < 0.025 && q.y > 0.25 && q.y < 0.62) b = vec4(0.36, 0.55, 0.28, 1.0);
+        }
+        // fluffy round body
+        highp float ang = atan(q.y, q.x);
+        highp float rr = 0.46 + 0.03 * sin(ang * 5.0 + 1.3) + 0.012 * sin(ang * 13.0) + 0.015 * sin(ang * 3.0 - 0.7);
+        highp vec2 bp = q - vec2(0.0, -0.08);
+        highp float d = length(bp / vec2(1.0, 0.92));
+        if (d < rr) {
+            highp float lit = 0.62 + 0.5 * bp.y - 0.35 * bp.x;
+            highp vec3 bc = mix(vec3(0.80, 0.79, 0.93), vec3(1.0, 0.98, 0.92), smoothstep(0.42, 0.50, lit));
+            bc = mix(bc, vec3(1.0, 1.0, 0.82), (1.0 - dayL) * 0.35);
+            b = vec4(bc, 1.0);
+            for (int s = 0; s < 2; s++) {
+                highp float sx = s == 0 ? -1.0 : 1.0;
+                highp vec2 e = bp - vec2(sx * 0.15, 0.05);
+                if (pose > 0.5 && pose < 1.5 || blink) {
+                    if (abs(length(e - vec2(0.0, 0.05)) - 0.07) < 0.016 && e.y < 0.02) b.rgb = vec3(0.15, 0.13, 0.18);
+                } else if (length(e / vec2(0.055, 0.08)) < 1.0) {
+                    b.rgb = vec3(0.10, 0.09, 0.14);
+                    if (length(e - vec2(0.018, 0.03)) < 0.02) b.rgb = vec3(1.0);
+                }
+                highp vec2 bl = bp - vec2(sx * 0.27, -0.07);
+                if (length(bl / vec2(0.075, 0.04)) < 1.0) b.rgb = mix(b.rgb, vec3(1.0, 0.62, 0.66), 0.75);
+            }
+            highp vec2 mo = bp - vec2(0.0, -0.06);
+            if (pose > 0.5 && pose < 1.5) {
+                if (length(mo / vec2(0.03, 0.025)) < 1.0) b.rgb = vec3(0.45, 0.25, 0.30);
+            } else if (abs(length(mo - vec2(0.0, 0.035)) - 0.045) < 0.012 && mo.y < 0.02) {
+                b.rgb = vec3(0.30, 0.18, 0.22);
+            }
+        }
+        if (pose < 1.5) {
+            // a little sprout on top
+            if (abs(q.x - 0.02 * sin(q.y * 8.0)) < 0.02 && q.y > 0.30 && q.y < 0.52) b = vec4(0.36, 0.58, 0.28, 1.0);
+            highp vec2 l1 = mat2(0.8, 0.6, -0.6, 0.8) * (q - vec2(-0.10, 0.53));
+            if (length(l1 / vec2(0.12, 0.055)) < 1.0) b = vec4(mix(vec3(0.42, 0.72, 0.34), vec3(0.58, 0.85, 0.42), step(0.0, l1.y)), 1.0);
+            highp vec2 l2 = mat2(0.8, -0.6, 0.6, 0.8) * (q - vec2(0.12, 0.56));
+            if (length(l2 / vec2(0.13, 0.06)) < 1.0) b = vec4(mix(vec3(0.42, 0.72, 0.34), vec3(0.58, 0.85, 0.42), step(0.0, l2.y)), 1.0);
+        }
+        if (pose > 0.5 && pose < 1.5) {
+            // little z's
+            for (int i = 0; i < 2; i++) {
+                highp float fi = float(i);
+                highp vec2 z = (q - vec2(0.45 + fi * 0.17, 0.42 + fi * 0.2)) / (0.07 + fi * 0.03);
+                if (abs(z.x) < 1.0 && abs(z.y) < 1.0 && (abs(z.y - 0.85) < 0.18 || abs(z.y + 0.85) < 0.18 || abs(z.y - z.x * 0.85) < 0.2)) b = vec4(0.55, 0.58, 0.75, 1.0);
+            }
+        }
+        if (b.a < 0.5) {
+            discard;
+        }
+        c.rgb = b.rgb * (0.45 + 0.55 * max(dayL, 0.75 * (1.0 - dayL) + 0.25));
     } else if (kind > 15.5) {
         // window light: a soft-edged shaft, brightest just inside the window, fading into the room (uv.y = along it)
         highp float v = uv.y;
