@@ -66,7 +66,7 @@ final class Kites {
 			spawnT = 4 + RNG.nextFloat() * 8;
 			for (Kite k : kites) {
 				if (!k.alive) {
-					double a = RNG.nextDouble() * Math.PI * 2, r = 30 + RNG.nextDouble() * 45;
+					double a = RNG.nextDouble() * Math.PI * 2, r = 18 + RNG.nextDouble() * 30;
 					int x = (int) Math.floor(pl.getX() + Math.cos(a) * r), z = (int) Math.floor(pl.getZ() + Math.sin(a) * r);
 					int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
 					if (Math.abs(y - pl.getY()) > 20 || !level.getFluidState(new net.minecraft.core.BlockPos(x, y - 1, z)).isEmpty()) {
@@ -75,7 +75,7 @@ final class Kites {
 					k.ax = x + 0.5;
 					k.ay = y + 1.2;
 					k.az = z + 0.5;
-					k.height = 22 + RNG.nextFloat() * 14;
+					k.height = 16 + RNG.nextFloat() * 12;
 					k.phase = RNG.nextFloat() * 6.28F;
 					k.color = COLORS[RNG.nextInt(COLORS.length)];
 					k.rise = 0;
@@ -132,7 +132,7 @@ final class Kites {
 			float ct = (float) Math.cos(tilt), st = (float) Math.sin(tilt);
 			float r2x = rx * ct + ux * st, r2y = ry * ct + uy * st, r2z = rz * ct + uz * st;
 			float u2x = ux * ct - rx * st, u2y = uy * ct - ry * st, u2z = uz * ct - rz * st;
-			Effects.billboard(b, (float) (kx - cam.x), (float) (ky - cam.y), (float) (kz - cam.z), 1.3F, r2x, r2y, r2z, u2x, u2y, u2z, 36,
+			Effects.billboard(b, (float) (kx - cam.x), (float) (ky - cam.y), (float) (kz - cam.z), 2.4F, r2x, r2y, r2z, u2x, u2y, u2z, 36,
 					Math.round(255 * Math.min(1, k.rise * 1.5F)) << 24 | k.color);
 			q++;
 		}

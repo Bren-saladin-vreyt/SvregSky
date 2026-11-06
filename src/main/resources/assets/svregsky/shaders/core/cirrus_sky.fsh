@@ -1325,30 +1325,30 @@ highp vec3 giantTree(highp vec3 col, highp float a, highp float yd, highp vec3 s
 highp vec3 fireworks(highp float a, highp float y, highp float night) {
     highp vec3 add = vec3(0.0);
     highp float d = wrapA(a - 3.4);
-    if (abs(d) > 0.45 || y < 0.0 || y > 0.45 || night < 0.05) return add;
-    for (int i = 0; i < 4; i++) {
+    if (abs(d) > 0.70 || y < 0.0 || y > 0.60 || night < 0.05) return add;
+    for (int i = 0; i < 5; i++) {
         highp float fi = float(i);
         highp float period = 3.2 + fi * 0.7;
         highp float cyc = floor(tmLand / period + fi * 0.37);
         highp float t = fract(tmLand / period + fi * 0.37) * period;   // seconds into this burst's cycle
-        highp vec2 c = vec2((hash2(vec2(cyc, fi)) - 0.5) * 0.5, 0.10 + 0.14 * hash2(vec2(cyc, fi + 9.0)));
+        highp vec2 c = vec2((hash2(vec2(cyc, fi)) - 0.5) * 0.8, 0.14 + 0.20 * hash2(vec2(cyc, fi + 9.0)));
         highp vec3 hueC = 0.55 + 0.45 * cos(6.2831853 * (hash2(vec2(cyc, fi + 3.0)) + vec3(0.0, 0.33, 0.67)));
         highp vec2 q = vec2(d, y) - c;
         if (t < 0.9) {
             // the rocket rising: a faint spark trail
-            highp float ry = c.y - (0.9 - t) * 0.10;
-            if (abs(q.x) < 0.0012 && y < ry && y > ry - 0.02) add += vec3(1.0, 0.85, 0.6) * 0.5 * (1.0 - (ry - y) / 0.02);
+            highp float ry = c.y - (0.9 - t) * 0.14;
+            if (abs(q.x) < 0.0022 && y < ry && y > ry - 0.03) add += vec3(1.0, 0.85, 0.6) * 0.6 * (1.0 - (ry - y) / 0.03);
         } else {
             highp float bt = t - 0.9;
-            highp float r = 0.055 * (1.0 - exp(-bt * 3.0));
+            highp float r = (0.09 + 0.05 * hash2(vec2(cyc, fi + 5.0))) * (1.0 - exp(-bt * 3.0));
             highp float fade = exp(-bt * 1.4);
-            for (int k = 0; k < 16; k++) {
-                highp float ang = float(k) * 0.3927 + hash2(vec2(cyc, fi)) * 3.0;
-                highp vec2 sp = vec2(cos(ang), sin(ang)) * r - vec2(0.0, bt * bt * 0.008);
+            for (int k = 0; k < 20; k++) {
+                highp float ang = float(k) * 0.31416 + hash2(vec2(cyc, fi)) * 3.0;
+                highp vec2 sp = vec2(cos(ang), sin(ang)) * r - vec2(0.0, bt * bt * 0.012);
                 highp float dd = length(q - sp);
-                add += hueC * (smoothstep(0.0025, 0.0, dd) * 1.2 + smoothstep(0.008, 0.0, dd) * 0.25) * fade;
+                add += hueC * (smoothstep(0.0045, 0.0, dd) * 1.3 + smoothstep(0.013, 0.0, dd) * 0.28) * fade;
             }
-            add += hueC * smoothstep(0.03, 0.0, length(q)) * 0.25 * exp(-bt * 6.0);
+            add += hueC * smoothstep(0.06, 0.0, length(q)) * 0.30 * exp(-bt * 6.0);
         }
     }
     return add * night;
@@ -1934,7 +1934,7 @@ void main() {
         highp float band = smoothstep(-0.25, 0.1, x) * (1.0 - smoothstep(0.9, 1.25, x));
         if (band > 0.0) {
             highp vec3 rc = mix(vec3(1.0), hue((1.0 - clamp(x, 0.0, 1.0)) * 0.78), 0.55);
-            col = mix(col, rc, band * rbow * 0.32 * smoothstep(0.0, 0.15, dir.y) * day);
+            col = mix(col, rc, band * rbow * 0.42 * smoothstep(0.0, 0.15, dir.y) * day);
         }
     }
 

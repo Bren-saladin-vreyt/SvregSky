@@ -311,12 +311,18 @@ public class SkyScreenshots implements FabricClientGameTest {
 				com.svreg.sky.sky.Events.forceGlowSea = false;
 				com.svreg.sky.sky.Events.forceFoxRain = true;
 			});
-			context.waitTicks(60);
+			context.waitTicks(240);
 			shot(context, sp, 10200, 90, -15, "zb6_fox_rain");
 			shot(context, sp, 10200, 270, -10, "zb7_fox_rain_sun");
 			context.runOnClient(client -> com.svreg.sky.sky.Events.forceFoxRain = false);
+			// the giant tree stands toward yaw -27; step back from the test buildings to see it
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~-30 ~ ~-60");
+			context.waitTicks(60);
+			sp.getConnection().waitForChunksRender();
 			shot(context, sp, 6000, -27, -15, "zt1_giant_tree");
 			shot(context, sp, 12300, -27, -15, "zt2_giant_tree_golden");
+			sp.getServer().runCommand("execute as @p at @p run tp @p ~30 ~ ~60");
+			context.waitTicks(60);
 			context.runOnClient(client -> com.svreg.sky.sky.Events.forceFestival = true);
 			shot(context, sp, 18000, 105, -4, "zf1_festival");
 			context.waitTicks(25);

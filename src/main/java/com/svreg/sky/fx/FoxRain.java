@@ -16,7 +16,7 @@ import java.util.Random;
  * Drawn in the Effects particle draw.
  */
 final class FoxRain {
-	static final int DROPS = 110;
+	static final int DROPS = 170;
 	static final int MAX_QUADS = DROPS;
 	private static final Random RNG = new Random();
 	private static final float[] dx = new float[DROPS], dy = new float[DROPS], dz = new float[DROPS], sp = new float[DROPS];
