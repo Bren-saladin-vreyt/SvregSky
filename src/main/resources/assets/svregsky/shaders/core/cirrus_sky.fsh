@@ -1353,14 +1353,6 @@ highp vec3 giantTree(highp vec3 col, highp float a, highp float yd, highp vec3 s
     // night-blue / golden tint for the clouds caught on the trunk
     highp vec3 cloudTint = mix(vec3(1.0), vec3(1.0, 0.82, 0.64), gold);
     highp float rainK = TextureMat[1].w;
-    // the back halves of the cloud rings go behind the trunk
-    for (int i = 0; i < 2; i++) {
-        highp vec4 cb = gtCloud2(tx + 0.03, ty, i == 0 ? 0.20 : 0.31, float(i) * 11.0 + 2.0, tmLand, true);
-        highp vec3 bcol = mix(cb.rgb, sky, 0.30) * cloudTint;
-        bcol = mix(bcol, vec3(dot(bcol, vec3(0.3, 0.59, 0.11))) * 0.8, rainK * 0.8);
-        bcol = mix(bcol, sky * 1.2, night * 0.75);
-        col = mix(col, bcol, cb.a);
-    }
     highp vec4 tr = gtTree2(tx, ty, sunSide, gold, night, tmLand);
     if (tr.a > 0.0) {
         // very far away: deep in the haze, paler toward the foot; dark by night, but its little lights stay bright
@@ -1369,13 +1361,7 @@ highp vec3 giantTree(highp vec3 col, highp float a, highp float yd, highp vec3 s
         tc = max(tc, tr.rgb * step(1.5, tr.r) * 0.8);
         col = mix(col, tc, tr.a);
     }
-    for (int i = 0; i < 2; i++) {
-        highp vec4 cf = gtCloud2(tx - 0.02 * float(i), ty, i == 0 ? 0.17 : 0.29, float(i) * 7.0 + 30.0, tmLand, false);
-        highp vec3 ccol = mix(cf.rgb, sky, 0.22) * cloudTint;
-        ccol = mix(ccol, vec3(dot(ccol, vec3(0.3, 0.59, 0.11))) * 0.8, rainK * 0.8);
-        ccol = mix(ccol, sky * 1.3, night * 0.7);
-        col = mix(col, ccol, cf.a);
-    }
+    // the clouds around the trunk are puff clouds now (the horizon bank in cirrus_crumble.fsh draws them)
     // birds circling the crown by day
     for (int i = 0; i < 7; i++) {
         highp float fi = float(i);

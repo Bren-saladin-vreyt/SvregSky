@@ -86,6 +86,10 @@ highp float gGapV = 0.0, gGapH = 0.0;
 // with the horizon bank on, the overhead clouds thin out toward their reach, so the horizon belongs to the bank
 // (crisp towers there instead of a hazy band of far small clouds)
 bool gBank = false;
+// giant tree on the painted horizon: the bank wraps puff rings around its trunk; the bank's direction (azimuth) and
+// the shift from bank height e back to the view height (rd.y = e + gEOff)
+bool gTree = false;
+highp float gTh = 0.0, gEOff = 0.0;
 highp vec2 gCam = vec2(0.0);
 highp float gReach = 1500.0;
 
@@ -240,6 +244,15 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
         highp float slab = (1.0 - pow(abs(2.0 * s - 1.0), 3.0)) * megaWide * (0.7 + 0.3 * c);
         body = max(body, slab);
     }
+    if (gTree) {
+        // two rings of puff clouds caught on the giant tree's trunk (the tree itself is painted in the sky behind,
+        // toward azimuth 1.10): the same puffs and light as the rest of the bank
+        highp float dth = abs(atan(sin(gTh - 1.10), cos(gTh - 1.10)));
+        highp float y = e + gEOff;
+        highp float r1 = (1.0 - smoothstep(0.20, 0.46, dth)) - pow((y - 0.25) / 0.055, 2.0);
+        highp float r2 = (1.0 - smoothstep(0.12, 0.32, dth)) - pow((y - 0.37) / 0.038, 2.0);
+        body = max(body, max(r1, r2) * 0.95);
+    }
     if (body <= 0.0) {
         return -1.0;
     }
@@ -353,6 +366,7 @@ void main() {
     bool bankOn = mod(floor(bits / 8.0), 2.0) > 0.5;
     gSteps = mod(floor(bits / 16.0), 2.0) > 0.5;
     gPixel = mod(floor(bits / 32.0), 2.0) > 0.5;
+    gTree = mod(floor(bits / 64.0), 2.0) > 0.5;
     gBank = bankOn && ModelOffset.y < 0.0;
     highp float bufH = max(ColorModulator.x, 1.0);
     highp float reach = ColorModulator.y;
@@ -502,6 +516,8 @@ void main() {
         // behind hills the base sits a little below the ridge, so the hills cover the foot and only the lumpy
         // tops show (a base exactly on the ridge looked cut along smooth slopes)
         highp float e = rd.y - (hTop > -0.5 ? 0.45 * min(hTop, 0.22) : 0.0) + 0.012;
+        gTh = th;
+        gEOff = rd.y - e;
         // puff fade by pixel size (one pixel covers footK radians; the puffs are BANK_R * BANK_P blocks per radian)
         highp float footB = footK * BANK_R * BANK_P;
         highp float kSb = 1.0 - smoothstep(2.6, 4.6, footB), kMb = 1.0 - smoothstep(6.5, 11.0, footB);
