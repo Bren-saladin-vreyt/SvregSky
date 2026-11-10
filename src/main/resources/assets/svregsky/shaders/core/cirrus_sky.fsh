@@ -1236,6 +1236,7 @@ highp float gtLeafEdge(highp vec2 d, highp float seed) {
 highp vec4 gtTree2(highp float x, highp float y, highp float sunSide, highp float gold, highp float night, highp float tm) {
   highp vec4 c = vec4(0.0);
   highp float xt = x - 0.03 * y * y;
+  if (abs(xt) < 0.11 && y < 0.44) {
   // trunk: wide flared foot, grooved bark, moss on the sun side
   highp float w = 0.036 - 0.012 * smoothstep(0.0, 0.40, y) + 0.055 * exp(-max(y, 0.0) * 13.0);
   highp float rootCut = smoothstep(0.0, 0.05, y) + step(0.55, noise(vec2(xt * 45.0, 2.0)));   // gaps between the roots near the foot
@@ -1251,6 +1252,7 @@ highp vec4 gtTree2(highp float x, highp float y, highp float sunSide, highp floa
     tc = mix(tc, vec3(0.30, 0.44, 0.32), moss * 0.7);
     c = vec4(tc, 1.0);
   }
+  }
   // boughs curving up into the crown
   for (int i = 0; i < 5; i++) {
     highp float fi = float(i);
@@ -1264,10 +1266,11 @@ highp vec4 gtTree2(highp float x, highp float y, highp float sunSide, highp floa
   }
   // hanging vines from the boughs
   for (int i = 0; i < 9; i++) {
+    if (y < 0.28 || y > 0.43) break;
     highp float fi = float(i);
-    highp float vx = -0.30 + fi * 0.075 + (noise(vec2(fi, 4.0)) - 0.5) * 0.03;
-    highp float top = 0.40 + 0.02 * noise(vec2(fi, 6.0));
-    highp float len = 0.04 + 0.07 * noise(vec2(fi, 9.0));
+    highp float vx = -0.30 + fi * 0.075 + (hash2(vec2(fi, 4.0)) - 0.5) * 0.03;
+    highp float top = 0.40 + 0.02 * hash2(vec2(fi, 6.0));
+    highp float len = 0.04 + 0.07 * hash2(vec2(fi, 9.0));
     highp float sway = 0.004 * sin(mod(tm * 0.8, 6.2831853) + fi) * (top - y) / len;
     if (abs(x - vx - sway) < 0.0016 && y < top && y > top - len) c = vec4(0.24, 0.36, 0.28, 1.0);
   }
@@ -1275,17 +1278,24 @@ highp vec4 gtTree2(highp float x, highp float y, highp float sunSide, highp floa
   highp vec2 cb[6] = vec2[6](vec2(-0.20, 0.53), vec2(-0.04, 0.57), vec2(0.13, 0.55), vec2(0.30, 0.49), vec2(-0.34, 0.47), vec2(0.04, 0.50));
   highp float rb[6] = float[6](0.12, 0.13, 0.12, 0.09, 0.08, 0.11);
   highp float bestB = -1.0;
+  bool inCrown = y > 0.30 && y < 0.72 && abs(x) < 0.50;
   for (int i = 0; i < 6; i++) {
+    if (!inCrown) break;
     highp vec2 d = (vec2(x, y) - cb[i]) / vec2(1.0, 0.62);
-    bestB = max(bestB, rb[i] + gtLeafEdge(d, float(i) * 3.7) - length(d));
+    highp float e0 = rb[i] - length(d);
+    // the leafy edge only moves the outline by +-0.034: far from the rim the noise cannot change the answer
+    if (e0 > -0.04) bestB = max(bestB, e0 + (e0 < 0.04 ? gtLeafEdge(d, float(i) * 3.7) : 0.0));
   }
   if (bestB > 0.0) c = vec4(mix(vec3(0.15, 0.24, 0.28), vec3(0.20, 0.31, 0.33), smoothstep(0.0, 0.05, bestB)), 1.0);
   highp vec2 cs[8] = vec2[8](vec2(-0.27, 0.44), vec2(-0.14, 0.49), vec2(0.0, 0.52), vec2(0.14, 0.49), vec2(0.28, 0.44), vec2(-0.07, 0.43), vec2(0.08, 0.42), vec2(-0.38, 0.41));
   highp float rs[8] = float[8](0.09, 0.10, 0.105, 0.10, 0.09, 0.085, 0.085, 0.06);
   highp float best = -1.0; highp vec2 bc = vec2(0.0); highp float br = 1.0;
   for (int i = 0; i < 8; i++) {
+    if (!inCrown) break;
     highp vec2 d = (vec2(x, y) - cs[i]) / vec2(1.0, 0.60);
-    highp float e = rs[i] + gtLeafEdge(d, float(i) * 5.1 + 2.0) * 0.8 - length(d);
+    highp float e0 = rs[i] - length(d);
+    if (e0 < -0.03) continue;
+    highp float e = e0 + (e0 < 0.03 ? gtLeafEdge(d, float(i) * 5.1 + 2.0) * 0.8 : 0.0);
     if (e > best) { best = e; bc = cs[i]; br = rs[i]; }
   }
   if (best > 0.0) {

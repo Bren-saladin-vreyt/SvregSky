@@ -62,7 +62,7 @@ highp float kM = 1.0, kS = 1.0;
 highp float farK = 0.0, blurK = 0.0;
 
 // the high layer (altocumulus streaks) sits this far above the cloud base
-const highp float HIGH0 = 400.0, HIGH1 = 430.0; // above the tallest cumulus (afternoon towers reach ~340), so none get a sliced-flat top
+const highp float HIGH0 = 300.0, HIGH1 = 330.0; // just above the tallest cumulus (domes are squeezed to end below 296)
 
 // far away the pre-blurred weather map is read: clouds too small to cover ~3 pixels melt into their neighbours or
 // vanish smoothly instead of blinking as lone dots. One read near or far, two in between.
@@ -123,6 +123,8 @@ highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
     highp float top = 40.0 + (layerH + 60.0) * (0.35 + 0.65 * wc.g);
     highp float belly = 0.24 * top;
     highp float mid = BASE0 + 40.0 * wc.b + belly + 14.0 * (1.0 - c);
+    // tall afternoon domes are squeezed (still round) so they end below the high layer instead of being cut flat
+    top = belly + min(top - belly, (296.0 - mid) / 0.89);
     // this column's body spans [mid - belly * hbMax, mid + (top - belly) * htMax] (where the profile is still > 0)
     highp float yHi = mid + (top - belly) * exp2(log2(c / 1.3) * 0.6667);
     highp float yLo = mid - belly * exp2(log2(c * c / 0.9) * 0.6667);
@@ -244,7 +246,7 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
         highp float slab = (1.0 - pow(abs(2.0 * s - 1.0), 3.0)) * megaWide * (0.7 + 0.3 * c);
         body = max(body, slab);
     }
-    if (gTree) {
+    if (gTree && abs(atan(sin(gTh - 1.10), cos(gTh - 1.10))) < 0.46) {
         // two rings of puff clouds caught on the giant tree's trunk (the tree itself is painted in the sky behind,
         // toward azimuth 1.10): the same puffs and light as the rest of the bank
         highp float dth = abs(atan(sin(gTh - 1.10), cos(gTh - 1.10)));
