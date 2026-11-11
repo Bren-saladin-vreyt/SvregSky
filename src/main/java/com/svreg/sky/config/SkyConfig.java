@@ -109,6 +109,11 @@ public final class SkyConfig {
 		o.addProperty("outline_color", SkySettings.outlineColor);
 		o.addProperty("mod_language", SkySettings.modLanguage);
 		o.addProperty("cloud_palette", SkySettings.cloudPalette);
+		o.addProperty("cloud_bands", SkySettings.cloudBands);
+		o.addProperty("cloud_rim", SkySettings.cloudRim);
+		o.addProperty("cloud_day_tone", SkySettings.cloudDayTone);
+		o.addProperty("cloud_sunset_tone", SkySettings.cloudSunsetTone);
+		o.addProperty("cloud_night_tone", SkySettings.cloudNightTone);
 		o.addProperty("pixel_size", SkySettings.pixelSize);
 		o.addProperty("pixel_bands", SkySettings.pixelBands);
 		o.addProperty("pixel_dither", SkySettings.pixelDither);

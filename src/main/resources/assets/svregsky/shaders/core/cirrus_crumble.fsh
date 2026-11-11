@@ -8,7 +8,7 @@ precision highp float;
 // one cloud pixel covers too many blocks to draw it in about 3 pixels, so no puff is ever a lone sparkling pixel.
 // The first point inside a cloud is toon-lit in four flat tones. Output: rgb = colour, a = encoded distance (0 = none).
 // TextureMat[0] = sun dir, layer height | [1] = day, gold, night, rain | [2] = haze away (xyz), amount | [3] = haze toward the sun (x, z, w)
-// ColorModulator = buffer height (pixels), reach, steps, org | ModelOffset = camera in cloud space (x, height above the cloud base, z)
+// ColorModulator = buffer height (pixels) + rim light / 4, reach (whole blocks) + toon code / 64, steps, org | ModelOffset = camera in cloud space (x, height above the cloud base, z)
 
 layout(std140) uniform DynamicTransforms {
     highp mat4 ModelViewMat;
@@ -96,7 +96,15 @@ highp float gReach = 1500.0;
 // belly, bigger and rounder puffs, a higher bar for rim puffs, and flatter light (see main). 1 / classic values otherwise.
 bool gBig = false;
 highp float gWS = 1.0, gTopK = 1.0, gBellyK = 0.24, gRim = 0.07;
+// the fine march step near clouds (blocks): big clouds have features about twice as large, so they take longer steps
+highp float gFine = 3.0;
 highp vec3 gPuffK = vec3(0.7, 1.15, 0.9);
+// "toon clouds" (code bit 1, packed in the fraction of ColorModulator.y): light in a few clean flat bands, smooth wide
+// surfaces (small puffs only hinted), tones kept far away, its own palettes per time of day.
+// code bits: 2 = four bands (else three), 4 = cream day palette, 8 = classic gold sunset, 16 = classic slate night.
+bool gToon = false, gBands4 = false, gDayCream = false, gSunsetGold = false, gNightSlate = false;
+// rim light strength (1 = classic), packed as the fraction of ColorModulator.x (strength / 4); weight of the small puffs
+highp float gRimK = 1.0, gSmallW = 0.28;
 
 // the cloud body, 0..1. No flat base any more: each cloud is an egg standing on its narrow end upside down -- a short
 // rounded belly below its widest point, a tall dome above. Each cloud has its own belly height, and the thin edges
@@ -150,7 +158,7 @@ highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
 highp float field(highp float bw, highp vec3 d, highp float under, highp float ks) {
     // small puffs only roughen the surface of thick body: on the thin rim they would make loose crumbs that blink
     highp float sk = ks * smoothstep(0.3, 0.6, bw);
-    highp float pz = mix(0.5, d.r, kM) * 0.72 + mix(0.5, d.g, sk) * 0.28;
+    highp float pz = mix(0.5, d.r, kM) * (1.0 - gSmallW) + mix(0.5, d.g, sk) * gSmallW;
     pz = mix(pz, 0.5, 0.25 * under);
     // a higher bar on the thin rim: a puff there survives whole or not at all (no one-pixel slivers)
     return pz + 1.15 * bw - 1.0 - gRim * (1.0 - smoothstep(0.25, 0.55, bw));
@@ -297,15 +305,40 @@ highp vec3 paint(highp float v, highp vec3 rd, highp float hzK) {
     highp vec3 g1 = mix(vec3(0.66, 0.52, 0.68), vec3(0.72, 0.66, 0.84), org);
     highp vec3 g2 = mix(vec3(0.94, 0.72, 0.58), vec3(0.96, 0.84, 0.84), org);
     highp vec3 g3 = mix(vec3(1.00, 0.88, 0.62), vec3(1.00, 0.95, 0.84), org);
+    highp vec3 n0 = vec3(0.20, 0.21, 0.31), n1 = vec3(0.28, 0.29, 0.40), n2 = vec3(0.40, 0.41, 0.54), n3 = vec3(0.58, 0.60, 0.72);
+    if (gToon) {
+        // toon palettes. Day: white with a pale blue shade (or warm cream over grey-blue). Sunset: peach and cream
+        // on the lit side, lavender and violet in the shade. Night: navy, the moonlit rim a step lighter.
+        if (gDayCream) {
+            c0 = vec3(0.45, 0.52, 0.64); c1 = vec3(0.64, 0.68, 0.74); c2 = vec3(0.88, 0.84, 0.76); c3 = vec3(1.00, 0.96, 0.87);
+        } else {
+            c0 = vec3(0.58, 0.72, 0.93); c1 = vec3(0.73, 0.85, 0.98); c2 = vec3(0.89, 0.95, 1.00);
+        }
+        if (!gSunsetGold) {
+            g0 = vec3(0.40, 0.31, 0.56); g1 = vec3(0.60, 0.45, 0.68); g2 = vec3(0.96, 0.72, 0.62); g3 = vec3(1.00, 0.89, 0.74);
+        }
+        if (!gNightSlate) {
+            n0 = vec3(0.09, 0.10, 0.23); n1 = vec3(0.13, 0.15, 0.30); n2 = vec3(0.20, 0.23, 0.42); n3 = vec3(0.36, 0.41, 0.63);
+        }
+        if (!gBands4) {
+            // three bands: shade, one middle tone, light
+            c1 = mix(c1, c2, 0.4); g1 = mix(g1, g2, 0.35); n1 = mix(n1, n2, 0.5);
+            k1 = smoothstep(0.32, 0.34, v);
+            k2 = 0.0;
+            k3 = smoothstep(0.53, 0.55, v);
+        } else {
+            k3 = smoothstep(0.59, 0.61, v);
+        }
+    }
     c0 = mix(c0, g0, gold);
     c1 = mix(c1, g1, gold);
     c2 = mix(c2, g2, gold);
     c3 = mix(c3, g3, gold);
     highp float nk = night * (1.0 - day) * (1.0 - gold);
-    c0 = mix(c0, vec3(0.20, 0.21, 0.31), nk);
-    c1 = mix(c1, vec3(0.28, 0.29, 0.40), nk);
-    c2 = mix(c2, vec3(0.40, 0.41, 0.54), nk);
-    c3 = mix(c3, vec3(0.58, 0.60, 0.72), nk);
+    c0 = mix(c0, n0, nk);
+    c1 = mix(c1, n1, nk);
+    c2 = mix(c2, n2, nk);
+    c3 = mix(c3, n3, nk);
     highp float dim = 0.30 + 0.70 * max(day, gold);
     c0 = mix(c0, vec3(0.40, 0.43, 0.49) * dim, rain * 0.8);
     c1 = mix(c1, vec3(0.52, 0.55, 0.61) * dim, rain * 0.8);
@@ -382,16 +415,28 @@ void main() {
     gBig = mod(floor(bits / 128.0), 2.0) > 0.5;
     if (gBig) {
         gWS = 0.48;
+        gFine = 4.5;
         gTopK = 1.3;
         gBellyK = 0.14;
         gRim = 0.10;
         gPuffK = vec3(0.48, 0.63, 0.54);
         gBankP = 0.2;
-        gBankDet = 0.5;
+        gBankDet = min(gBankDet, 0.5);
     }
     gBank = bankOn && ModelOffset.y < 0.0;
-    highp float bufH = max(ColorModulator.x, 1.0);
-    highp float reach = ColorModulator.y;
+    highp float bufH = max(floor(ColorModulator.x), 1.0);
+    gRimK = fract(ColorModulator.x) * 4.0;
+    highp float reach = floor(ColorModulator.y);
+    highp float code = floor(fract(ColorModulator.y) * 64.0 + 0.5);
+    gToon = mod(code, 2.0) > 0.5;
+    gBands4 = mod(floor(code / 2.0), 2.0) > 0.5;
+    gDayCream = mod(floor(code / 4.0), 2.0) > 0.5;
+    gSunsetGold = mod(floor(code / 8.0), 2.0) > 0.5;
+    gNightSlate = mod(floor(code / 16.0), 2.0) > 0.5;
+    if (gToon) {
+        gSmallW = 0.12;
+        gBankDet = min(gBankDet, 0.3);
+    }
     gReach = reach;
     org = ColorModulator.w;
     // after sunset the moon (opposite the sun) lights the clouds
@@ -493,10 +538,16 @@ void main() {
                     // flatter light: wide white caps, puffs and seams only hinted
                     v = 0.55 + 0.30 * ndl + 0.10 * n.y + 0.14 * hf - 0.20 * occl + 0.07 * puff - 0.07 * seam;
                 }
+                if (gToon) {
+                    // toon: the light of the smooth body only -- clean wide bands, no puff speckle, no seam lines
+                    v = 0.56 + 0.32 * ndl + 0.10 * n.y + 0.14 * hf - 0.24 * occl + 0.04 * (dt.r - 0.5) * kM;
+                }
                 // the belly is not left dark: light bounced up from the bright ground and sky keeps it a pale blue,
                 // and each belly puff still shows its own curved line (the puff term above), as in the references
                 highp float down = smoothstep(0.1, 0.8, -n.y);
-                if (gBig) {
+                if (gToon) {
+                    v = mix(v, 0.42, down);               // the belly is the flat middle band
+                } else if (gBig) {
                     v = mix(v, 0.40 + 0.05 * puff, down); // the belly is one flat pale-blue shade
                 } else {
                     v += 0.20 * down;
@@ -505,15 +556,15 @@ void main() {
                 highp float toward = max(0.0, dot(rd, lightDir));
                 v += 0.22 * toward * toward;            // looking toward the light the clouds glow pale
                 highp float sideOn = 1.0 - abs(dot(n, rd));
-                v += 0.18 * smoothstep(0.6, 0.85, sideOn) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
+                v += 0.18 * gRimK * smoothstep(0.6, 0.85, sideOn) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
             }
             // far away one pixel spans many puffs: settle on the middle of the pale band (no white/blue flipping)
-            v = mix(v, 0.54, 0.85 * smoothstep(9.0, 22.0, t * footK));
+            v = mix(v, 0.54, (gToon ? 0.4 : 0.85) * smoothstep(9.0, 22.0, t * footK));
             // aerial perspective: the farther and the lower a cloud, the more air in front of it -- its tones press
             // together (4 bands near, 1-2 pale ones far) and its colour melts into the horizon
             highp float aer = min(1.0, fadeK * smoothstep(0.10, 0.95, t / reach) * (0.55 + 0.45 * (1.0 - smoothstep(0.03, 0.40, rd.y))));
             // stepped clouds keep their tones far away (painted cumulus stays bold at the horizon)
-            v = mix(v, 0.57, (gSteps ? 0.3 : 0.7) * aer);
+            v = mix(v, 0.57, (gSteps || gToon ? 0.3 : 0.7) * aer);
 
             hitV = v;
             hitHaze = max(smoothstep(0.25, 1.0, t / reach) * 0.8, 0.75 * aer) * (gSteps ? 0.55 : 1.0);
@@ -521,7 +572,7 @@ void main() {
             break;
         }
         tPrev = t;
-        highp float stepT = max(2.5, (d < -0.5 ? 16.0 : 3.0) * (1.0 + t / 600.0));
+        highp float stepT = max(2.5, (d < -0.5 ? 16.0 : gFine) * (1.0 + t / 600.0));
         // near a cloud but surely outside its body: jump to where the body could begin (never past the open-sky stride)
         if (d == -0.3) {
             // gGapV: above the dome or below the belly of this column -> the ray needs this much travel to get there;
@@ -573,7 +624,7 @@ void main() {
             highp float v = 0.56 + 0.26 * ndl + 0.10 * n2.y + 0.12 * hf + gBankDet * (0.14 * puff - 0.16 * seam);
             highp float toward = max(0.0, dot(rd, lightDir));
             v += 0.20 * toward * toward;
-            v += 0.16 * smoothstep(0.75, 0.95, length(n2)) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
+            v += 0.16 * gRimK * smoothstep(0.75, 0.95, length(n2)) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
             // a light veil of distance haze: far, but crisp and white like real horizon cumulus
             // the horizon bank is the farthest of all: a lighter version of the same fade, so the towers still read
             hitV = mix(v, 0.57, gSteps ? min(0.07 * fadeK, 0.2) : min(0.2 * fadeK, 0.6));

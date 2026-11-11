@@ -26,6 +26,7 @@ Options (defaults in brackets):
   bits: 1 painted hills (needs the hill strip, baked automatically), 2 lake, 4 pines, 8 horizon bank, 128 big clouds.
   e.g. 120020 = bank on, hills off; 130020 = bank + hills.
 - `layer` [125] layer height (living clouds scale it), `amount` [1].
+- `code` toon clouds: 1 toon, +2 four bands, +4 cream day, +8 gold sunset, +16 slate night; `rim` [1] rim light strength 0..2.
 - `fade` distance-fade strength used by the composite (match the shader's).
 - `frames`, `yawStep`, `move` [dx,dy,dz per frame] for motion tests; `reps` repeats the march for timing.
 - `skyKey` draw the sky magenta (for compositing over a painted background).

@@ -201,6 +201,12 @@ public class SkyScreen extends OptionsSubScreen {
 					SkySettings.version++;
 				}),
 				flag("big_clouds"),
+				flag("toon_clouds"),
+				choice("cloud_bands", List.of("3", "4"), String.valueOf(SkySettings.cloudBands), v -> SkySettings.cloudBands = Integer.parseInt(v)),
+				slider("cloud_rim", 0, 200, Math.round(SkySettings.cloudRim * 100), v -> v + "%", v -> SkySettings.cloudRim = v / 100F),
+				choice("cloud_day_tone", List.of("blue", "cream"), SkySettings.cloudDayTone, v -> SkySettings.cloudDayTone = v),
+				choice("cloud_sunset_tone", List.of("peach", "gold"), SkySettings.cloudSunsetTone, v -> SkySettings.cloudSunsetTone = v),
+				choice("cloud_night_tone", List.of("navy", "slate"), SkySettings.cloudNightTone, v -> SkySettings.cloudNightTone = v),
 				flag("cloud_steady"),
 				flag("living_clouds"),
 				flag("cloud_weather"),

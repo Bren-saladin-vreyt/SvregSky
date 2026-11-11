@@ -66,6 +66,10 @@ public final class SkySettings {
 	public static String modLanguage = "id_id";
 	/** puff cloud colours: normal, mongolia (painted-cumulus palette, smooth), mongolia_pixel (flat steps + dots) */
 	public static String cloudPalette = "normal";
+	/** toon clouds: light bands (3 or 4), rim light strength (0..2), palette per time of day */
+	public static int cloudBands = 3;
+	public static float cloudRim = 1.0F;
+	public static String cloudDayTone = "blue", cloudSunsetTone = "peach", cloudNightTone = "navy";
 	public static Identifier cloudTexture = Identifier.fromNamespaceAndPath(SvregSky.MOD_ID, "textures/sky/clouds.png");
 	public static String cloudMode = "3d_crumble";
 	public static int cloud3dDistance = 40;
@@ -159,6 +163,7 @@ public final class SkySettings {
 		FLAGS.put("silver_clouds", true);
 		FLAGS.put("cloud_steady", true);
 		FLAGS.put("big_clouds", true);
+		FLAGS.put("toon_clouds", true);
 		FLAGS.put("living_clouds", true);
 		FLAGS.put("horizon_bank", true);
 		FLAGS.put("cloud_weather", true);
@@ -179,7 +184,7 @@ public final class SkySettings {
 		FLAGS.put("window_light", true);
 		FLAGS.put("rare_comet", true);
 		FLAGS.put("pixel_art", false);
-		FLAGS.put("cloud_smooth_edges", true);
+		FLAGS.put("cloud_smooth_edges", false);
 		FLAGS.put("deep_sky", false);
 		FLAGS.put("giant_tree", true);
 		FLAGS.put("spirit_buddy", true);
@@ -303,6 +308,21 @@ public final class SkySettings {
 			pixelSize = Math.max(2, Math.min(6, Math.round(num(o, "pixel_size", pixelSize))));
 			pixelBands = Math.max(4, Math.min(16, Math.round(num(o, "pixel_bands", pixelBands))));
 			pixelDither = Math.max(0, Math.min(1, num(o, "pixel_dither", pixelDither)));
+			cloudBands = num(o, "cloud_bands", cloudBands) >= 3.5F ? 4 : 3;
+			cloudRim = Math.max(0, Math.min(2, num(o, "cloud_rim", cloudRim)));
+			if (o.has("cloud_day_tone")) {
+				cloudDayTone = o.get("cloud_day_tone").getAsString();
+			}
+			if (o.has("cloud_sunset_tone")) {
+				cloudSunsetTone = o.get("cloud_sunset_tone").getAsString();
+			}
+			if (o.has("cloud_night_tone")) {
+				cloudNightTone = o.get("cloud_night_tone").getAsString();
+			}
+			// configs from before the toon clouds: their pixel look wants the sharp cloud edges, switched once
+			if (o.has("cloud_smooth_edges") && !o.has("toon_clouds")) {
+				FLAGS.put("cloud_smooth_edges", false);
+			}
 			if (o.has("cloud_palette")) {
 				cloudPalette = o.get("cloud_palette").getAsString();
 			}

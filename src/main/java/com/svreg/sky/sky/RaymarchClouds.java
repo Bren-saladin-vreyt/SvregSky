@@ -305,7 +305,12 @@ public final class RaymarchClouds {
 			// x: the buffer height (the puff mode sizes its detail by how many blocks one cloud pixel covers)
 			// z: step budget + aerial fade strength / 4 in the fraction (0..2 -> 0..0.5)
 			float fade = Math.max(0, Math.min(2, SkySettings.aerialFade));
-			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h, reach, steps + fade / 4.0F, org), camCloud, params);
+			// toon clouds: a code in the fraction of the reach slot (1 toon, 2 four bands, 4 cream day, 8 gold sunset, 16 slate
+			// night) and the rim light strength / 4 in the fraction of the buffer height slot (1 = the classic rim)
+			int code = (SkySettings.on("toon_clouds") ? 1 : 0) | (SkySettings.cloudBands >= 4 ? 2 : 0) | ("cream".equals(SkySettings.cloudDayTone) ? 4 : 0)
+					| ("gold".equals(SkySettings.cloudSunsetTone) ? 8 : 0) | ("slate".equals(SkySettings.cloudNightTone) ? 16 : 0);
+			float rim = Math.max(0, Math.min(2, SkySettings.cloudRim));
+			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h + rim / 4.0F, (float) Math.floor(reach) + code / 64.0F, steps + fade / 4.0F, org), camCloud, params);
 			bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture());
 			// anti-flicker: last frame is usable unless the buffers or the timing just changed
 			boolean steady = SkySettings.on("cloud_steady");

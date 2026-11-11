@@ -387,6 +387,13 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 9000, 160, -25, "zv6_crumble_afternoon_towers");
 			shot(context, sp, 6000, 40, 2, "zv7_crumble_horizon_bank");
 			shot(context, sp, 6000, 220, 2, "zv8_crumble_horizon_bank_b");
+			// toon clouds: four bands with the cream day palette, then the toon look off
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudBands = 4; com.svreg.sky.sky.SkySettings.cloudDayTone = "cream"; });
+			shot(context, sp, 6000, 160, -25, "zv13_toon_cream_4bands");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudBands = 3; com.svreg.sky.sky.SkySettings.cloudDayTone = "blue"; com.svreg.sky.sky.SkySettings.FLAGS.put("toon_clouds", false); });
+			shot(context, sp, 6000, 160, -25, "zv14_toon_off");
+			shot(context, sp, 12300, 90, -10, "zv15_toon_off_golden");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("toon_clouds", true));
 			// the classic (smaller, crumblier) cloud shape for comparison
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("big_clouds", false));
 			shot(context, sp, 6000, 160, -25, "zv11_crumble_classic_shape");
