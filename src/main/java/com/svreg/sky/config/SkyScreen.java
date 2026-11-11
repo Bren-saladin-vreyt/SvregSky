@@ -200,6 +200,7 @@ public class SkyScreen extends OptionsSubScreen {
 					SkySettings.cloud3dDistance = v;
 					SkySettings.version++;
 				}),
+				flag("big_clouds"),
 				flag("cloud_steady"),
 				flag("living_clouds"),
 				flag("cloud_weather"),

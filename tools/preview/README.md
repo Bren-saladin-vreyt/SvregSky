@@ -23,7 +23,7 @@ Options (defaults in brackets):
 - `yaw`,`pitch` (degrees), `cam` [0,-110,0] camera in cloud space (y < 0 = under the layer; [0,240,0] = above).
 - `tod` day | gold | night | blue (after sunset), `sun` direction, `org` (orange sky 0..1).
 - `t3y` the packed TextureMat[3].y: 10000*bits + 100*afterglow(0..99) + churn.
-  bits: 1 painted hills (needs the hill strip, baked automatically), 2 lake, 4 pines, 8 horizon bank.
+  bits: 1 painted hills (needs the hill strip, baked automatically), 2 lake, 4 pines, 8 horizon bank, 128 big clouds.
   e.g. 120020 = bank on, hills off; 130020 = bank + hills.
 - `layer` [125] layer height (living clouds scale it), `amount` [1].
 - `fade` distance-fade strength used by the composite (match the shader's).

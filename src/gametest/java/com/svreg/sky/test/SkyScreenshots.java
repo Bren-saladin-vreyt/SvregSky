@@ -387,6 +387,11 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 9000, 160, -25, "zv6_crumble_afternoon_towers");
 			shot(context, sp, 6000, 40, 2, "zv7_crumble_horizon_bank");
 			shot(context, sp, 6000, 220, 2, "zv8_crumble_horizon_bank_b");
+			// the classic (smaller, crumblier) cloud shape for comparison
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("big_clouds", false));
+			shot(context, sp, 6000, 160, -25, "zv11_crumble_classic_shape");
+			shot(context, sp, 6000, 40, -8, "zv12_crumble_classic_horizon");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("big_clouds", true));
 			// 1/6 and 1/2 resolution, then back to the user's 1/3
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 6);
 			shot(context, sp, 6000, 160, -25, "zv9_crumble_sixth");

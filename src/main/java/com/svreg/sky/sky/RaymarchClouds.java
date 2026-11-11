@@ -292,11 +292,11 @@ public final class RaymarchClouds {
 			if (SkySettings.on("living_clouds")) {
 				churn = (churn + dt * 0.25) % 64.0;
 			}
-			// + 10000 x bits: 1 painted hills (clouds hide behind them), 2 lake, 4 pines (hill shape), 8 horizon cloud bank
+			// + 10000 x bits: 1 painted hills (clouds hide behind them), 2 lake, 4 pines (hill shape), 8 horizon cloud bank, 128 big clouds
 			boolean hills = SkySettings.horizonMountains;
 			int bits = (hills ? 1 : 0) | (hills && SkySettings.on("horizon_lake") ? 2 : 0) | (hills && SkySettings.on("horizon_pines") ? 4 : 0)
 					| (SkySettings.on("horizon_bank") ? 8 : 0) | (!SkySettings.cloudPalette.equals("normal") ? 16 : 0) | (SkySettings.cloudPalette.equals("mongolia_pixel") ? 32 : 0)
-					| (hills && SkySettings.on("giant_tree") ? 64 : 0);
+					| (hills && SkySettings.on("giant_tree") ? 64 : 0) | (SkySettings.on("big_clouds") ? 128 : 0);
 			params.m31(bits * 10000 + Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));

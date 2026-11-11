@@ -149,6 +149,8 @@
   "svregsky.options.ghibli_detail.4": "Normal",
   "svregsky.options.ghibli_detail.2": "Halus",
   "svregsky.options.ghibli_detail.lod": "Halus Dekat",
+  "svregsky.options.big_clouds": "§a● §rAwan Gede",
+  "svregsky.options.big_clouds.tooltip": "Gumpalan awan lebih besar dan bulat, bayangan rata\nMati: bentuk lama yang lebih kecil",
   "svregsky.options.cloud_steady": "§a● §rAwan Raymarch Stabil",
   "svregsky.options.cloud_steady.tooltip": "Anti kedip",
   "svregsky.options.living_clouds": "§a● §rAwan Hidup",

@@ -148,6 +148,8 @@
   "svregsky.options.ghibli_detail.4": "Normal",
   "svregsky.options.ghibli_detail.2": "Fine",
   "svregsky.options.ghibli_detail.lod": "Fine Near",
+  "svregsky.options.big_clouds": "§a● §rBig Clouds",
+  "svregsky.options.big_clouds.tooltip": "Bigger, rounder cloud heaps with flat shading\nOff: the older, smaller shape",
   "svregsky.options.cloud_steady": "§a● §rSteady Raymarch Clouds",
   "svregsky.options.cloud_steady.tooltip": "No edge flicker",
   "svregsky.options.living_clouds": "§a● §rLiving Clouds",

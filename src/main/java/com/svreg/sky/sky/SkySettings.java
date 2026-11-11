@@ -158,6 +158,7 @@ public final class SkySettings {
 		FLAGS.put("blue_hour", true);
 		FLAGS.put("silver_clouds", true);
 		FLAGS.put("cloud_steady", true);
+		FLAGS.put("big_clouds", true);
 		FLAGS.put("living_clouds", true);
 		FLAGS.put("horizon_bank", true);
 		FLAGS.put("cloud_weather", true);

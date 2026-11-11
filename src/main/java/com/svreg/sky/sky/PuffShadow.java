@@ -23,7 +23,7 @@ public final class PuffShadow {
 	private static final float WTILE = 1280.0F, SHEAR = 0.12F, MID = 60.0F;
 	private static float[] weather;
 	private static final byte[] cover = new byte[N * N];
-	private static float originX = Float.NaN, originZ, amount = -1;
+	private static float originX = Float.NaN, originZ, amount = -1, scale = -1;
 	private static long lastNanos;
 	private static int version;
 	private static int tex = -1;
@@ -67,18 +67,21 @@ public final class PuffShadow {
 		}
 		long now = System.nanoTime();
 		boolean far = Float.isNaN(originX) || Math.abs(camX - (originX + N * CELL / 2)) > 160 || Math.abs(camZ - (originZ + N * CELL / 2)) > 160;
-		if (!far && now - lastNanos < 400_000_000L && Math.abs(amt - amount) < 0.02F) {
+		// "big clouds" read the weather map wider (gWS in cirrus_crumble.fsh)
+		float ws = SkySettings.on("big_clouds") ? 0.48F : 1.0F;
+		if (!far && now - lastNanos < 400_000_000L && Math.abs(amt - amount) < 0.02F && ws == scale) {
 			return;
 		}
 		lastNanos = now;
 		amount = amt;
+		scale = ws;
 		originX = (float) (Math.floor(camX / CELL) * CELL) - N * CELL / 2;
 		originZ = (float) (Math.floor(camZ / CELL) * CELL) - N * CELL / 2;
 		float lo = 0.55F - 0.06F * amt, hi = 0.80F - 0.06F * amt;
 		for (int z = 0; z < N; z++) {
 			for (int x = 0; x < N; x++) {
 				float wx = originX + (x + 0.5F) * CELL - SHEAR * MID, wz = originZ + (z + 0.5F) * CELL;
-				float c = smooth(lo, hi, coverAt(wx, wz));
+				float c = smooth(lo, hi, coverAt(wx * ws, wz * ws));
 				cover[x + z * N] = (byte) Math.round(c * 255);
 			}
 		}

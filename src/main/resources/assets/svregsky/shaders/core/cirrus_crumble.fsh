@@ -92,6 +92,11 @@ bool gTree = false;
 highp float gTh = 0.0, gEOff = 0.0;
 highp vec2 gCam = vec2(0.0);
 highp float gReach = 1500.0;
+// "big clouds" (bit 128): the weather map is read wider (bodies about twice as wide), domes 30% taller, a shallower
+// belly, bigger and rounder puffs, a higher bar for rim puffs, and flatter light (see main). 1 / classic values otherwise.
+bool gBig = false;
+highp float gWS = 1.0, gTopK = 1.0, gBellyK = 0.24, gRim = 0.07;
+highp vec3 gPuffK = vec3(0.7, 1.15, 0.9);
 
 // the cloud body, 0..1. No flat base any more: each cloud is an egg standing on its narrow end upside down -- a short
 // rounded belly below its widest point, a tall dome above. Each cloud has its own belly height, and the thin edges
@@ -102,7 +107,8 @@ highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
     gGapV = 0.0;
     gGapH = 0.0;
     // lean downwind with height (shear)
-    highp vec2 xs = p.xz - vec2(SHEAR * p.y, 0.0);
+    highp vec2 xu = p.xz - vec2(SHEAR * p.y, 0.0);
+    highp vec2 xs = xu * gWS;
     highp vec3 w0 = weatherL(xs);
     w = w0;
     if (w0.r < 0.47 - 0.06 * amount) {
@@ -112,16 +118,16 @@ highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
     highp float lo = 0.55 - 0.06 * amount;
     highp float c = smoothstep(lo, 0.80 - 0.06 * amount, wc.r); // wide ramp: cover thickens slowly -> domes
     if (gBank) {
-        c *= 1.0 - smoothstep(0.45, 0.85, distance(xs, gCam) / gReach);
+        c *= 1.0 - smoothstep(0.45, 0.85, distance(xu, gCam) / gReach);
     }
     if (c <= 0.0) {
         // the cover can rise at most ~0.02 per block (measured 0.017 in the baked map), and a step moves the lookup by
-        // at most 1.12 blocks per block (sideways plus the shear): no body within this distance
-        gGapH = (lo - wc.r) * 44.0;
+        // at most 1.12 blocks per block (sideways plus the shear): no body within this distance (wider bodies: farther)
+        gGapH = (lo - wc.r) * 44.0 / gWS;
         return 0.0;
     }
-    highp float top = 40.0 + (layerH + 60.0) * (0.35 + 0.65 * wc.g);
-    highp float belly = 0.24 * top;
+    highp float top = gTopK * (40.0 + (layerH + 60.0) * (0.35 + 0.65 * wc.g));
+    highp float belly = gBellyK * top;
     highp float mid = BASE0 + 40.0 * wc.b + belly + 14.0 * (1.0 - c);
     // tall afternoon domes are squeezed (still round) so they end below the high layer instead of being cut flat
     top = belly + min(top - belly, (296.0 - mid) / 0.89);
@@ -147,12 +153,12 @@ highp float field(highp float bw, highp vec3 d, highp float under, highp float k
     highp float pz = mix(0.5, d.r, kM) * 0.72 + mix(0.5, d.g, sk) * 0.28;
     pz = mix(pz, 0.5, 0.25 * under);
     // a higher bar on the thin rim: a puff there survives whole or not at all (no one-pixel slivers)
-    return pz + 1.15 * bw - 1.0 - 0.07 * (1.0 - smoothstep(0.25, 0.55, bw));
+    return pz + 1.15 * bw - 1.0 - gRim * (1.0 - smoothstep(0.25, 0.55, bw));
 }
 
 // puffs are read stretched along the wind (x) and a little flattened, and drift with the shear like the body
 highp vec3 puffCoord(highp vec3 p) {
-    return vec3((p.x - SHEAR * p.y) * 0.7, p.y * 1.15 - churn, p.z * 0.9);
+    return vec3((p.x - SHEAR * p.y) * gPuffK.x, p.y * gPuffK.y - churn, p.z * gPuffK.z);
 }
 
 highp float cumulus(highp vec3 p) {
@@ -203,7 +209,9 @@ highp float hillTop(highp vec3 dir) {
 // same toon light and palette -- so it costs a few texture reads per pixel. It drifts with the wind (ro carries it),
 // grows with the living-clouds cycle (layerH, amount) and churns with the puffs.
 // Ring: 7680 blocks around (6 weather tiles, 60 detail tiles: seamless), radius ~1222 blocks.
-const highp float BANK_C = 7680.0, BANK_R = 1222.0, BANK_P = 0.35; // BANK_P: puff scale (bigger puffs far away)
+const highp float BANK_C = 7680.0, BANK_R = 1222.0;
+// puff scale on the bank (bigger puffs far away); 60 x gBankP detail tiles go around the ring, so keep that whole
+highp float gBankP = 0.35, gBankDet = 1.0;
 highp float bankField(highp float u, highp float e, highp float kMb, highp float kSb, out highp float body, out highp vec3 dt) {
     // u / 3: the weather row wraps exactly (7680 / 3 = 2 tiles), so there is no seam behind the camera
     highp vec3 w = weather(vec2(u / 3.0, 9000.0));
@@ -260,7 +268,7 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
     if (body <= 0.0) {
         return -1.0;
     }
-    dt = detailTex(vec3(u * BANK_P, (e + 0.01) * BANK_R * BANK_P - churn, 37.0));
+    dt = detailTex(vec3(u * gBankP, (e + 0.01) * BANK_R * gBankP - churn, 37.0));
     highp float sk = kSb * smoothstep(0.3, 0.6, body);
     highp float pz = mix(0.5, dt.r, kMb) * 0.72 + mix(0.5, dt.g, sk) * 0.28;
     return pz + 1.15 * body - 1.0 - 0.07 * (1.0 - smoothstep(0.25, 0.55, body));
@@ -360,7 +368,7 @@ void main() {
     hazeAway = TextureMat[2].xyz;
     amount = TextureMat[2].w;
     hazeSun = vec3(TextureMat[3].x, TextureMat[3].z, TextureMat[3].w);
-    // TextureMat[3].y packs: 10000 x bits (1 painted hills, 2 lake, 4 pines, 8 horizon bank, 16 painted-cumulus palette, 32 pixel steps) + 100 x afterglow
+    // TextureMat[3].y packs: 10000 x bits (1 painted hills, 2 lake, 4 pines, 8 horizon bank, 16 painted-cumulus palette, 32 pixel steps, 64 giant tree, 128 big clouds) + 100 x afterglow
     // (0..99, the blue hour after sunset) + the puff churn (0..64)
     highp float bits = floor(TextureMat[3].y / 10000.0);
     highp float rest = mod(TextureMat[3].y, 10000.0);
@@ -371,6 +379,16 @@ void main() {
     gSteps = mod(floor(bits / 16.0), 2.0) > 0.5;
     gPixel = mod(floor(bits / 32.0), 2.0) > 0.5;
     gTree = mod(floor(bits / 64.0), 2.0) > 0.5;
+    gBig = mod(floor(bits / 128.0), 2.0) > 0.5;
+    if (gBig) {
+        gWS = 0.48;
+        gTopK = 1.3;
+        gBellyK = 0.14;
+        gRim = 0.10;
+        gPuffK = vec3(0.48, 0.63, 0.54);
+        gBankP = 0.2;
+        gBankDet = 0.5;
+    }
     gBank = bankOn && ModelOffset.y < 0.0;
     highp float bufH = max(ColorModulator.x, 1.0);
     highp float reach = ColorModulator.y;
@@ -471,11 +489,19 @@ void main() {
                 highp float seam = smoothstep(0.36, 0.22, dt.r) * kM;
                 highp float ndl = dot(n, lightDir);
                 v = 0.525 + 0.26 * ndl + 0.08 * n.y + 0.14 * hf - 0.18 * occl + 0.14 * puff - 0.16 * seam;
+                if (gBig) {
+                    // flatter light: wide white caps, puffs and seams only hinted
+                    v = 0.55 + 0.30 * ndl + 0.10 * n.y + 0.14 * hf - 0.20 * occl + 0.07 * puff - 0.07 * seam;
+                }
                 // the belly is not left dark: light bounced up from the bright ground and sky keeps it a pale blue,
                 // and each belly puff still shows its own curved line (the puff term above), as in the references
                 highp float down = smoothstep(0.1, 0.8, -n.y);
-                v += 0.20 * down;
-                v = mix(v, max(v, 0.47 + 0.14 * puff - 0.10 * seam), down);
+                if (gBig) {
+                    v = mix(v, 0.40 + 0.05 * puff, down); // the belly is one flat pale-blue shade
+                } else {
+                    v += 0.20 * down;
+                    v = mix(v, max(v, 0.47 + 0.14 * puff - 0.10 * seam), down);
+                }
                 highp float toward = max(0.0, dot(rd, lightDir));
                 v += 0.22 * toward * toward;            // looking toward the light the clouds glow pale
                 highp float sideOn = 1.0 - abs(dot(n, rd));
@@ -522,8 +548,8 @@ void main() {
         highp float e = rd.y - (hTop > -0.5 ? 0.45 * min(hTop, 0.22) : 0.0) + 0.012;
         gTh = th;
         gEOff = rd.y - e;
-        // puff fade by pixel size (one pixel covers footK radians; the puffs are BANK_R * BANK_P blocks per radian)
-        highp float footB = footK * BANK_R * BANK_P;
+        // puff fade by pixel size (one pixel covers footK radians; the puffs are BANK_R * gBankP blocks per radian)
+        highp float footB = footK * BANK_R * gBankP;
         highp float kSb = 1.0 - smoothstep(2.6, 4.6, footB), kMb = 1.0 - smoothstep(6.5, 11.0, footB);
         highp float body;
         highp vec3 dt;
@@ -533,7 +559,7 @@ void main() {
             // toward the viewer; the sun lights it by how it sits around the ring
             highp float bb;
             highp vec3 dd;
-            highp float du = 6.0 / BANK_P, de = 6.0 / (BANK_R * BANK_P);
+            highp float du = 6.0 / gBankP, de = 6.0 / (BANK_R * gBankP);
             highp float fu = bankField(u + du, e, kMb, kSb, bb, dd), fe = bankField(u, e + de, kMb, kSb, bb, dd);
             highp vec2 g = vec2(f0 - fu, f0 - fe);              // points out of the cloud (field falls outward)
             highp vec2 n2 = g / (length(g) + 0.03);
@@ -544,7 +570,7 @@ void main() {
             highp float hf = clamp((e + 0.01) / 0.18, 0.0, 1.0) * clamp(body * 1.5, 0.0, 1.0);
             highp float puff = (dt.r - 0.5) * kMb + (dt.g - 0.5) * 0.5 * kSb;
             highp float seam = smoothstep(0.36, 0.22, dt.r) * kMb;
-            highp float v = 0.56 + 0.26 * ndl + 0.10 * n2.y + 0.12 * hf + 0.14 * puff - 0.16 * seam;
+            highp float v = 0.56 + 0.26 * ndl + 0.10 * n2.y + 0.12 * hf + gBankDet * (0.14 * puff - 0.16 * seam);
             highp float toward = max(0.0, dot(rd, lightDir));
             v += 0.20 * toward * toward;
             v += 0.16 * smoothstep(0.75, 0.95, length(n2)) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
