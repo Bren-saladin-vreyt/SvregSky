@@ -5,7 +5,7 @@ anti-flicker and distance fade) in Playwright's Chromium with SwiftShader, so cl
 measured before pushing. Built while tuning the puff clouds (Nov 2026).
 
 ## Setup (once per session)
-    ./tools/preview/bake.sh            # bakes out/crumble.png and out/noise.png from the mod's Java
+    ./tools/preview/bake.sh            # bakes out/crumble.png from the mod's Java
 Needs node + Playwright (preinstalled in the Claude workspace), java, python3 with Pillow, numpy, scipy.
 Big renders need `export NODE_OPTIONS=--max-old-space-size=8000`.
 
@@ -19,7 +19,7 @@ Options (defaults in brackets):
 - `scale` [4] cloud buffer = 1/scale. The user plays at **3**.
 - `bufH` set to 1 for the puff shader (it needs the buffer height in ColorModulator.x).
 - `steps` [80] march budget; for the puff shader add fade/4 as the fraction (`80.375` = 150% fade).
-- `noise` [crumble.png] atlas from out/ (`noise.png` for cirrus_raymarch.fsh).
+- `noise` [crumble.png] atlas from out/.
 - `yaw`,`pitch` (degrees), `cam` [0,-110,0] camera in cloud space (y < 0 = under the layer; [0,240,0] = above).
 - `tod` day | gold | night | blue (after sunset), `sun` direction, `org` (orange sky 0..1).
 - `t3y` the packed TextureMat[3].y: 10000*bits + 100*afterglow(0..99) + churn.

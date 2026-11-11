@@ -29,15 +29,15 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 /**
- * "Raymarch Ghibli" clouds (beta): instead of a voxel mesh, a noise volume is marched per pixel into a small buffer
- * (1/2 .. 1/4 of the screen), toon-lit in four tones, then upscaled with sharp pixels. The composite writes depth so
+ * The raymarched Ghibli puff clouds: a baked noise volume (CrumbleNoise) is marched per pixel into a small buffer
+ * (1/2 .. 1/8 of the screen), toon-lit, steadied against flicker, then upscaled. The composite writes depth so
  * terrain in front still hides the clouds.
  */
 public final class RaymarchClouds {
 	/** the cloud layer is this tall (blocks) */
 	public static final float LAYER = 125F;
 
-	private static RenderPipeline marchPipeline, crumblePipeline, compPipeline, temporalPipeline, hillPipeline;
+	private static RenderPipeline crumblePipeline, compPipeline, temporalPipeline, hillPipeline;
 	/** the painted hills' silhouette, one height per compass direction (cirrus_hillmask), and which toggles it was baked for */
 	private static GpuTexture hillTex;
 	private static GpuTextureView hillView;
@@ -45,12 +45,12 @@ public final class RaymarchClouds {
 	private static final com.mojang.blaze3d.pipeline.BindGroupLayout THREE_SAMPLERS = com.mojang.blaze3d.pipeline.BindGroupLayout.builder()
 			.withSampler("Sampler0").withSampler("Sampler1").withSampler("Sampler2").build();
 	private static GpuBuffer quad;
-	private static net.minecraft.client.renderer.texture.DynamicTexture noiseTex, crumbleTex;
+	private static net.minecraft.client.renderer.texture.DynamicTexture crumbleTex;
 	/** two march buffers and two anti-flicker results, used alternately (this frame / last frame) */
 	private static final GpuTexture[] raw = new GpuTexture[2], hist = new GpuTexture[2];
 	private static final GpuTextureView[] rawView = new GpuTextureView[2], histView = new GpuTextureView[2];
 	private static int frame;
-	private static boolean histValid, lastCrumble;
+	private static boolean histValid;
 	private static Matrix4f prevView;
 	private static Vector3f prevCam;
 	private static boolean broken;
@@ -149,26 +149,13 @@ public final class RaymarchClouds {
 	}
 
 	private static void init() {
-		if (marchPipeline == null) {
-			marchPipeline = pipeline("cirrus_raymarch", ColorTargetState.DEFAULT, Optional.empty(), true);
+		if (crumblePipeline == null) {
 			crumblePipeline = pipeline("cirrus_crumble", ColorTargetState.DEFAULT, Optional.empty(), BindGroupLayouts.SAMPLER0_SAMPLER1);
 			hillPipeline = pipeline("cirrus_hillmask", ColorTargetState.DEFAULT, Optional.empty(), (com.mojang.blaze3d.pipeline.BindGroupLayout) null);
 			compPipeline = pipeline("cirrus_rmcomp", new ColorTargetState(com.mojang.blaze3d.pipeline.BlendFunction.TRANSLUCENT), Optional.of(DepthStencilState.DEFAULT), true);
 			temporalPipeline = pipeline("cirrus_rmtemporal", ColorTargetState.DEFAULT, Optional.empty(), THREE_SAMPLERS);
 		}
-		if (noiseTex == null) {
-			// the erosion noise is baked once (about a quarter second) and read with bilinear filtering from then on
-			byte[] a = RaymarchNoise.bake();
-			com.mojang.blaze3d.platform.NativeImage img = new com.mojang.blaze3d.platform.NativeImage(RaymarchNoise.WIDTH, RaymarchNoise.HEIGHT, false);
-			for (int y = 0; y < RaymarchNoise.HEIGHT; y++) {
-				for (int x = 0; x < RaymarchNoise.WIDTH; x++) {
-					int g = a[x + y * RaymarchNoise.WIDTH] & 255;
-					img.setPixel(x, y, 0xFF000000 | g << 16 | g << 8 | g);
-				}
-			}
-			noiseTex = new net.minecraft.client.renderer.texture.DynamicTexture(() -> "SvregSky raymarch noise", img);
-		}
-		if (crumbleTex == null && SkySettings.cloudCrumble()) {
+		if (crumbleTex == null) {
 			// the Ghibli puff mode: puff detail and the weather map (sharp + blurred) baked once into one atlas
 			int[] a = CrumbleNoise.bake();
 			com.mojang.blaze3d.platform.NativeImage img = new com.mojang.blaze3d.platform.NativeImage(CrumbleNoise.WIDTH, CrumbleNoise.HEIGHT, false);
@@ -257,11 +244,8 @@ public final class RaymarchClouds {
 			RenderTarget target = cloudTarget != null ? cloudTarget : mc.gameRenderer.mainRenderTarget();
 			int scale = Math.max(2, Math.min(8, SkySettings.raymarchScale));
 			// fewer march steps at lower resolutions: the big pixels hide the coarser sampling
-			int steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 80 : scale >= 3 ? 90 : 100;
-			if (SkySettings.cloudCrumble()) {
-				// the puff mode jumps over empty space near clouds, so its rays rarely need the full count
-				steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 72 : scale >= 3 ? 80 : 96;
-			}
+			// (the march jumps over empty space near clouds, so its rays rarely need the full count)
+			int steps = scale >= 8 ? 56 : scale >= 6 ? 64 : scale >= 4 ? 72 : scale >= 3 ? 80 : 96;
 			int w = Math.max(1, (target.width + scale - 1) / scale), h = Math.max(1, (target.height + scale - 1) / scale);
 			if (raw[0] == null || raw[0].getWidth(0) != w || raw[0].getHeight(0) != h) {
 				for (int i = 0; i < 2; i++) {
@@ -316,37 +300,30 @@ public final class RaymarchClouds {
 			params.m31(bits * 10000 + Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
-			if (SkySettings.cloudCrumble()) {
-				PuffShadow.update(camCloud.x, camCloud.z, amt);
-			}
+			PuffShadow.update(camCloud.x, camCloud.z, amt);
 			Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 			// x: the buffer height (the puff mode sizes its detail by how many blocks one cloud pixel covers)
 			// z: step budget + aerial fade strength / 4 in the fraction (0..2 -> 0..0.5)
 			float fade = Math.max(0, Math.min(2, SkySettings.aerialFade));
 			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h, reach, steps + fade / 4.0F, org), camCloud, params);
-			boolean crumble = SkySettings.cloudCrumble();
-			if (crumble) {
-				bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture());
-			}
-			// anti-flicker: last frame is usable unless the buffers, the mode or the timing just changed
+			bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture());
+			// anti-flicker: last frame is usable unless the buffers or the timing just changed
 			boolean steady = SkySettings.on("cloud_steady");
-			boolean valid = steady && histValid && prevView != null && crumble == lastCrumble && dt > 0 && dt < 0.2;
+			boolean valid = steady && histValid && prevView != null && dt > 0 && dt < 0.2;
 			var steadyT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(valid ? 1 : 0, 0, 0, 0),
 					prevCam == null ? new Vector3f() : new Vector3f(camCloud).sub(prevCam), prevView == null ? view : prevView);
 			boolean zeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
-			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(smoothEdges() ? scale : -scale, zeroToOne ? 1 : 0, SkySettings.cloudCrumble() ? fade : 0, reach), new Vector3f(), new Matrix4f());
+			var compT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(smoothEdges() ? scale : -scale, zeroToOne ? 1 : 0, fade, reach), new Vector3f(), new Matrix4f());
 
 			RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 			GpuBuffer ib = indices.getBuffer(6);
 			IndexType type = indices.type();
 			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch clouds", curRaw, Optional.of(new Vector4f(0, 0, 0, 0)), null, OptionalDouble.empty())) {
-				pass.setPipeline(crumble ? crumblePipeline : marchPipeline);
+				pass.setPipeline(crumblePipeline);
 				RenderSystem.bindDefaultUniforms(pass);
 				pass.setUniform("DynamicTransforms", marchT);
-				pass.bindTexture("Sampler0", (crumble ? crumbleTex : noiseTex).getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
-				if (crumble) {
-					pass.bindTexture("Sampler1", hillView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
-				}
+				pass.bindTexture("Sampler0", crumbleTex.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+				pass.bindTexture("Sampler1", hillView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 				pass.setVertexBuffer(0, quad.slice());
 				pass.setIndexBuffer(ib, type);
 				pass.drawIndexed(6, 1, 0, 0, 0);
@@ -368,7 +345,6 @@ public final class RaymarchClouds {
 				shown = curHist;
 			}
 			histValid = steady;
-			lastCrumble = crumble;
 			prevView = view;
 			prevCam = camCloud;
 			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "SvregSky raymarch composite",

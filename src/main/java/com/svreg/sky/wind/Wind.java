@@ -211,7 +211,7 @@ public final class Wind {
 		if (locSun >= 0) {
 			org.joml.Vector3f sun = com.svreg.sky.sky.CirrusSky.sunDirection();
 			float k = SkySettings.cloudShadows * Math.min(1, com.svreg.sky.sky.CirrusSky.dayLevel() * 1.5F) * (1 - com.svreg.sky.sky.CirrusSky.rainLevel())
-					* (SkySettings.paintedClouds || SkySettings.cloud3d() ? 1 : 0) * (sun.y > 0.05F ? 1 : 0);
+					* (SkySettings.paintedClouds ? 1 : 0) * (sun.y > 0.05F ? 1 : 0);
 			GL20C.glUniform4f(locSun, sun.x, sun.y, sun.z, k);
 		}
 		if (locGlow >= 0) {

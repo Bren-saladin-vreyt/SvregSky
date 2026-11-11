@@ -40,7 +40,7 @@ public class SkyScreenshots implements FabricClientGameTest {
 			sp.getServer().runCommand("execute as @p at @p run place feature minecraft:oak ~6 ~ ~14");
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.windStrength = 3.0F;
-				com.svreg.sky.sky.SkySettings.cloudMode = "3d";
+				com.svreg.sky.sky.SkySettings.cloudMode = "3d_crumble";
 				com.svreg.sky.sky.SkySettings.version++;
 			});
 			context.runOnClient(client -> {
@@ -55,23 +55,9 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.takeScreenshot("k2_settings_screen");
 			context.runOnClient(client -> client.gui.setScreen(null));
 			context.waitTicks(5);
-			shot(context, sp, 6000, 0, -20, "l_3d_noon");
-			shot(context, sp, 6000, 0, -60, "m_3d_up");
-			shot(context, sp, 12100, 90, -12, "n_3d_golden");
-			shot(context, sp, 12850, 90, -10, "o_3d_sunset");
 			shot(context, sp, 6000, -30, 35, "o2_water");
 
-			// pure 3D sunset clouds
-			context.runOnClient(client -> {
-				com.svreg.sky.sky.SkySettings.cloudMode = "3d_full";
-				com.svreg.sky.sky.SkySettings.version++;
-			});
-			shot(context, sp, 12100, 90, -14, "p_full3d_golden");
-			shot(context, sp, 12450, 90, -14, "p2_full3d_amber");
-			shot(context, sp, 6000, 40, -35, "p3_full3d_noon");
-			shot(context, sp, 12850, 90, -10, "p4_full3d_sunset");
-
-			// painted clouds again: light shafts, rainbow, sparkles, fireflies, falling leaves
+			// the sky's painted clouds (test only, no menu entry reaches this): light shafts, rainbow, sparkles, fireflies, falling leaves
 			context.runOnClient(client -> {
 				com.svreg.sky.sky.SkySettings.cloudMode = "painted";
 				com.svreg.sky.sky.SkySettings.version++;
@@ -154,14 +140,14 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("anime_water", false); com.svreg.sky.sky.SkySettings.FLAGS.put("shore_waves", false); });
 			shot(context, sp, 6000, 0, 6, "zw4_beach_old_water");
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("anime_water", true); com.svreg.sky.sky.SkySettings.FLAGS.put("shore_waves", true); });
-			// the distant storm (forced), in 3D Ghibli and painted modes
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli"; com.svreg.sky.sky.SkySettings.version++; com.svreg.sky.sky.DistantStorm.force = 0.4F; });
+			// the distant storm (forced), with the puff clouds and with the painted sky
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_crumble"; com.svreg.sky.sky.SkySettings.version++; com.svreg.sky.sky.DistantStorm.force = 0.4F; });
 			context.waitTicks(120);
-			shot(context, sp, 6000, 160, -8, "zx_storm_far_ghibli");
+			shot(context, sp, 6000, 160, -8, "zx_storm_far_puff");
 			context.runOnClient(client -> com.svreg.sky.sky.DistantStorm.force = 1.0F);
 			context.waitTicks(40);
-			shot(context, sp, 6000, 160, -8, "zx2_storm_near_ghibli");
-			shot(context, sp, 12300, 160, -8, "zx3_storm_golden_ghibli");
+			shot(context, sp, 6000, 160, -8, "zx2_storm_near_puff");
+			shot(context, sp, 12300, 160, -8, "zx3_storm_golden_puff");
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "painted"; com.svreg.sky.sky.SkySettings.version++; });
 			context.waitTicks(40);
 			shot(context, sp, 6000, 160, -8, "zx4_storm_near_painted");
@@ -385,60 +371,12 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("face_light", true));
 			shot(context, sp, 3000, 30, 5, "zm_face_light_on");
 
-			// batch 5: 3D Ghibli clouds, MEGA cumulonimbus, beams, sunset water
+			// batch 5: the puff clouds (the only cloud renderer), forced painted towers
 			context.runOnClient(client -> {
-				com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli";
 				com.svreg.sky.sky.SkySettings.paintedClouds = true;
 				com.svreg.sky.sky.CirrusSky.forceTowers = true;
-				com.svreg.sky.sky.SkySettings.version++;
-			});
-			context.waitTicks(100);
-			shot(context, sp, 6000, 160, -25, "zn_ghibli_noon");
-			shot(context, sp, 6000, 40, -8, "zn2_ghibli_noon_horizon");
-			shot(context, sp, 12300, 90, -10, "zo_ghibli_golden_west");
-			shot(context, sp, 12300, -90, -12, "zo2_ghibli_golden_east");
-			shot(context, sp, 12700, 90, 4, "zp_ghibli_sunset_water");
-			shot(context, sp, 18000, 0, -20, "zq_ghibli_night");
-			context.runOnClient(client -> {
-				com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli_mix";
-				com.svreg.sky.sky.SkySettings.version++;
-			});
-			shot(context, sp, 6000, 160, -25, "zs_ghibli_mix_noon");
-			shot(context, sp, 12300, 90, -10, "zs2_ghibli_mix_golden");
-			context.runOnClient(client -> {
-				com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli";
-				com.svreg.sky.sky.SkySettings.version++;
 			});
 			sp.getServer().runCommand("time add 48000");
-			shot(context, sp, 6000, 160, -25, "zt_ghibli_other_day");
-			// anime cumulus with fine 2-block cells, then the older bubble look for comparison
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 2; com.svreg.sky.sky.SkySettings.version++; });
-			context.waitTicks(160);
-			shot(context, sp, 6000, 160, -25, "zt2_anime_fine_noon");
-			shot(context, sp, 6000, 40, -8, "zt3_anime_fine_horizon");
-			shot(context, sp, 12300, 90, -10, "zt4_anime_fine_golden");
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 0; com.svreg.sky.sky.SkySettings.version++; });
-			context.waitTicks(160);
-			shot(context, sp, 6000, 160, -25, "zt6_anime_lod_noon");
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_merge", false); com.svreg.sky.sky.SkySettings.version++; });
-			context.waitTicks(100);
-			shot(context, sp, 6000, 160, -25, "zt7_anime_lod_merge_off");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_merge", true));
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliCell = 4; com.svreg.sky.sky.SkySettings.ghibliStyle = "cumulus"; com.svreg.sky.sky.SkySettings.version++; });
-			context.waitTicks(120);
-			shot(context, sp, 6000, 160, -25, "zt5_old_cumulus_style");
-			// raymarched clouds (beta) at 1/3 and 1/2 resolution
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_raymarch"; com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
-			context.waitTicks(40);
-			shot(context, sp, 6000, 160, -25, "zu_raymarch_noon");
-			shot(context, sp, 6000, 40, -8, "zu2_raymarch_horizon");
-			shot(context, sp, 12300, 90, -10, "zu3_raymarch_golden");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 2);
-			shot(context, sp, 6000, 160, -25, "zu4_raymarch_half");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 6);
-			shot(context, sp, 6000, 160, -25, "zu5_raymarch_sixth");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 8);
-			shot(context, sp, 6000, 160, -25, "zu6_raymarch_eighth");
 			// raymarched Ghibli puffs (baked noise) at the default 1/4, day, horizon, golden hour, night
 			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_crumble"; com.svreg.sky.sky.SkySettings.raymarchScale = 4; com.svreg.sky.sky.SkySettings.version++; });
 			shot(context, sp, 6000, 160, -25, "zv_crumble_noon");
@@ -449,8 +387,12 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 9000, 160, -25, "zv6_crumble_afternoon_towers");
 			shot(context, sp, 6000, 40, 2, "zv7_crumble_horizon_bank");
 			shot(context, sp, 6000, 220, 2, "zv8_crumble_horizon_bank_b");
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.cloudMode = "3d_ghibli"; com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.ghibliStyle = "anime"; com.svreg.sky.sky.SkySettings.version++; });
+			// 1/6 and 1/2 resolution, then back to the user's 1/3
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 6);
+			shot(context, sp, 6000, 160, -25, "zv9_crumble_sixth");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.raymarchScale = 2);
+			shot(context, sp, 6000, 160, -25, "zv10_crumble_half");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.raymarchScale = 3; com.svreg.sky.sky.SkySettings.version++; });
 
 			// under the lagoon: light patterns on the bottom, seen from above
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ ~6 ~26");
@@ -466,8 +408,8 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 0, 55, "v_cloud_shadows");
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 230 ~");
 			context.waitTicks(60);
-			shot(context, sp, 6000, 160, 15, "zr_ghibli_above");
-			shot(context, sp, 12600, 90, 8, "zr2_ghibli_above_sunset");
+			shot(context, sp, 6000, 160, 15, "zr_puff_above");
+			shot(context, sp, 12600, 90, 8, "zr2_puff_above_sunset");
 			// the cloud sea, from high up in the morning
 			sp.getServer().runCommand("execute as @p at @p run tp @p ~ 160 ~");
 			context.runOnClient(client -> com.svreg.sky.sky.CloudSea.force = 1.0F);

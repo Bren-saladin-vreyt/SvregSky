@@ -113,8 +113,6 @@ public final class SkyConfig {
 		o.addProperty("pixel_bands", SkySettings.pixelBands);
 		o.addProperty("pixel_dither", SkySettings.pixelDither);
 		o.addProperty("cloud_3d_distance", SkySettings.cloud3dDistance);
-		o.addProperty("cloud_3d_cell", SkySettings.cloud3dCell);
-		o.addProperty("cloud_3d_levels", SkySettings.cloud3dLevels);
 		o.addProperty("stars", SkySettings.stars);
 		o.addProperty("milky_way", SkySettings.milkyWay);
 		o.addProperty("aurora", SkySettings.aurora);
@@ -144,12 +142,8 @@ public final class SkyConfig {
 		}
 		o.addProperty("preset", Presets.current);
 		o.addProperty("tower_style", SkySettings.towerStyle);
-		o.addProperty("ghibli_style", SkySettings.ghibliStyle);
-		o.addProperty("ghibli_look_v2", true);
-		o.addProperty("ghibli_cell", SkySettings.ghibliCell);
 		o.addProperty("raymarch_scale", SkySettings.raymarchScale);
 		o.addProperty("ghibli_amount", SkySettings.ghibliAmount);
-		o.addProperty("ghibli_size", SkySettings.ghibliSize);
 		o.addProperty("water_color", SkySettings.waterColor < 0 ? "" : String.format("#%06X", SkySettings.waterColor));
 		String key = worldKey();
 		if (SkySettings.on("per_world") && key != null) {

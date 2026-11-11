@@ -1,4 +1,4 @@
-// Offline preview of cirrus_raymarch.fsh: march into a 1/scale buffer, upscale nearest over a simple sky.
+// Offline preview of the puff cloud shader (cirrus_crumble.fsh): march into a 1/scale buffer, upscale nearest over a simple sky.
 // usage: node render.js <fsh> <outPrefix> <json opts>
 // opts: {w,h,scale,yaw,pitch,cam:[x,y,z],sun:[x,y,z],tod:'day'|'gold'|'night',frames,move:[dx,dy,dz],fov,reach,steps,amount,png:true}
 const { chromium } = require('playwright');

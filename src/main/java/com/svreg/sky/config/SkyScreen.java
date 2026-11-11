@@ -180,7 +180,6 @@ public class SkyScreen extends OptionsSubScreen {
 				flag("cloud_rows"),
 				flag("cirrus_layer"),
 				flag("deep_sky"),
-				flag("light_rays"),
 				flag("valley_fog"),
 				flag("cloud_sea"),
 				flag("blue_hour"),

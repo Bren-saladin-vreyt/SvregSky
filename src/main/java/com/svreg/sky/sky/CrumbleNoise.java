@@ -3,7 +3,7 @@ package com.svreg.sky.sky;
 /**
  * Pre-baked noise for the "crumble" raymarched clouds, all in one atlas so the shader needs one sampler:
  * rows 0..65: a tiling 3D detail field (128 x 64 x 128 blocks, one texel per 2 blocks): puffs in R and G, wisps in B, as 32 slices
- * of 64 x 64 with a one-texel wrap border (same layout as RaymarchNoise);
+ * of 64 x 64 side by side, each with a one-texel wrap border;
  * rows 66..323: a tiling 2D weather map (256 x 256 texels; the shader spreads it over 1280 blocks) with a one-texel
  * wrap border: R = cloud cover, G = how tall the clouds grow there, B = cloud base offset. Columns 0..257 hold it
  * sharp, columns 258..515 blurred (read far away, where small clouds would be lone blinking pixels).

@@ -1,7 +1,5 @@
 package com.svreg.sky.mixin;
 
-import com.svreg.sky.clouds.CloudLayers;
-import com.svreg.sky.sky.CloudVoxels;
 import com.svreg.sky.sky.SkySettings;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
@@ -17,68 +15,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(CloudRenderer.class)
 public abstract class CloudRendererMixin {
-	/** the vanilla instance renders our layers instead of its own single layer */
+	/** the vanilla block clouds never draw: the raymarched puff clouds (or the sky's painted clouds) take their place */
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
-	private void svregsky$renderLayers(int color, CloudStatus cloudStatus, float bottomY, int range, Vec3 cameraPosition, long gameTime, float partialTicks, CallbackInfo ci) {
-		if (CloudLayers.isRendering() || CloudLayers.isOurs((CloudRenderer) (Object) this)) {
-			return;
-		}
+	private void svregsky$renderClouds(int color, CloudStatus cloudStatus, float bottomY, int range, Vec3 cameraPosition, long gameTime, float partialTicks, CallbackInfo ci) {
 		com.svreg.sky.wind.Wind.setCamera(cameraPosition);
 		com.svreg.sky.wind.WindLines.render(cameraPosition);
 		com.svreg.sky.fx.Effects.render(cameraPosition);
 		com.svreg.sky.look.PostLook.render();
-		if (SkySettings.cloudRaymarch()) {
-			com.svreg.sky.sky.RaymarchClouds.render(bottomY, cameraPosition); // raymarched toon clouds (beta)
-			ci.cancel();
-			return;
+		if (SkySettings.cloudCrumble() && SkySettings.paintedClouds) { // "painted_clouds" false = the menu's clouds Off
+			com.svreg.sky.sky.RaymarchClouds.render(bottomY, cameraPosition); // raymarched Ghibli puff clouds
 		}
-		if (SkySettings.cloudGhibli()) {
-			com.svreg.sky.sky.GhibliClouds.render(bottomY, cameraPosition); // puffy 3D Ghibli clouds
-			ci.cancel();
-			return;
-		}
-		if (SkySettings.cloud3d()) {
-			CloudVoxels.render(bottomY, cameraPosition); // real 3D Cirrus clouds
-			ci.cancel();
-			return;
-		}
-		if (!SkySettings.blockyClouds) {
-			ci.cancel(); // the painted Cirrus clouds replace the block clouds
-			return;
-		}
-		CloudLayers.render(color, cloudStatus, bottomY, range, cameraPosition, gameTime, partialTicks);
 		ci.cancel();
 	}
 
-	/** vanilla clouds reload with every resource reload: read our layer setup from the resource packs at the same time */
+	/** vanilla clouds reload with every resource reload: read our settings from the resource packs at the same time */
 	@Inject(method = "apply(Ljava/util/Optional;Lnet/minecraft/server/packs/resources/ResourceManager;Lnet/minecraft/util/profiling/ProfilerFiller;)V", at = @At("TAIL"))
 	private void svregsky$reload(Optional<CloudRenderer.TextureData> preparations, ResourceManager manager, ProfilerFiller profiler, CallbackInfo ci) {
-		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
-			SkySettings.load(manager);
-			CloudVoxels.reload(manager);
-			CloudLayers.reload(manager);
-		}
-	}
-
-	@Inject(method = "endFrame", at = @At("TAIL"))
-	private void svregsky$endFrame(CallbackInfo ci) {
-		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
-			CloudLayers.endFrame();
-		}
-	}
-
-	@Inject(method = "markForRebuild", at = @At("TAIL"))
-	private void svregsky$markForRebuild(CallbackInfo ci) {
-		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
-			CloudLayers.markForRebuild();
-		}
-	}
-
-	@Inject(method = "close", at = @At("TAIL"))
-	private void svregsky$close(CallbackInfo ci) {
-		if (!CloudLayers.isOurs((CloudRenderer) (Object) this)) {
-			CloudLayers.close();
-			CloudVoxels.close();
-		}
+		SkySettings.load(manager);
 	}
 }

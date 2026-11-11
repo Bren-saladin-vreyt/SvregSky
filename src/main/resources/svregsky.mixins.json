@@ -3,7 +3,6 @@
 	"package": "com.svreg.sky.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"CloudRendererAccessor",
 		"CloudRendererMixin",
 		"FogColorMixin",
 		"SkyPassMixin",

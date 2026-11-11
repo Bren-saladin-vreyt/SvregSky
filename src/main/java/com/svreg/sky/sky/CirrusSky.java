@@ -147,10 +147,10 @@ public final class CirrusSky {
 	private static net.minecraft.client.renderer.texture.DynamicTexture footTex;
 	private static int footVersion = -1;
 
-	/** which grid columns hold 3D Ghibli cloud, as a 256 x 256 texture for the light rays */
+	/** which columns hold puff cloud, as a 256 x 256 texture for the light rays */
 	private static AbstractTexture footprint(AbstractTexture fallback) {
 		if (SkySettings.cloudCrumble() && PuffShadow.ready()) {
-			// the puff clouds: their cover map (cores only), same 256 x 256 layout as the 3D Ghibli footprint
+			// the puff clouds: their cover map (cores only)
 			int v = -1000 - PuffShadow.version();
 			if (v != footVersion) {
 				byte[] c = PuffShadow.cover();
@@ -169,28 +169,6 @@ public final class CirrusSky {
 				footVersion = v;
 			}
 			return footTex;
-		}
-		if (!SkySettings.cloudGhibli()) {
-			return footTex != null ? footTex : fallback;
-		}
-		int v = GhibliClouds.gridVersion();
-		if (v != footVersion) {
-			byte[] f = GhibliClouds.footprint();
-			if (f != null) {
-				com.mojang.blaze3d.platform.NativeImage img = new com.mojang.blaze3d.platform.NativeImage(GhibliClouds.NX, GhibliClouds.NZ, false);
-				for (int z = 0; z < GhibliClouds.NZ; z++) {
-					for (int x = 0; x < GhibliClouds.NX; x++) {
-						img.setPixel(x, z, f[x + z * GhibliClouds.NX] != 0 ? 0xFFFFFFFF : 0xFF000000);
-					}
-				}
-				if (footTex == null) {
-					footTex = new net.minecraft.client.renderer.texture.DynamicTexture(() -> "SvregSky cloud footprint", img);
-				} else {
-					footTex.setPixels(img);
-					footTex.upload();
-				}
-				footVersion = v;
-			}
 		}
 		return footTex != null ? footTex : fallback;
 	}
@@ -474,11 +452,10 @@ public final class CirrusSky {
 
 	/** after the sun, moon (and stars): the painted clouds */
 	public static void drawClouds() {
-		if (!SkySettings.paintedClouds || SkySettings.cloud3dFull() || !overworld || state == null || !init()) {
+		if (!SkySettings.paintedClouds || !overworld || state == null || !init()) {
 			return;
 		}
-		boolean ghibli = SkySettings.cloudGhibli();
-		int f = F_CLOUDS | (SkySettings.cloudGodRays && !ghibli && !SkySettings.cloudRaymarch() ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0);
+		int f = F_CLOUDS | (SkySettings.cloudGodRays && !SkySettings.cloudCrumble() ? 128 : 0) | (SkySettings.horizonMountains ? 256 : 0) | (towerAmt > 0.01F ? 512 : 0);
 		// the puff mode's horizon clouds grow their own giant thunderheads: the painted giants would clash with them
 		if (SkySettings.cloudCrumble() && SkySettings.on("horizon_bank")) {
 			f &= ~512;
@@ -489,12 +466,8 @@ public final class CirrusSky {
 		if (SkySettings.on("tower_lightning")) f |= 4096;
 		if (SkySettings.on("cloud_rows")) f |= 8192;
 		if (SkySettings.on("cirrus_layer")) f |= 16384;
-		if (SkySettings.cloudRaymarch()) {
+		if (SkySettings.cloudCrumble()) {
 			f |= 32768; // the raymarched clouds replace the painted cumulus
-		}
-		if (ghibli) {
-			if (!SkySettings.ghibliMix()) f |= 32768; // the 3D clouds replace the painted cumulus (the mix keeps the far painted layers)
-			if (SkySettings.on("light_rays") && GhibliClouds.gridVersion() > 0) f |= 65536;
 		}
 		if (SkySettings.cloudCrumble() && SkySettings.cloudGodRays && PuffShadow.ready()) {
 			f |= 65536; // light shafts through the gaps between the puff clouds
@@ -516,13 +489,7 @@ public final class CirrusSky {
 
 			float slotC = Math.min(999, SkySettings.shootingStarPeriod) + (mode > 0.5F ? 0 : 1000 * cometCode());
 			float rayX = SkySettings.aurora, rayZ = SkySettings.milkyWay; // the cloud pass carries the light-ray offset in these sky-only slots
-			if (mode > 0.5F && SkySettings.cloudGhibli() && mc.player != null) {
-				// light rays: camera position in footprint texels, cloud base height above the camera
-				net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
-				rayX = (float) (((eye.x - GhibliClouds.windX()) / GhibliClouds.CELL) % GhibliClouds.NX);
-				rayZ = (float) (((eye.z - GhibliClouds.windZ()) / GhibliClouds.CELL) % GhibliClouds.NZ);
-				slotC = (float) (GhibliClouds.baseY() - eye.y);
-			} else if (mode > 0.5F && SkySettings.cloudCrumble() && PuffShadow.ready() && mc.player != null) {
+			if (mode > 0.5F && SkySettings.cloudCrumble() && PuffShadow.ready() && mc.player != null) {
 				// the puff clouds' cover map: camera in its texels (4 blocks each), cloud base above the camera
 				net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
 				rayX = (float) ((eye.x - RaymarchClouds.windX() - PuffShadow.originX()) / PuffShadow.CELL);
@@ -534,9 +501,7 @@ public final class CirrusSky {
 					day, gold, night, rain,
 					offX, offZ, Math.min(0.999F, rainbowLevel) + horizonCode(), mode > 0.5F ? rayX : SkySettings.aurora,
 					flags, coverage(), slotC, mode);
-			// in 3D cloud mode the near painted layer is skipped (negative layer count): the 3D clouds take its place
-			// 3D + painted: the near painted layer is skipped (the 3D clouds take its place); 3D Ghibli + painted keeps every layer behind the 3D puffs
-			float layers = SkySettings.cloud3d() ? -Math.max(2, SkySettings.cloudLayers) : (SkySettings.ghibliMix() ? Math.max(2, SkySettings.cloudLayers) : SkySettings.cloudLayers);
+			float layers = SkySettings.cloudLayers;
 			// cloud pass: the layer count shares its slot with the cloud sea (amount, height of the camera above it)
 			// the layer slot also carries: cloud pass = cloud sea (amount, camera height above it); sky pass = silver night clouds, blue hour
 			float layerSlot = mode > 0.5F ? (layers + 4) + 8 * Math.round(CloudSea.amount() * 31) + 256 * Math.round(Math.min(2000, CloudSea.heightAbove()))

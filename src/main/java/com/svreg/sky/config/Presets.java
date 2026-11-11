@@ -33,7 +33,7 @@ public final class Presets {
 			boolean on = switch (k) {
 				case "cartoon_outline", "paper_texture" -> false;
 				case "bloom" -> full;
-				case "light_rays", "cloud_rows" -> full;
+				case "cloud_rows" -> full;
 				case "dragonflies", "dandelion_seeds", "fish_jumps", "bird_flocks", "puddles", "sky_reflection" -> !light;
 				case "butterflies", "light_motes", "rain_ripples", "shore_foam", "water_steam", "smoke_wisps", "window_glow", "film_tone" -> !light && (full || !(k.equals("light_motes") || k.equals("shore_foam")));
 				default -> true;
