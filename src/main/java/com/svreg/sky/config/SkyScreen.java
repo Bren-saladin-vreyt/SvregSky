@@ -202,6 +202,7 @@ public class SkyScreen extends OptionsSubScreen {
 				}),
 				flag("big_clouds"),
 				flag("toon_clouds"),
+				flag("round_belly"),
 				choice("cloud_bands", List.of("3", "4"), String.valueOf(SkySettings.cloudBands), v -> SkySettings.cloudBands = Integer.parseInt(v)),
 				slider("cloud_rim", 0, 200, Math.round(SkySettings.cloudRim * 100), v -> v + "%", v -> SkySettings.cloudRim = v / 100F),
 				choice("cloud_day_tone", List.of("blue", "cream"), SkySettings.cloudDayTone, v -> SkySettings.cloudDayTone = v),

@@ -164,6 +164,7 @@ public final class SkySettings {
 		FLAGS.put("cloud_steady", true);
 		FLAGS.put("big_clouds", true);
 		FLAGS.put("toon_clouds", true);
+		FLAGS.put("round_belly", true);
 		FLAGS.put("living_clouds", true);
 		FLAGS.put("horizon_bank", true);
 		FLAGS.put("cloud_weather", true);

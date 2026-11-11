@@ -394,6 +394,11 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 160, -25, "zv14_toon_off");
 			shot(context, sp, 12300, 90, -10, "zv15_toon_off_golden");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("toon_clouds", true));
+			// flat cloud bases instead of the round bellies
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("round_belly", false));
+			shot(context, sp, 6000, 160, -45, "zv16_flat_belly");
+			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("round_belly", true));
+			shot(context, sp, 6000, 160, -45, "zv17_round_belly");
 			// the classic (smaller, crumblier) cloud shape for comparison
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("big_clouds", false));
 			shot(context, sp, 6000, 160, -25, "zv11_crumble_classic_shape");

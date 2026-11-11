@@ -153,6 +153,8 @@
   "svregsky.options.big_clouds.tooltip": "Gumpalan awan lebih besar dan bulat, bayangan rata\nMati: bentuk lama yang lebih kecil",
   "svregsky.options.toon_clouds": "§a● §rAwan Toon",
   "svregsky.options.toon_clouds.tooltip": "Cahaya awan dibagi beberapa tingkat warna yang tegas, permukaan mulus\nMati: gaya lama",
+  "svregsky.options.round_belly": "§a● §rPerut Awan Bulat",
+  "svregsky.options.round_belly.tooltip": "Bagian bawah awan menggembung dan berlekuk, lebih alami\nMati: dasar awan rata",
   "svregsky.options.cloud_bands": "§a● §rTingkat Warna Awan",
   "svregsky.options.cloud_bands.tooltip": "Jumlah tingkat terang-gelap di awan toon",
   "svregsky.options.cloud_bands.3": "3",

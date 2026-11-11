@@ -101,8 +101,9 @@ highp float gFine = 3.0;
 highp vec3 gPuffK = vec3(0.7, 1.15, 0.9);
 // "toon clouds" (code bit 1, packed in the fraction of ColorModulator.y): light in a few clean flat bands, smooth wide
 // surfaces (small puffs only hinted), tones kept far away, its own palettes per time of day.
-// code bits: 2 = four bands (else three), 4 = cream day palette, 8 = classic gold sunset, 16 = classic slate night.
-bool gToon = false, gBands4 = false, gDayCream = false, gSunsetGold = false, gNightSlate = false;
+// code bits: 2 = four bands (else three), 4 = cream day palette, 8 = classic gold sunset, 16 = classic slate night,
+// 32 = round bellies (big / toon clouds: the underside bulges and its puffs show in the light, not one flat base).
+bool gToon = false, gBands4 = false, gDayCream = false, gSunsetGold = false, gNightSlate = false, gRound = false;
 // rim light strength (1 = classic), packed as the fraction of ColorModulator.x (strength / 4); weight of the small puffs
 highp float gRimK = 1.0, gSmallW = 0.28;
 
@@ -433,6 +434,10 @@ void main() {
     gDayCream = mod(floor(code / 4.0), 2.0) > 0.5;
     gSunsetGold = mod(floor(code / 8.0), 2.0) > 0.5;
     gNightSlate = mod(floor(code / 16.0), 2.0) > 0.5;
+    gRound = mod(floor(code / 32.0), 2.0) > 0.5;
+    if (gRound && gBig) {
+        gBellyK = 0.30;
+    }
     if (gToon) {
         gSmallW = 0.12;
         gBankDet = min(gBankDet, 0.3);
@@ -546,9 +551,10 @@ void main() {
                 // and each belly puff still shows its own curved line (the puff term above), as in the references
                 highp float down = smoothstep(0.1, 0.8, -n.y);
                 if (gToon) {
-                    v = mix(v, 0.42, down);               // the belly is the flat middle band
+                    // the belly: the flat middle band, or (round bellies) bulges in the middle band with shaded creases
+                    v = mix(v, gRound ? 0.43 + 0.34 * puff : 0.42, down);
                 } else if (gBig) {
-                    v = mix(v, 0.40 + 0.05 * puff, down); // the belly is one flat pale-blue shade
+                    v = mix(v, 0.40 + (gRound ? 0.22 : 0.05) * puff, down); // the belly is one flat pale-blue shade
                 } else {
                     v += 0.20 * down;
                     v = mix(v, max(v, 0.47 + 0.14 * puff - 0.10 * seam), down);

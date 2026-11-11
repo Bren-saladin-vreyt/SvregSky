@@ -152,6 +152,8 @@
   "svregsky.options.big_clouds.tooltip": "Bigger, rounder cloud heaps with flat shading\nOff: the older, smaller shape",
   "svregsky.options.toon_clouds": "§a● §rToon Clouds",
   "svregsky.options.toon_clouds.tooltip": "Cloud light in a few clean flat tones, smooth surfaces\nOff: the older style",
+  "svregsky.options.round_belly": "§a● §rRound Cloud Bellies",
+  "svregsky.options.round_belly.tooltip": "Cloud undersides bulge with shaded creases, more natural\nOff: flat cloud bases",
   "svregsky.options.cloud_bands": "§a● §rCloud Tones",
   "svregsky.options.cloud_bands.tooltip": "How many light steps the toon clouds have",
   "svregsky.options.cloud_bands.3": "3",

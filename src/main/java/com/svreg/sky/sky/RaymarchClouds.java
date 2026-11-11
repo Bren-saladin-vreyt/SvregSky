@@ -306,9 +306,10 @@ public final class RaymarchClouds {
 			// z: step budget + aerial fade strength / 4 in the fraction (0..2 -> 0..0.5)
 			float fade = Math.max(0, Math.min(2, SkySettings.aerialFade));
 			// toon clouds: a code in the fraction of the reach slot (1 toon, 2 four bands, 4 cream day, 8 gold sunset, 16 slate
-			// night) and the rim light strength / 4 in the fraction of the buffer height slot (1 = the classic rim)
+			// night, 32 round bellies) and the rim light strength / 4 in the fraction of the buffer height slot (1 = the classic rim)
 			int code = (SkySettings.on("toon_clouds") ? 1 : 0) | (SkySettings.cloudBands >= 4 ? 2 : 0) | ("cream".equals(SkySettings.cloudDayTone) ? 4 : 0)
-					| ("gold".equals(SkySettings.cloudSunsetTone) ? 8 : 0) | ("slate".equals(SkySettings.cloudNightTone) ? 16 : 0);
+					| ("gold".equals(SkySettings.cloudSunsetTone) ? 8 : 0) | ("slate".equals(SkySettings.cloudNightTone) ? 16 : 0)
+					| (SkySettings.on("round_belly") ? 32 : 0);
 			float rim = Math.max(0, Math.min(2, SkySettings.cloudRim));
 			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h + rim / 4.0F, (float) Math.floor(reach) + code / 64.0F, steps + fade / 4.0F, org), camCloud, params);
 			bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture());
