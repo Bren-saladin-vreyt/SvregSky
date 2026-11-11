@@ -17,7 +17,7 @@ layout(std140) uniform Projection {
 };
 
 uniform highp sampler2D Sampler0; // main depth
-// ColorModulator = sun direction in view space, screen-space shadow strength
+// ColorModulator = sun direction in view space
 
 in highp vec2 uv;
 
@@ -34,97 +34,14 @@ highp float depthAt(ivec2 p, ivec2 size) {
     return ndcZ(texelFetch(Sampler0, clamp(p, ivec2(0), size - 1), 0).r);
 }
 
-highp vec3 viewPos(highp vec2 uvp, highp float d, highp mat4 inv) {
-    highp vec4 v = inv * vec4(uvp * 2.0 - 1.0, ndcZ(d), 1.0);
-    return v.xyz / v.w;
-}
-
-// screen-space sun shadows: march from each pixel toward the sun and see if the depth buffer has something in front
-highp float sunShadow(highp vec2 uvp, ivec2 size) {
-    highp float d = texture(Sampler0, uvp).r;
-    if (d <= 0.00001 || d >= 0.99999 || abs(d - 0.5) < 0.000002) {
-        return 0.0;  // sky (cleared depth is 0, 1 or 0.5 depending on the depth convention)
-    }
-    highp mat4 inv = inverse(ProjMat);
-    highp vec3 p = viewPos(uvp, d, inv);
-    highp vec3 L = normalize(ColorModulator.xyz);
-    highp float dist = length(p);
-    highp float range = TextureMat[2].y;
-    if (dist > range) {
-        return 0.0;
-    }
-    highp float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-    highp float occ = 0.0;
-    highp float stepLen = 0.12 + dist * 0.004;
-    highp float t = stepLen * (0.5 + jitter);
-    int steps = int(TextureMat[2].x + 0.5);
-    for (int i = 0; i < 32; i++) {
-        if (i >= steps) {
-            break;
-        }
-        highp vec3 q = p + L * t;
-        highp vec4 c = ProjMat * vec4(q, 1.0);
-        highp vec3 n = c.xyz / c.w;
-        highp vec2 suv = n.xy * 0.5 + 0.5;
-        if (suv.x < 0.0 || suv.x > 1.0 || suv.y < 0.0 || suv.y > 1.0) {
-            break;
-        }
-        highp float sd = texture(Sampler0, suv).r;
-        highp vec3 sp = viewPos(suv, sd, inv);
-        // something in front of the ray point (closer to the camera), but not far in front (that would be a separate object)
-        highp float gap = q.z - sp.z;            // view space looks down -z: closer = larger z
-        if (gap < -0.03 && gap > -(5.0 + dist * 0.06) && sd > 0.00001) {
-            occ = 1.0;
-            break;
-        }
-        t += stepLen;
-        stepLen *= TextureMat[2].z;
-    }
-    // fade out with distance and at the screen edges
-    highp vec2 e = min(uvp, 1.0 - uvp);
-    return occ * (1.0 - smoothstep(range * 0.5, range, dist)) * smoothstep(0.0, 0.03, min(e.x, e.y));
-}
-
 void main() {
     highp vec3 tint = TextureMat[0].xyz;
     highp float tintA = TextureMat[0].w;
     highp float vig = TextureMat[1].x;
     highp float outline = TextureMat[1].y;
 
-    if (TextureMat[3].x > 0.5) {
-        // shadow check (left half: filtered read, right half: texelFetch)
-        // black = depth 0, white = depth 1, red = desktop-style depth, green = phone-style depth (brighter = farther), blue = shadow
-        highp float d = uv.x < 0.5 ? texture(Sampler0, uv).r : texelFetch(Sampler0, ivec2(gl_FragCoord.xy), 0).r;
-        highp vec3 o;
-        if (d <= 0.0) {
-            o = vec3(0.0);
-        } else if (d >= 0.99999) {
-            o = vec3(1.0);
-        } else {
-            highp vec3 p = viewPos(uv, d, inverse(ProjMat));
-            highp float k = 0.3 + 0.7 * clamp(length(p) / 64.0, 0.0, 1.0);
-            o = d > 0.5 ? vec3(0.0, k, 0.0) : vec3(k, 0.0, 0.0);
-            if (sunShadow(uv, textureSize(Sampler0, 0)) > 0.0) {
-                o.b = 1.0;
-            }
-        }
-        if (abs(uv.x - 0.5) < 0.002) {
-            o = vec3(1.0, 1.0, 0.0);
-        }
-        fragColor = vec4(o, 0.9);
-        return;
-    }
     highp vec3 col = tint;
     highp float a = tintA;
-    if (ColorModulator.w > 0.0) {
-        ivec2 sz = textureSize(Sampler0, 0);
-        highp float sh = sunShadow(uv, sz) * ColorModulator.w;
-        // anime shadow: cool blue-violet, laid under the tint
-        highp float ci = TextureMat[2].w;
-        highp vec3 shc = ci < 0.5 ? vec3(0.20, 0.22, 0.42) : ci < 1.5 ? vec3(0.08, 0.08, 0.10) : vec3(0.30, 0.17, 0.10);
-        col = mix(col, shc, sh / max(a + sh, 1e-4));
-        a = 1.0 - (1.0 - a) * (1.0 - sh);
-    }
 
     // vignette: darker, slightly blue corners
     highp vec2 d = uv - 0.5;

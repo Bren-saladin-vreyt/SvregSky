@@ -150,10 +150,6 @@ public final class SkyConfig {
 		o.addProperty("raymarch_scale", SkySettings.raymarchScale);
 		o.addProperty("ghibli_amount", SkySettings.ghibliAmount);
 		o.addProperty("ghibli_size", SkySettings.ghibliSize);
-		o.addProperty("shadow_quality", SkySettings.shadowQuality);
-		o.addProperty("shadow_color", SkySettings.shadowColor);
-		o.addProperty("shadow_method", SkySettings.shadowMethod);
-		o.addProperty("shadow_darkness", SkySettings.shadowDarkness);
 		o.addProperty("water_color", SkySettings.waterColor < 0 ? "" : String.format("#%06X", SkySettings.waterColor));
 		String key = worldKey();
 		if (SkySettings.on("per_world") && key != null) {

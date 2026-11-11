@@ -193,12 +193,6 @@ public class SkyScreenshots implements FabricClientGameTest {
 			context.waitTicks(400);
 			look(context, 0, -12, "zz_sky_lanterns");
 			context.runOnClient(client -> com.svreg.sky.fx.Effects.forceLanterns = false);
-			// sun shadows (world + screen) at noon, and the world method alone in the afternoon
-			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", true); com.svreg.sky.sky.SkySettings.shadowMethod = "both"; });
-			shot(context, sp, 7000, 0, 20, "zs_sun_shadows_both");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.shadowMethod = "world");
-			shot(context, sp, 9500, 0, 20, "zs2_sun_shadows_world");
-			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("screen_shadows", false));
 			// blue hour, silver night clouds, morning dew
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("auto_fps", false)); // the CI machine is slow; keep every effect on
 			shot(context, sp, 13250, 90, -8, "zz6_blue_hour_west");

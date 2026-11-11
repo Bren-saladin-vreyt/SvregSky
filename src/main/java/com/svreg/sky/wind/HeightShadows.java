@@ -2,7 +2,6 @@ package com.svreg.sky.wind;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.svreg.sky.SvregSky;
-import com.svreg.sky.sky.CirrusSky;
 import com.svreg.sky.sky.SkySettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -16,10 +15,10 @@ import org.lwjgl.system.MemoryUtil;
 import java.nio.ByteBuffer;
 
 /**
- * World sun shadows that work everywhere (also on phones, where the depth buffer cannot be read):
- * a 256x256 map of the tallest solid block of every column around the camera, uploaded as a texture.
- * The terrain shader walks from each pixel toward the sun over this map; if a column rises above the ray, the pixel is in shadow.
- * Shadows from houses, trees and hills, also from things off screen. Entities neither cast nor receive them.
+ * The column map: a 256x256 map of the tallest solid block of every column around the camera, uploaded as a texture
+ * (works on phones too, where the depth buffer cannot be read). The terrain shader reads it for the anime water,
+ * the shore waves, the underwater light and the winter snow cover. (It used to drive the mod's own sun shadows,
+ * which were dropped in favour of a separate shadow shader pack; the class keeps its old name.)
  */
 public final class HeightShadows {
 	public static final int SIZE = 256, UNIT = 7;
@@ -36,32 +35,15 @@ public final class HeightShadows {
 	private HeightShadows() {
 	}
 
-	/** world shadows on (the "world" or "both" method) */
-	public static boolean shadowsOn() {
-		return !broken && SkySettings.on("screen_shadows") && !"screen".equals(SkySettings.shadowMethod);
-	}
-
-	/** the column map is needed by the world shadows, the anime water or the shore waves */
+	/** the column map is needed by the anime water, the shore waves, the underwater light or the snow cover */
 	public static boolean active() {
-		return !broken && (shadowsOn() || SkySettings.on("anime_water") || SkySettings.on("shore_waves") || SkySettings.on("underwater_light")
+		return !broken && (SkySettings.on("anime_water") || SkySettings.on("shore_waves") || SkySettings.on("underwater_light")
 				|| SkySettings.on("snow_cover") && com.svreg.sky.sky.Seasons.winter() > 0.01F);
 	}
 
 	/** the map has data (texture made and filled at least once) */
 	public static boolean ready() {
 		return tex >= 0 && originX != Integer.MIN_VALUE;
-	}
-
-	/** strength for the shader right now (0 = off) */
-	public static float strength() {
-		if (!shadowsOn() || tex < 0) {
-			return 0;
-		}
-		org.joml.Vector3f sun = CirrusSky.sunDirection();
-		if (sun.y < 0.04F) {
-			return 0;
-		}
-		return SkySettings.shadowDarkness * Math.min(1, CirrusSky.dayLevel() + CirrusSky.goldLevel()) * (1 - CirrusSky.rainLevel());
 	}
 
 	public static float originX() {
@@ -105,7 +87,7 @@ public final class HeightShadows {
 				GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, 33085, 0); // max level 0
 				GL11C.glTexImage2D(GL11C.GL_TEXTURE_2D, 0, 32856 /* RGBA8 */, SIZE, SIZE, 0, GL11C.GL_RGBA, GL11C.GL_UNSIGNED_BYTE, (ByteBuffer) null);
 				buf = MemoryUtil.memAlloc(SIZE * SIZE * 4);
-				SvregSky.LOG.info("SvregSky: world sun shadows ready (height map {}x{})", SIZE, SIZE);
+				SvregSky.LOG.info("SvregSky: column map ready ({}x{})", SIZE, SIZE);
 			}
 			GlStateManager._bindTexture(tex);
 			GL33C.glBindSampler(UNIT, 0);
@@ -116,7 +98,7 @@ public final class HeightShadows {
 			GlStateManager._activeTexture(prevUnit);
 		} catch (Throwable t) {
 			broken = true;
-			SvregSky.LOG.error("SvregSky: world sun shadows failed, turning them off", t);
+			SvregSky.LOG.error("SvregSky: column map failed, turning it off", t);
 		}
 	}
 
@@ -145,7 +127,6 @@ public final class HeightShadows {
 			to = Math.min(SIZE, from + 16);
 			nextRow = to >= SIZE ? 0 : to;
 		}
-		boolean plants = shadowsOn();
 		boolean water = SkySettings.on("anime_water") || SkySettings.on("shore_waves") || SkySettings.on("underwater_light");
 		net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
 		for (int z = from; z < to; z++) {
@@ -153,15 +134,6 @@ public final class HeightShadows {
 				int wx = buildX + x, wz = buildZ + z;
 				int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, wx, wz);
 				int h = Math.max(0, Math.min(65535, top - minY));
-				// grass, ferns and flowers on top of the column: they cast small soft shadows too (height in 1/128 block)
-				int plant = 0;
-				if (plants) {
-					pos.set(wx, top, wz);
-					if (plant(level, pos)) {
-						pos.setY(top + 1);
-						plant = plant(level, pos) ? 230 : 100;
-					}
-				}
 				// water: how deep (blocks of water under the surface, up to 15)
 				int d = 0;
 				if (water) {
@@ -175,7 +147,7 @@ public final class HeightShadows {
 				int i = (z * SIZE + x) * 4;
 				buf.put(i, (byte) (h & 255));
 				buf.put(i + 1, (byte) (h >> 8));
-				buf.put(i + 2, (byte) plant);
+				buf.put(i + 2, (byte) 0); // blue channel: unused since the sun shadows were removed
 				buf.put(i + 3, alpha[z * SIZE + x]);
 			}
 		}
@@ -190,7 +162,7 @@ public final class HeightShadows {
 			originZ = buildZ;
 			full = true;
 			if (++rebuilds <= 12) {
-				SvregSky.LOG.info("SvregSky: column map rebuilt around {}, {} (water {}, plants {})", buildX + SIZE / 2, buildZ + SIZE / 2, water, plants);
+				SvregSky.LOG.info("SvregSky: column map rebuilt around {}, {} (water {})", buildX + SIZE / 2, buildZ + SIZE / 2, water);
 			}
 		} else if (to == SIZE && System.nanoTime() - lastField > 2_000_000_000L) {
 			full = true;
@@ -268,20 +240,5 @@ public final class HeightShadows {
 		for (int i = 0; i < SIZE * SIZE; i++) {
 			buf.put(i * 4 + 3, alpha[i]);
 		}
-	}
-
-	private static boolean plant(ClientLevel level, net.minecraft.core.BlockPos pos) {
-		net.minecraft.world.level.block.state.BlockState s = level.getBlockState(pos);
-		return !s.isAir() && s.getFluidState().isEmpty() && Wind.kind(s) > 0 && s.getCollisionShape(level, pos).isEmpty();
-	}
-
-	/** march steps, reach in blocks for the chosen quality */
-	public static float[] quality() {
-		return switch (SkySettings.shadowQuality) {
-			case "low" -> new float[]{12, 40};
-			case "high" -> new float[]{30, 96};
-			case "ultra" -> new float[]{40, 124};
-			default -> new float[]{20, 64};
-		};
 	}
 }
