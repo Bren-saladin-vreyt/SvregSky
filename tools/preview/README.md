@@ -27,6 +27,7 @@ Options (defaults in brackets):
   e.g. 120020 = bank on, hills off; 130020 = bank + hills.
 - `layer` [125] layer height (living clouds scale it), `amount` [1].
 - `code` toon clouds: 1 toon, +2 four bands, +4 cream day, +8 gold sunset, +16 slate night, +32 round bellies; `rim` [1] rim light strength 0..2.
+- `feat` extras: 1 horizon layers, +2 horizon gaps, +4 sunset layers, +8 silver lining, +16 growing clouds, +32 shade from above; `flash` 0..1 lightning; `bounce` [r, g, b] ground tint.
 - `fade` distance-fade strength used by the composite (match the shader's).
 - `frames`, `yawStep`, `move` [dx,dy,dz per frame] for motion tests; `reps` repeats the march for timing.
 - `skyKey` draw the sky magenta (for compositing over a painted background).

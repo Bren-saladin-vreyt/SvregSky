@@ -23,7 +23,7 @@ public final class PuffShadow {
 	private static final float WTILE = 1280.0F, SHEAR = 0.12F, MID = 60.0F;
 	private static float[] weather;
 	private static final byte[] cover = new byte[N * N];
-	private static float originX = Float.NaN, originZ, amount = -1, scale = -1;
+	private static float originX = Float.NaN, originZ, amount = -1, scale = -1, growAt = -1;
 	private static long lastNanos;
 	private static int version;
 	private static int tex = -1;
@@ -61,7 +61,8 @@ public final class PuffShadow {
 	}
 
 	/** recomputes the map around the camera (cloud space) a few times a second, or at once when it moved far */
-	public static void update(float camX, float camZ, float amt) {
+	/** grow: the churn clock (0..64) while the "growing clouds" are on, else -1 (see gGrow in cirrus_crumble.fsh) */
+	public static void update(float camX, float camZ, float amt, float grow) {
 		if (weather == null) {
 			bakeWeather();
 		}
@@ -69,19 +70,27 @@ public final class PuffShadow {
 		boolean far = Float.isNaN(originX) || Math.abs(camX - (originX + N * CELL / 2)) > 160 || Math.abs(camZ - (originZ + N * CELL / 2)) > 160;
 		// "big clouds" read the weather map wider (gWS in cirrus_crumble.fsh)
 		float ws = SkySettings.on("big_clouds") ? 0.48F : 1.0F;
-		if (!far && now - lastNanos < 400_000_000L && Math.abs(amt - amount) < 0.02F && ws == scale) {
+		if (!far && now - lastNanos < 400_000_000L && Math.abs(amt - amount) < 0.02F && ws == scale && (grow < 0) == (growAt < 0)) {
 			return;
 		}
 		lastNanos = now;
 		amount = amt;
 		scale = ws;
+		growAt = grow;
 		originX = (float) (Math.floor(camX / CELL) * CELL) - N * CELL / 2;
 		originZ = (float) (Math.floor(camZ / CELL) * CELL) - N * CELL / 2;
 		float lo = 0.55F - 0.06F * amt, hi = 0.80F - 0.06F * amt;
 		for (int z = 0; z < N; z++) {
 			for (int x = 0; x < N; x++) {
 				float wx = originX + (x + 0.5F) * CELL - SHEAR * MID, wz = originZ + (z + 0.5F) * CELL;
-				float c = smooth(lo, hi, coverAt(wx * ws, wz * ws));
+				float g = 0;
+				if (grow >= 0) {
+					// the same drifting patches of thinning and filling as the shader's growing clouds (gGrowLo)
+					float c1 = grow / 64.0F, pa = c1 + wx / 2600.0F, pb = 2 * c1 - wz / 1900.0F + 0.3F;
+					float tri = Math.abs((pa - (float) Math.floor(pa)) * 2 - 1) + Math.abs((pb - (float) Math.floor(pb)) * 2 - 1);
+					g = 0.10F * smooth(1.0F, 1.7F, tri);
+				}
+				float c = smooth(lo + g, hi + g, coverAt(wx * ws, wz * ws));
 				cover[x + z * N] = (byte) Math.round(c * 255);
 			}
 		}

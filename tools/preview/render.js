@@ -109,7 +109,9 @@ const noiseB64 = fs.readFileSync(path.join(__dirname, 'out', o.noise || 'crumble
       const tm = [sun[0], sun[1], sun[2], o.layer || 125, tod[0], tod[1], tod[2], o.rain,
         sky[1][0], sky[1][1], sky[1][2], o.amount, sky[1][0], o.t3y || 0, sky[1][1], sky[1][2]];
       const data = new Float32Array(40);
-      data.set(mv, 0); data.set([o.bufH ? bh + (o.rim === undefined ? 1 : o.rim) / 4 : t, Math.floor(o.reach) + (o.code || 0) / 64, o.steps, o.org || 0], 16); data.set(cam, 20); data.set(tm, 24);
+      data.set(mv, 0); const fadeQ = Math.round(Math.min(2, o.fade === undefined ? (o.steps % 1) * 4 : o.fade) * 31.5), bn = o.bounce || [0, 0, 0];
+      data.set([bh + (Math.round((o.rim === undefined ? 1 : o.rim) * 31.5) + 64 * Math.round((o.flash || 0) * 63)) / 4096, Math.floor(o.reach) + (o.code || 0) / 64,
+        Math.floor(o.steps) + (fadeQ + 64 * (o.feat || 0)) / 4096, Math.round((o.org || 0) * 63) + 64 * (Math.round(bn[0] * 31) + 32 * Math.round(bn[1] * 31) + 1024 * Math.round(bn[2] * 31))], 16); data.set(cam, 20); data.set(tm, 24);
       gl.bindBuffer(gl.UNIFORM_BUFFER, ubo); gl.bufferData(gl.UNIFORM_BUFFER, data, gl.DYNAMIC_DRAW);
       gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, ubo); gl.bindBufferBase(gl.UNIFORM_BUFFER, 1, pubo);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, bw, bh); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);

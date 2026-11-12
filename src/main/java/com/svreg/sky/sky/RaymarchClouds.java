@@ -18,6 +18,8 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.svreg.sky.SvregSky;
 import net.minecraft.client.Minecraft;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
@@ -185,6 +187,68 @@ public final class RaymarchClouds {
 			{0, 0.75F, 0.55F}, {3000, 0.9F, 0.8F}, {6000, 1.0F, 1.0F}, {9000, 1.08F, 1.35F},
 			{11500, 1.0F, 1.15F}, {13000, 0.88F, 0.85F}, {18000, 0.75F, 0.6F}, {24000, 0.75F, 0.55F}};
 
+	/**
+	 * Today's sky (the existing "daily_variety" toggle): {amount factor, height factor}. Calm days with a few low heaps,
+	 * ordinary days, days of crowded tall towers. Eases over from yesterday's sky during the first hours of the day.
+	 */
+	private static float[] dailyMood(Minecraft mc) {
+		if (!SkySettings.on("daily_variety") || mc.level == null) {
+			return new float[]{1, 1};
+		}
+		long time = mc.level.getOverworldClockTime();
+		long d = Math.floorDiv(time, 24000L);
+		float k = Math.min(1, Math.floorMod(time, 24000L) / 3000F);
+		k = k * k * (3 - 2 * k);
+		float[] a = moodOf(d - 1), b = moodOf(d);
+		return new float[]{a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k};
+	}
+
+	private static float[] moodOf(long d) {
+		double h = Math.sin(d * 9.731 + 4.17) * 31417.123, g = Math.sin(d * 5.113 + 1.93) * 27183.77;
+		h -= Math.floor(h);
+		g -= Math.floor(g);
+		return new float[]{(float) (0.6 + 0.9 * h), (float) (0.85 + 0.4 * g)};
+	}
+
+	private static final float[] bounce = new float[3], bounceTo = new float[3];
+	private static long bounceAt;
+
+	/**
+	 * The colour the land under the camera throws up onto the cloud bellies ("cloud_bounce"), eased over a few seconds
+	 * and packed as 5 bits each of r, g, b (0 = none): teal over water, warm over sand, icy over snow, green elsewhere.
+	 */
+	private static int bounceCode(Minecraft mc, double dt) {
+		if (!SkySettings.on("cloud_bounce") || mc.level == null || mc.player == null) {
+			bounce[0] = bounce[1] = bounce[2] = 0;
+			return 0;
+		}
+		long now = System.nanoTime();
+		if (now - bounceAt > 1_000_000_000L) {
+			bounceAt = now;
+			var at = mc.player.blockPosition();
+			var biome = mc.level.getBiome(at);
+			float r, g, b;
+			if (biome.is(BiomeTags.IS_OCEAN) || biome.is(BiomeTags.IS_BEACH) || biome.is(BiomeTags.IS_RIVER)) {
+				r = 0.50F; g = 0.86F; b = 0.92F;
+			} else if (biome.is(Biomes.DESERT) || biome.is(Biomes.BADLANDS) || biome.is(Biomes.ERODED_BADLANDS) || biome.is(Biomes.WOODED_BADLANDS)
+					|| biome.is(Biomes.SAVANNA) || biome.is(Biomes.SAVANNA_PLATEAU) || biome.is(Biomes.WINDSWEPT_SAVANNA)) {
+				r = 1.0F; g = 0.84F; b = 0.58F;
+			} else if (biome.value().coldEnoughToSnow(at, mc.level.getSeaLevel())) {
+				r = 0.84F; g = 0.92F; b = 1.0F;
+			} else {
+				r = 0.66F; g = 0.92F; b = 0.58F;
+			}
+			bounceTo[0] = r;
+			bounceTo[1] = g;
+			bounceTo[2] = b;
+		}
+		float k = (float) Math.max(0, Math.min(1, dt * 0.5));
+		for (int i = 0; i < 3; i++) {
+			bounce[i] += (bounceTo[i] - bounce[i]) * k;
+		}
+		return Math.round(bounce[0] * 31) | Math.round(bounce[1] * 31) << 5 | Math.round(bounce[2] * 31) << 10;
+	}
+
 	/** {amount factor, height factor} for now; {1, 1} when living clouds are off */
 	private static float[] lifeCycle(Minecraft mc) {
 		if (!SkySettings.on("living_clouds") || mc.level == null) {
@@ -274,6 +338,9 @@ public final class RaymarchClouds {
 			Matrix4f params = CirrusSky.skyParams();
 			// living clouds: small morning puffs, full at noon, towers in the afternoon, thinning into the night
 			float[] life = lifeCycle(mc);
+			float[] mood = dailyMood(mc);
+			life[0] *= mood[0];
+			life[1] *= mood[1];
 			updateStorm(mc, dt);
 			lastBottomY = bottomY;
 			// stormy: more and taller cloud, and the palette greys before the rain starts
@@ -300,7 +367,8 @@ public final class RaymarchClouds {
 			params.m31(bits * 10000 + Math.round(Twilight.blueHour() * 99) * 100 + (float) churn);
 			float org = CirrusSky.skyExtra().w;
 			Vector3f camCloud = new Vector3f((float) (cam.x - windX), (float) (cam.y - bottomY), (float) (cam.z - windZ));
-			PuffShadow.update(camCloud.x, camCloud.z, amt);
+			boolean grow = SkySettings.on("cloud_grow") && SkySettings.on("living_clouds");
+			PuffShadow.update(camCloud.x, camCloud.z, amt, grow ? (float) churn : -1);
 			Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 			// x: the buffer height (the puff mode sizes its detail by how many blocks one cloud pixel covers)
 			// z: step budget + aerial fade strength / 4 in the fraction (0..2 -> 0..0.5)
@@ -311,7 +379,18 @@ public final class RaymarchClouds {
 					| ("gold".equals(SkySettings.cloudSunsetTone) ? 8 : 0) | ("slate".equals(SkySettings.cloudNightTone) ? 16 : 0)
 					| (SkySettings.on("round_belly") ? 32 : 0);
 			float rim = Math.max(0, Math.min(2, SkySettings.cloudRim));
-			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(h + rim / 4.0F, (float) Math.floor(reach) + code / 64.0F, steps + fade / 4.0F, org), camCloud, params);
+			// extras, packed beside what was there (see main() in cirrus_crumble.fsh):
+			// x: buffer height + (rim 0..63 + 64 x lightning flash 0..63) / 4096
+			// z: steps + (aerial fade 0..63 + 64 x feature bits) / 4096 -- 1 horizon layers, 2 horizon gaps, 4 sunset layers,
+			//    8 silver lining, 16 growing clouds, 32 shaded valleys from above
+			// w: orange sunset 0..63 + 64 x the bounce tint
+			int feat = (SkySettings.on("horizon_layers") ? 1 : 0) | (SkySettings.on("horizon_gaps") ? 2 : 0) | (SkySettings.on("sunset_layers") ? 4 : 0)
+					| (SkySettings.on("silver_lining") ? 8 : 0) | (grow ? 16 : 0) | (SkySettings.on("cloud_top_shade") ? 32 : 0);
+			int flashQ = Math.round(Math.max(0, Math.min(1, CirrusSky.flashLevel())) * 63);
+			float packX = h + (Math.round(rim * 31.5F) + 64 * flashQ) / 4096.0F;
+			float packZ = steps + (Math.round(fade * 31.5F) + 64 * feat) / 4096.0F;
+			float packW = Math.round(Math.max(0, Math.min(1, org)) * 63) + 64 * bounceCode(mc, dt);
+			var marchT = RenderSystem.getDynamicUniforms().writeTransform(view, new Vector4f(packX, (float) Math.floor(reach) + code / 64.0F, packZ, packW), camCloud, params);
 			bakeHills((bits & 2) != 0, (bits & 4) != 0, view, target.getColorTexture());
 			// anti-flicker: last frame is usable unless the buffers or the timing just changed
 			boolean steady = SkySettings.on("cloud_steady");

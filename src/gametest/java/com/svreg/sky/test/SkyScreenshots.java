@@ -394,6 +394,13 @@ public class SkyScreenshots implements FabricClientGameTest {
 			shot(context, sp, 6000, 160, -25, "zv14_toon_off");
 			shot(context, sp, 12300, 90, -10, "zv15_toon_off_golden");
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("toon_clouds", true));
+			// the cloud extras (horizon layers and gaps, sunset layers, silver lining, bounce, growth, top shade) off, then on
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("horizon_layers", false); com.svreg.sky.sky.SkySettings.FLAGS.put("horizon_gaps", false); com.svreg.sky.sky.SkySettings.FLAGS.put("sunset_layers", false); com.svreg.sky.sky.SkySettings.FLAGS.put("silver_lining", false); com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_bounce", false); com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_grow", false); com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_top_shade", false); });
+			shot(context, sp, 6000, 40, -8, "zv18_extras_off_horizon");
+			shot(context, sp, 12300, 90, -10, "zv19_extras_off_golden");
+			context.runOnClient(client -> { com.svreg.sky.sky.SkySettings.FLAGS.put("horizon_layers", true); com.svreg.sky.sky.SkySettings.FLAGS.put("horizon_gaps", true); com.svreg.sky.sky.SkySettings.FLAGS.put("sunset_layers", true); com.svreg.sky.sky.SkySettings.FLAGS.put("silver_lining", true); com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_bounce", true); com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_grow", true); com.svreg.sky.sky.SkySettings.FLAGS.put("cloud_top_shade", true); });
+			shot(context, sp, 6000, 40, -8, "zv20_extras_on_horizon");
+			shot(context, sp, 12300, 90, -10, "zv21_extras_on_golden");
 			// flat cloud bases instead of the round bellies
 			context.runOnClient(client -> com.svreg.sky.sky.SkySettings.FLAGS.put("round_belly", false));
 			shot(context, sp, 6000, 160, -45, "zv16_flat_belly");

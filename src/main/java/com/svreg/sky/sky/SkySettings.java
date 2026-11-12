@@ -165,6 +165,13 @@ public final class SkySettings {
 		FLAGS.put("big_clouds", true);
 		FLAGS.put("toon_clouds", true);
 		FLAGS.put("round_belly", true);
+		FLAGS.put("horizon_layers", true);
+		FLAGS.put("horizon_gaps", true);
+		FLAGS.put("sunset_layers", true);
+		FLAGS.put("silver_lining", true);
+		FLAGS.put("cloud_bounce", true);
+		FLAGS.put("cloud_grow", true);
+		FLAGS.put("cloud_top_shade", true);
 		FLAGS.put("living_clouds", true);
 		FLAGS.put("horizon_bank", true);
 		FLAGS.put("cloud_weather", true);

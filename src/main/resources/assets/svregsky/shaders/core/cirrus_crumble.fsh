@@ -8,7 +8,8 @@ precision highp float;
 // one cloud pixel covers too many blocks to draw it in about 3 pixels, so no puff is ever a lone sparkling pixel.
 // The first point inside a cloud is toon-lit in four flat tones. Output: rgb = colour, a = encoded distance (0 = none).
 // TextureMat[0] = sun dir, layer height | [1] = day, gold, night, rain | [2] = haze away (xyz), amount | [3] = haze toward the sun (x, z, w)
-// ColorModulator = buffer height (pixels) + rim light / 4, reach (whole blocks) + toon code / 64, steps, org | ModelOffset = camera in cloud space (x, height above the cloud base, z)
+// ColorModulator = buffer height (pixels) + (rim + 64 x flash) / 4096, reach (whole blocks) + toon code / 64,
+// steps + (fade + 64 x feature bits) / 4096, orange + 64 x bounce tint (see main) | ModelOffset = camera in cloud space (x, height above the cloud base, z)
 
 layout(std140) uniform DynamicTransforms {
     highp mat4 ModelViewMat;
@@ -104,8 +105,24 @@ highp vec3 gPuffK = vec3(0.7, 1.15, 0.9);
 // code bits: 2 = four bands (else three), 4 = cream day palette, 8 = classic gold sunset, 16 = classic slate night,
 // 32 = round bellies (big / toon clouds: the underside bulges and its puffs show in the light, not one flat base).
 bool gToon = false, gBands4 = false, gDayCream = false, gSunsetGold = false, gNightSlate = false, gRound = false;
-// rim light strength (1 = classic), packed as the fraction of ColorModulator.x (strength / 4); weight of the small puffs
+// rim light strength (1 = classic); weight of the small puffs
 highp float gRimK = 1.0, gSmallW = 0.28;
+// extras, feature bits in the fraction of ColorModulator.z (see main): 1 horizon layers (a far, paler row behind the
+// bank), 2 horizon gaps (stretches of open sky), 4 sunset layers (tops in the sun, bases in the earth's shadow),
+// 8 silver lining (sun behind a cloud: dark body, blazing rim), 16 growing clouds, 32 shaded valleys seen from above
+bool gLayers = false, gGaps = false, gSunLayers = false, gSilver = false, gGrow = false, gTopShade = false;
+// lightning inside storm clouds (0..1); the tint of the light bounced up from the ground (0 = none)
+highp float gFlash = 0.0;
+highp vec3 gBounce = vec3(0.0);
+// of the pixel's hit: height inside its cloud (0 base .. 1 top), how much it is an underside, a per-cloud pattern
+highp float gHf = 0.5, gDown = 0.0, gPat = 0.5;
+bool gHfStep = true; // sunset layers in steps (overhead toon clouds) or as a smooth rise (the horizon rows)
+// the horizon bank's cover in this direction (horizon gaps), 1 = full
+highp float gBankGap = 1.0;
+// growing clouds: how much more cover a cloud needs right now where this pixel looks (0..0.10). Worked out once per
+// pixel in main(), not per march sample: a test inside bodyAt cost ~10% even switched off, and a cover bar that
+// changed along the ray would break the march's jump distances.
+highp float gGrowLo = 0.0;
 
 // the cloud body, 0..1. No flat base any more: each cloud is an egg standing on its narrow end upside down -- a short
 // rounded belly below its widest point, a tall dome above. Each cloud has its own belly height, and the thin edges
@@ -124,8 +141,8 @@ highp float bodyAt(highp vec3 p, out highp vec3 w, out highp float under) {
         return 0.0; // open sky well away from any cloud: one read is enough
     }
     highp vec3 wc = w0;
-    highp float lo = 0.55 - 0.06 * amount;
-    highp float c = smoothstep(lo, 0.80 - 0.06 * amount, wc.r); // wide ramp: cover thickens slowly -> domes
+    highp float lo = 0.55 - 0.06 * amount + gGrowLo;
+    highp float c = smoothstep(lo, 0.80 - 0.06 * amount + gGrowLo, wc.r); // wide ramp: cover thickens slowly -> domes
     if (gBank) {
         c *= 1.0 - smoothstep(0.45, 0.85, distance(xu, gCam) / gReach);
     }
@@ -226,7 +243,7 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
     highp vec3 w = weather(vec2(u / 3.0, 9000.0));
     // a second, slower row decides where a tall tower rises out of the bank
     highp vec3 w2 = weather(vec2(u / 6.0 + 300.0, 9300.0));
-    highp float c = smoothstep(0.32 - 0.05 * amount, 0.60 - 0.05 * amount, w.r);
+    highp float c = smoothstep(0.32 - 0.05 * amount, 0.60 - 0.05 * amount, w.r) * gBankGap;
     body = 0.0;
     dt = vec3(0.5);
     // heights vary: long low banks everywhere, middling heaps, and now and then a tall tower (in view height units),
@@ -234,16 +251,20 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
     highp float tower = smoothstep(0.46, 0.66, w2.r);
     // rarest of all: a giant thunderhead (the puff-style replacement for the painted mega cumulonimbus): a huge
     // column whose top spreads into a flat anvil, wider than the column under it
-    highp float w3 = weather(vec2(u / 6.0 + 600.0, 9600.0)).r;
-    // the anvil only overhangs its own column a little (no floating slabs)
-    highp float megaCore = smoothstep(0.63, 0.73, w3), megaWide = smoothstep(0.61, 0.69, w3);
+    // (row 317.5 of the weather map has just two peaks around the ring: the old row, 9600, was cloudy over half of
+    // it, so the "rare" thunderheads stood shoulder to shoulder as flat-topped blocks)
+    highp float w3 = weather(vec2(u / 6.0 + 600.0, 317.5)).r;
+    // the anvil only overhangs its own column a little (no floating slabs); wide ramps: the column swells up from
+    // the bank as a rounded tower instead of a straight-sided block
+    // (megaCore rises in a straight line to the very peak of the map: a rounded summit, not a plateau)
+    highp float megaCore = clamp((w3 - 0.66) / 0.19, 0.0, 1.0), megaWide = smoothstep(0.66, 0.74, w3);
     highp float life = layerH / 125.0;
     // the thunderhead column rises from any bank under it (its height does not wait for thick cover)
-    c = max(c, 0.9 * smoothstep(0.0, 0.6, megaCore));
+    c = max(c, 0.95 * smoothstep(0.0, 0.6, megaCore));
     if (c <= 0.0 && megaWide <= 0.0) {
         return -1.0;
     }
-    highp float H = (0.05 + 0.13 * c * (0.35 + 0.65 * w.g) + 0.30 * tower * c * c + 0.34 * megaCore * megaCore) * life;
+    highp float H = (0.05 + 0.13 * c * (0.35 + 0.65 * w.g) + 0.30 * tower * c * c + 0.34 * megaCore) * life;
     highp float hb = e / H;
     if (hb >= 0.0) {
         body = hb <= 1.0 ? max(0.0, c - 1.3 * hb * sqrt(hb)) : 0.0;
@@ -258,9 +279,11 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
     // it sits where the column's puffs end (the column's visible top is ~55% of H), so it caps the column
     highp float Hm = (0.05 + 0.13 * 0.9 + 0.34) * life;
     highp float aBot = 0.50 * Hm, aTop = aBot + (0.05 + 0.03 * c) * life;
-    if (megaWide > 0.0 && megaCore > 0.6 && e > aBot && e < aTop) {
+    // (toon clouds leave the flat anvil out: drawn in flat tones it read as a floating plank)
+    if (!gToon && megaWide > 0.0 && megaCore > 0.5 && e > aBot && e < aTop) {
         highp float s = (e - aBot) / (aTop - aBot);
-        highp float slab = (1.0 - pow(abs(2.0 * s - 1.0), 3.0)) * megaWide * (0.7 + 0.3 * c);
+        // (thinning toward its ends: no straight cut where the anvil stops)
+        highp float slab = (1.0 - pow(abs(2.0 * s - 1.0), 3.0)) * megaWide * (0.7 + 0.3 * c) * smoothstep(0.5, 0.9, megaCore);
         body = max(body, slab);
     }
     if (gTree && abs(atan(sin(gTh - 1.10), cos(gTh - 1.10))) < 0.46) {
@@ -281,6 +304,32 @@ highp float bankField(highp float u, highp float e, highp float kMb, highp float
     highp float sk = kSb * smoothstep(0.3, 0.6, body);
     highp float pz = mix(0.5, dt.r, kMb) * 0.72 + mix(0.5, dt.g, sk) * 0.28;
     return pz + 1.15 * body - 1.0 - 0.07 * (1.0 - smoothstep(0.25, 0.55, body));
+}
+
+// the far row of the horizon clouds (horizon layers): smaller heaps behind the bank, one detail read, no light of
+// their own -- main() paints them in two pale tones. hb = height inside the heap (0 base .. 1 top).
+highp float bankFar(highp float u, highp float e, highp float kMb, highp float gap, out highp float hb) {
+    hb = 0.0;
+    if (e < -0.012 || e > 0.3) {
+        return -1.0;
+    }
+    highp vec3 w = weather(vec2(u / 3.0 + 700.0, 9150.0));
+    highp float c = smoothstep(0.30 - 0.05 * amount, 0.58 - 0.05 * amount, w.r) * gap;
+    if (c <= 0.0) {
+        return -1.0;
+    }
+    highp float H = (0.08 + 0.15 * c * (0.35 + 0.65 * w.g)) * (layerH / 125.0);
+    hb = e / H;
+    if (hb > 1.0) {
+        return -1.0;
+    }
+    highp float hd = -hb / 0.16;
+    highp float body = hb >= 0.0 ? c - 1.3 * hb * sqrt(hb) : c - 1.1 * hd * hd;
+    if (body <= 0.0) {
+        return -1.0;
+    }
+    highp vec3 dt = detailTex(vec3(u * gBankP, (e + 0.01) * BANK_R * gBankP * 1.6 - churn, 11.0));
+    return mix(0.5, dt.r, kMb) + 1.15 * body - 1.0;
 }
 
 // scene light, set at the start of main() (paint() and the horizon bank read them)
@@ -377,6 +426,14 @@ highp vec3 paint(highp float v, highp vec3 rd, highp float hzK) {
     }
     highp vec2 sxz = sunDir.xz / (length(sunDir.xz) + 1e-4);
     highp vec2 dxz = rd.xz / (length(rd.xz) + 1e-4);
+    if (gSunLayers && gold > 0.01) {
+        // sunset layers: the tops still catch warm light, the middles turn pink, the bases already stand in the
+        // earth's shadow (violet) -- in three steps for the toon look
+        highp float hq = gToon && gHfStep ? 0.5 * (smoothstep(0.30, 0.36, gHf) + smoothstep(0.62, 0.68, gHf)) : gHf;
+        highp vec3 lowM = vec3(0.78, 0.72, 1.04), midM = vec3(1.05, 0.90, 0.97), topM = vec3(1.08, 1.04, 0.90);
+        highp vec3 m = hq < 0.5 ? mix(lowM, midM, hq * 2.0) : mix(midM, topM, hq * 2.0 - 1.0);
+        col = min(col * mix(vec3(1.0), m, gold * (1.0 - rain)), vec3(1.0));
+    }
     if (afterglow > 0.0) {
         // afterglow: just after sunset the clouds keep the light -- bright parts glow peach-pink, the shade
         // turns violet, strongest on the side where the sun went down
@@ -426,7 +483,20 @@ void main() {
     }
     gBank = bankOn && ModelOffset.y < 0.0;
     highp float bufH = max(floor(ColorModulator.x), 1.0);
-    gRimK = fract(ColorModulator.x) * 4.0;
+    // fraction of x: rim light (0..63 -> 0..2) + 64 x lightning flash (0..63), over 4096
+    highp float xq = floor(fract(ColorModulator.x) * 4096.0 + 0.5);
+    gRimK = mod(xq, 64.0) / 31.5;
+    gFlash = floor(xq / 64.0) / 63.0;
+    // fraction of z: aerial fade (0..63 -> 0..2) + 64 x feature bits, over 4096
+    highp float zq = floor(fract(ColorModulator.z) * 4096.0 + 0.5);
+    fadeK = mod(zq, 64.0) / 31.5;
+    highp float feat = floor(zq / 64.0);
+    gLayers = mod(feat, 2.0) > 0.5;
+    gGaps = mod(floor(feat / 2.0), 2.0) > 0.5;
+    gSunLayers = mod(floor(feat / 4.0), 2.0) > 0.5;
+    gSilver = mod(floor(feat / 8.0), 2.0) > 0.5;
+    gGrow = mod(floor(feat / 16.0), 2.0) > 0.5;
+    gTopShade = mod(floor(feat / 32.0), 2.0) > 0.5;
     highp float reach = floor(ColorModulator.y);
     highp float code = floor(fract(ColorModulator.y) * 64.0 + 0.5);
     gToon = mod(code, 2.0) > 0.5;
@@ -443,7 +513,11 @@ void main() {
         gBankDet = min(gBankDet, 0.3);
     }
     gReach = reach;
-    org = ColorModulator.w;
+    // w: orange sunset (0..63) + 64 x the bounce tint (5 bits each of r, g, b)
+    highp float wq = floor(ColorModulator.w + 0.5);
+    org = mod(wq, 64.0) / 63.0;
+    highp float bq = floor(wq / 64.0);
+    gBounce = vec3(mod(bq, 32.0), mod(floor(bq / 32.0), 32.0), floor(bq / 1024.0)) / 31.0;
     // after sunset the moon (opposite the sun) lights the clouds
     highp vec3 lightDir = sunDir.y > -0.08 ? sunDir : -sunDir;
     // blocks covered by one cloud pixel per block of distance
@@ -457,6 +531,15 @@ void main() {
     fragColor = vec4(0.0);
     if (abs(rd.y) < 1e-4) {
         return;
+    }
+    if (gGrow) {
+        // growing clouds: slow patches of thinning and filling drift over the sky, once around per churn cycle
+        // (256 s). Read where this pixel's ray crosses the middle of the cloud layer: small clouds vanish for a
+        // while, large ones shrink to their core, then they fill in again.
+        highp vec2 gp = ro.xz + rd.xz * clamp((110.0 - ro.y) / rd.y, 0.0, reach);
+        highp float c1 = churn / 64.0;
+        highp float tri = abs(fract(c1 + gp.x / 2600.0) * 2.0 - 1.0) + abs(fract(2.0 * c1 - gp.y / 1900.0 + 0.3) * 2.0 - 1.0);
+        gGrowLo = 0.10 * smoothstep(1.0, 1.7, tri);
     }
     // the painted hills stand in front of every cloud: nothing is drawn below their line
     // the painted hills stand in front of every cloud: their line is only worked out for pixels that found a cloud
@@ -475,7 +558,6 @@ void main() {
     // what was hit (light value, haze, distance); hitT < 0 = nothing yet
     highp float hitV = 0.0, hitHaze = 0.0, hitT = -1.0;
     int maxSteps = int(ColorModulator.z);
-    fadeK = fract(ColorModulator.z) * 4.0;
     for (int i = 0; i < 110; i++) {
         if (t > tB || i >= maxSteps) {
             break;
@@ -509,6 +591,7 @@ void main() {
             highp float v;
             if (p.y > HIGH0 - 1.0) {
                 v = 0.62 + 0.18 * max(0.0, lightDir.y) + 0.10 * dot(rd, lightDir);
+                gHf = 1.0;
             } else {
                 highp vec3 pc = puffCoord(p);
                 highp vec3 w;
@@ -563,6 +646,19 @@ void main() {
                 v += 0.22 * toward * toward;            // looking toward the light the clouds glow pale
                 highp float sideOn = 1.0 - abs(dot(n, rd));
                 v += 0.18 * gRimK * smoothstep(0.6, 0.85, sideOn) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
+                if (gSilver) {
+                    // silver lining: with the light behind the cloud its body drops a band and its rim blazes
+                    highp float t4 = toward * toward * toward * toward * (1.0 - rain);
+                    v += t4 * (0.34 * smoothstep(0.55, 0.85, sideOn) - 0.20 * (1.0 - smoothstep(0.35, 0.7, sideOn)));
+                }
+                if (gTopShade) {
+                    // seen from above: the low parts between the domes lie in shade, the towers stay white
+                    // (from up there every dome faces the light, so the slopes are shaded by how steep they are)
+                    v -= 0.5 * (1.0 - smoothstep(0.5, 0.95, n.y)) * smoothstep(0.0, 50.0, ro.y - p.y);
+                }
+                gHf = hf;
+                gDown = down;
+                gPat = w.g;
             }
             // far away one pixel spans many puffs: settle on the middle of the pale band (no white/blue flipping)
             v = mix(v, 0.54, (gToon ? 0.4 : 0.85) * smoothstep(9.0, 22.0, t * footK));
@@ -605,6 +701,11 @@ void main() {
         highp float e = rd.y - (hTop > -0.5 ? 0.45 * min(hTop, 0.22) : 0.0) + 0.012;
         gTh = th;
         gEOff = rd.y - e;
+        if (gGaps) {
+            // horizon gaps: about a third of the ring stays open sky (the gaps drift around with the bank)
+            highp float ga = u * (6.2831853 / BANK_C);
+            gBankGap = smoothstep(-0.55, 0.05, sin(ga + 1.7) + 0.6 * sin(2.0 * ga + 4.0));
+        }
         // puff fade by pixel size (one pixel covers footK radians; the puffs are BANK_R * gBankP blocks per radian)
         highp float footB = footK * BANK_R * gBankP;
         highp float kSb = 1.0 - smoothstep(2.6, 4.6, footB), kMb = 1.0 - smoothstep(6.5, 11.0, footB);
@@ -631,14 +732,50 @@ void main() {
             highp float toward = max(0.0, dot(rd, lightDir));
             v += 0.20 * toward * toward;
             v += 0.16 * gRimK * smoothstep(0.75, 0.95, length(n2)) * smoothstep(-0.1, 0.45, ndl) * (1.0 - rain * 0.7);
+            if (gSilver) {
+                highp float t4 = toward * toward * toward * toward * (1.0 - rain);
+                v += t4 * (0.30 * smoothstep(0.70, 0.95, length(n2)) - 0.18 * (1.0 - smoothstep(0.4, 0.8, length(n2))));
+            }
+            gHf = hf;
+            gHfStep = false;
             // a light veil of distance haze: far, but crisp and white like real horizon cumulus
             // the horizon bank is the farthest of all: a lighter version of the same fade, so the towers still read
             hitV = mix(v, 0.57, gSteps ? min(0.07 * fadeK, 0.2) : min(0.2 * fadeK, 0.6));
             hitHaze = gSteps ? min(0.10 * fadeK, 0.35) : min(0.22 * fadeK + 0.0, 0.7);
             hitT = 4000.0;
+        } else if (gLayers) {
+            // the far row: slower drift (parallax against the bank), two pale tones, more haze
+            highp float hbF, gapF = 1.0;
+            if (gGaps) {
+                // the far row has its own open stretch, a sixth of the ring further on: some directions show both
+                // rows, some only the far one, and a narrow stretch is open sky
+                highp float gf = u * (6.2831853 / BANK_C) - 1.05;
+                gapF = smoothstep(-0.55, 0.05, sin(gf + 1.7) + 0.6 * sin(2.0 * gf + 4.0));
+            }
+            highp float fF = bankFar(u - ro.x * 0.045 + 2000.0, e, kMb, gapF, hbF);
+            if (fF > 0.04) {
+                highp vec3 lightDir = sunDir.y > -0.08 ? sunDir : -sunDir;
+                highp float toward = max(0.0, dot(rd, lightDir));
+                highp float v = mix(0.50, 0.62, smoothstep(0.26, 0.36, hbF)) + 0.12 * toward * toward;
+                hitV = mix(v, 0.57, min(0.2 * fadeK, 0.6));
+                hitHaze = min(0.34 * fadeK, 0.8);
+                hitT = 4060.0;
+                gHf = clamp(hbF, 0.0, 1.0);
+                gHfStep = false;
+            }
         }
     }
     if (hitT >= 0.0) {
-        fragColor = vec4(paint(hitV, rd, hitHaze), max(2.0 / 255.0, 1.0 - log2(1.0 + hitT) / log2(1.0 + 4096.0)));
+        highp vec3 col = paint(hitV, rd, hitHaze);
+        if (gDown > 0.0 && gBounce.g > 0.0) {
+            // the belly picks up the colour of the land under it (green over forest, warm over sand, teal over sea)
+            highp vec3 bt = gBounce / max(max(gBounce.r, gBounce.g), gBounce.b);
+            col = mix(col, col * bt, 0.3 * gDown * (1.0 - hitHaze) * max(day, gold));
+        }
+        if (gFlash > 0.0) {
+            // lightning inside the storm clouds: parts of them light up from within
+            col = mix(col, vec3(0.88, 0.92, 1.0), gFlash * (0.25 + 0.55 * smoothstep(0.35, 0.7, gPat)) * (1.0 - 0.6 * gHf));
+        }
+        fragColor = vec4(col, max(2.0 / 255.0, 1.0 - log2(1.0 + hitT) / log2(1.0 + 4096.0)));
     }
 }
